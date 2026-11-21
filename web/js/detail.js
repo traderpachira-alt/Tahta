@@ -148,7 +148,7 @@ export async function renderDetail(t) {
   <div class="charthint">${info('Kaydırmak için sürükleyin, yakınlaştırmak için tekerlek ya da iki parmak. Fiyat ölçeği: sağdaki fiyat ekseninin üzerinde tekerlek ya da eksene basılı tutup yukarı/aşağı sürükleme; sonra grafik serbestçe yukarı/aşağı da kaydırılır. Eksene çift tıklama ya da ↺ otomatik ölçeğe döner.', 'Grafik nasıl kullanılır?')}</div>
   </div>
 
-  ${(s.sig || []).map(g => `<p class="note-ok sigline">Aktif sinyal: <b>${esc(SIG_NAMES[g.k] || g.k)}</b> · ${g.tf === '4H' ? '4 saatlik' : 'günlük'} (${g.d.includes(' ') ? fmt.date(g.d.split(' ')[0]) + ' ' + g.d.split(' ')[1] : fmt.date(g.d)}) · giriş ${fmt.price(g.e)} · ${g.armed ? `takip stopu ${fmt.price(g.s)}` : `stop ${fmt.price(g.s)} · +1R'de (${fmt.price(g.a)}) takip başlar`}
+  ${(s.sig || []).map(g => `<p class="note-ok sigline">Aktif sinyal: <b>${esc(g.n || SIG_NAMES[g.k] || g.k)}</b> · ${g.tf === '4H' ? '4 saatlik' : 'günlük'} (${g.d.includes(' ') ? fmt.date(g.d.split(' ')[0]) + ' ' + g.d.split(' ')[1] : fmt.date(g.d)}) · giriş ${fmt.price(g.e)} · ${g.armed ? `takip stopu ${fmt.price(g.s)}` : `stop ${fmt.price(g.s)} · +1R'de (${fmt.price(g.a)}) takip başlar`}
     · giriş sinyal günü kapanışında, pozisyon açık · <a href="#/sinyal">Sinyaller</a></p>`).join('')}
   ${tabs.length > 1 ? `<nav class="dtabs" role="tablist" aria-label="Hisse bölümleri">${tabs.map(([k, l]) => `<button type="button" role="tab" data-dtab="${k}" aria-selected="${k === tab}">${l}</button>`).join('')}</nav>` : ''}
   <div class="dpane" data-pane="genel"${tab === 'genel' ? '' : ' hidden'}>
@@ -282,7 +282,8 @@ export function drawCharts(h) {
   for (const g of BY.get(sigT)?.sig || []) {
     const line = (price, color, title) => candle.createPriceLine({ price, color, lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title });
     const tf = g.tf === '4H' ? ' (4S)' : '';
-    line(g.e, css('--accent'), 'Giriş' + tf); line(g.s, css('--down'), (g.armed ? 'Takip stopu' : 'Stop') + tf);
+    const sigs = BY.get(sigT).sig, nm = sigs.length > 1 ? (g.n || SIG_NAMES[g.k] || '') + ' · ' : '';
+    line(g.e, css('--accent'), nm + 'Giriş' + tf); line(g.s, css('--down'), (g.armed ? 'Takip stopu' : 'Stop') + tf);
     if (!g.armed && g.a) line(g.a, css('--up'), '+1R takip başlar' + tf);
   }
   if (C.vol !== false) {

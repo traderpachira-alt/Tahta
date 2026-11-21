@@ -8,6 +8,16 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 import signals as S  # noqa: E402
+from strategies import GROUPS, REGISTRY  # noqa: E402
+from strategies import morningstar as MS  # noqa: E402
+
+
+def pattern_at(F, t):
+    return S.signal_at(MS, F, t)
+
+
+def candidate_at(F, b):
+    return S.candidate_at(MS, F, b)
 
 
 def base(n=80, vol=2e6):
@@ -44,26 +54,26 @@ class PatternTest(unittest.TestCase):
     def test_detects_star(self):
         df = with_star(base(), 60)
         F = S.frame(df)
-        sig = S.pattern_at(F, 60)
+        sig = pattern_at(F, 60)
         self.assertIsNotNone(sig)
         self.assertAlmostEqual(sig["entry"], df["Close"].iloc[60])
-        self.assertAlmostEqual(sig["stop"], df["Low"].iloc[58:61].min() * (1 - S.STOP_BUF))
-        self.assertIsNone(S.pattern_at(F, 59))
+        self.assertAlmostEqual(sig["stop"], df["Low"].iloc[58:61].min() * (1 - MS.STOP_BUF))
+        self.assertIsNone(pattern_at(F, 59))
 
     def test_rules(self):
         df = with_star(base(), 60)
         # Ş5: teyit mumu 1. mumun tepesinin altında kapanırsa formasyon yok
         d = df.copy(); d.iloc[60, 3] = d["High"].iloc[58] - 0.05; d.iloc[60, 1] = d.iloc[60, 3] + 0.1
-        self.assertIsNone(S.pattern_at(S.frame(d), 60))
+        self.assertIsNone(pattern_at(S.frame(d), 60))
         # Ş2: 2. mumun gövdesi büyükse (doji değil) formasyon yok
         d = df.copy(); d.iloc[59, 0] = d["Close"].iloc[59] + 2.0; d.iloc[59, 1] = d.iloc[59, 0] + 0.2
-        self.assertIsNone(S.pattern_at(S.frame(d), 60))
+        self.assertIsNone(pattern_at(S.frame(d), 60))
         # Likidite: hacim çok düşükse yok
-        self.assertIsNone(S.pattern_at(S.frame(with_star(base(vol=100), 60)), 60))
+        self.assertIsNone(pattern_at(S.frame(with_star(base(vol=100), 60)), 60))
 
     def test_overhead_fvg_blocks(self):
         df = with_star(base(), 60)
-        self.assertIsNotNone(S.pattern_at(S.frame(df), 60))
+        self.assertIsNotNone(pattern_at(S.frame(df), 60))
         d = df.copy()
         # 1. mumdan ~10 mum önce, girişin çok üstünde doldurulmamış bir düşüş boşluğu oluştur
         for i in range(45, 49):
@@ -73,20 +83,20 @@ class PatternTest(unittest.TestCase):
             d.iloc[i, [0, 1, 2, 3]] = [110, 110.5, 109.5, 110]
         # i=50: en yüksek (110,5) < 48. mumun en düşüğü (129) → boşluk [110,5, 129]; girişin (~101) üstünde, doldurulmamış
         F = S.frame(d)
-        self.assertIsNotNone(S.overhead_fvg(F, 60))
-        self.assertIsNone(S.pattern_at(F, 60))
+        self.assertIsNotNone(MS.overhead_fvg(F, 60))
+        self.assertIsNone(pattern_at(F, 60))
 
     def test_no_lookahead(self):
         df = with_star(base(120), 60)
         full = S.frame(df)
         for t in range(59, 119):  # frame en az 60 gün ister
-            a, b = S.pattern_at(full, t), S.pattern_at(S.frame(df.iloc[:t + 1]), t)
+            a, b = pattern_at(full, t), pattern_at(S.frame(df.iloc[:t + 1]), t)
             self.assertEqual(a is None, b is None, t)
             if a:
                 self.assertAlmostEqual(a["stop"], b["stop"])
 
     def test_volume_ratio(self):
-        sig = S.pattern_at(S.frame(with_star(base(), 60, big_vol=True)), 60)
+        sig = pattern_at(S.frame(with_star(base(), 60, big_vol=True)), 60)
         self.assertGreater(sig["volx"], 2.5)
 
 
@@ -94,13 +104,13 @@ class CandidateTest(unittest.TestCase):
     def test_first_two_candles(self):
         df = with_star(base(), 60).iloc[:60]          # 1. mum (58) ve doji (59) var, 3. mum yok
         F = S.frame(df)
-        cd = S.candidate_at(F, 59)
+        cd = candidate_at(F, 59)
         self.assertIsNotNone(cd)
         self.assertAlmostEqual(cd["trig"], df["High"].iloc[58])
-        self.assertAlmostEqual(cd["stop"], df["Low"].iloc[58:60].min() * (1 - S.STOP_BUF))
-        self.assertLessEqual(cd["dist"], S.CAND_MAX_DIST)
+        self.assertAlmostEqual(cd["stop"], df["Low"].iloc[58:60].min() * (1 - MS.STOP_BUF))
+        self.assertLessEqual(cd["dist"], MS.CAND_MAX_DIST)
         self.assertIsNone(cd["fvg"])
-        self.assertIsNone(S.candidate_at(F, 58))     # tek mum: aday değil
+        self.assertIsNone(candidate_at(F, 58))     # tek mum: aday değil
 
     def test_fvg_raises_trigger(self):
         df = with_star(base(), 60).iloc[:60].copy()
@@ -111,7 +121,7 @@ class CandidateTest(unittest.TestCase):
         df.iloc[49, [0, 1, 2, 3]] = [trig + 8, trig + 8, trig + 2, trig + 2.5]
         for i in range(50, 57):
             df.iloc[i, [0, 1, 2, 3]] = [trig + 0.5, trig + 1, trig, trig + 0.5]
-        cd = S.candidate_at(S.frame(df), 59)
+        cd = candidate_at(S.frame(df), 59)
         self.assertIsNotNone(cd)                      # boşluk alt sınırı (tetik + 1) hâlâ %6 içinde
         self.assertAlmostEqual(cd["eff"], trig + 1)
         self.assertIsNotNone(cd["fvg"])
@@ -186,12 +196,36 @@ class AccountTest(unittest.TestCase):
 class RunTest(unittest.TestCase):
     def test_run_structure(self):
         prices = {"AAA": with_star(base(300), 200), "BBB": with_star(base(300), 150), "CCC": base(300)}
-        R = S.run(prices, {"AAA": "30", "BBB": "TÜM", "CCC": None})
+        R = S.run(prices, {"AAA": "30", "BBB": "TÜM", "CCC": None}, MS)
         self.assertEqual(set(R["stats"]), set(S.TIER_SETS))
         self.assertEqual(R["stats"]["BIST 30"]["3"]["n"], 1)      # yalnızca AAA
         self.assertEqual(R["stats"]["BIST TÜM"]["3"]["n"], 2)     # AAA + BBB
         self.assertIn("BIST 100", R["accounts"])
         self.assertTrue(all(a["idx"] in ("30", "TÜM") for a in R["active"] + R["recent"]))
+        self.assertTrue(all(a["k"] == "morningstar" for a in R["active"] + R["recent"]))
+
+
+class RegistryTest(unittest.TestCase):
+    """Her strateji modülü arayüzü eksiksiz uygular."""
+    def test_interface(self):
+        for sid, m in REGISTRY.items():
+            self.assertEqual(m.ID, sid)
+            for k in ("name", "group", "status", "summary", "rules", "notes"):
+                self.assertIn(k, m.META, sid)
+            self.assertIn(m.META["group"], GROUPS, sid)
+            self.assertIn(m.META["status"], ("live", "test"), sid)
+            self.assertIn(m.DEFAULT_V, m.VARIANTS, sid)
+            self.assertTrue(set(m.TIMEFRAMES) <= set(S.TIMEFRAMES), sid)
+            self.assertTrue(callable(m.signal) and callable(m.baseline_stop), sid)
+            meta = S.meta(m)
+            self.assertEqual(meta["id"], sid)
+
+    def test_each_strategy_runs(self):
+        prices = {"AAA": with_star(base(300), 200), "BBB": base(300)}
+        for m in REGISTRY.values():
+            R = S.run(prices, {"AAA": "30", "BBB": "100"}, m)
+            self.assertEqual(set(R["stats"]), set(S.TIER_SETS))
+            self.assertEqual(set(R["stats"]["BIST TÜM"]), set(m.VARIANTS))
 
 
 if __name__ == "__main__":

@@ -19,9 +19,13 @@ const GUIDE = [
     Fareyle ya da iki parmakla yakınlaştırıp kaydırabilir, ⤢ ile tam ekran yapabilirsiniz. Grafiğin altındaki sekmeler: <b>Genel</b> (getiriler,
     teknik görünüm), <b>Destek / direnç</b>, <b>Temettü</b> (geçmiş, güvenlik skoru, verim bandı, F-skoru), <b>Temel ve değerleme</b> (oranlar,
     mali tablolar, DCF) ve <b>Sektör</b>. Verisi olmayan bölümler gösterilmez. ★ hisseyi izleme listesine ekler. "ⓘ" satırları açıklamaları açar.`],
-  ['Sinyaller', `Morning star kurulumu: sert kırmızı mum, ardından küçük gövdeli (doji benzeri) mum ve 1. mumun tepesinin üstünde kapanan yeşil mum.
-    Girişin üstünde doldurulmamış bir düşüş FVG'si (fiyat boşluğu) varsa sinyal üretilmez. Giriş 3. mumun kapanışında, başlangıç stopu üç mumun en düşüğünün altında; fiyat +1R'ye ulaşınca stop en yüksek fiyatın 1R altından takip eder (sabit hedef yok). Sayfada endekse göre açık sinyaller, son sonuçlar ve son 4 yılın test
-    sonuçları (rastgele giriş kıyası, yıllara göre sonuç, hesap simülasyonu) görünür. Açık sinyali olan hissenin grafiğinde giriş ve stop çizgileri çizilir. "Hazırlanan formasyonlar" listesi, ilk iki mumu oluşmuş ve bir sonraki mumda tamamlanabilecek hisseleri tetik fiyatıyla gösterir. Sinyaller hem günlük (1G) hem 4 saatlik (4S: 13:30 ve kapanışta biten mumlar) grafikte aranır; satırdaki Periyot etiketi işlemin hangi periyotta olduğunu gösterir.`],
+  ['Sinyaller', `Birden fazla strateji aynı motorla çalışır ve gruplar (ör. Mum formasyonları) altında toplanır. Üstteki <b>Tüm stratejiler</b>
+    seçiliyken bütün açık sinyaller tek tabloda (Strateji sütunuyla) ve en altta stratejilerin karşılaştırma tablosu görünür; bir grup başlığına dokunup
+    stratejiyi seçince yalnızca onun sinyalleri, kuralları ve geriye dönük testi açılır. "Deneme" etiketli stratejilerin kuralları değişebilir.
+    Satırdaki <b>1G / 4S</b> etiketi sinyalin günlük mi 4 saatlik mumda mı oluştuğunu gösterir. Açık sinyali olan hissenin grafiğinde giriş ve stop çizilir.
+    <b>Hazırlanan kurulumlar</b>, bir sonraki mumda tamamlanabilecek hisseleri tetik fiyatıyla gösterir. Şu an: <b>Morning star</b> (sert kırmızı mum, doji,
+    1. mumun tepesinin üstünde kapanan yeşil mum; üstte doldurulmamış düşüş FVG'si varsa sinyal yok; +1R'den sonra takip eden stop).`],
+
   ['Karşılaştır', `En fazla 5 hisseyi ve BIST 100'ü aynı başlangıçtan (%0) itibaren getiri olarak üst üste çizer.`],
   ['Portföy', `<b>+ Varlık ekle</b> ile hisse (Temettü ya da Trend/Momentum), emtia/döviz ya da kripto ekleyin. Her varlık bir işlem
     listesidir: alım ve satımlar ortalama maliyet yöntemiyle hesaplanır. Alımı TL bakiyesinden ödeyebilir, satış gelirini TL bakiyesine
@@ -118,6 +122,7 @@ const TERMS = [
   ['R (risk birimi)', 'Bir işlemde göze alınan kayıp: giriş fiyatı − stop. Sonuçlar R cinsinden verilir; +2R riske edilenin iki katı kazanç, −1R stop olmak demektir. Pozisyon büyüklüğü 1R kaybı göze alınabilecek tutara göre belirlenir.', 'Sinyaller'],
   ['Kurulum (setup)', 'Giriş koşulu, stop ve hedefi önceden tanımlı işlem kuralı.', 'Sinyaller'],
   ['FVG (fair value gap, fiyat boşluğu)', 'Üç mumluk dizide 1. ve 3. mumun fiyat aralıklarının çakışmadığı, arada işlem görmemiş bölge. Düşüş FVG\'si: 3. mumun en yükseği 1. mumun en düşüğünün altında. Fiyat sonradan boşluğun üst sınırına ulaşmadıysa boşluk doldurulmamış sayılır ve çoğu zaman direnç gibi davranır.', 'Sinyaller'],
+  ['Strateji grubu', 'Sinyal sayfasında benzer mantıktaki stratejilerin toplandığı başlık: mum formasyonları, trend takip, kırılım, ortalamaya dönüş.', 'Sinyaller'],
   ['Morning star (sabah yıldızı)', 'Üç mumluk dönüş formasyonu: sert bir kırmızı mum, ardından kararsızlığı gösteren küçük gövdeli bir mum (doji) ve satıcıların başladığı yerin üstüne çıkan güçlü bir yeşil mum. Düşüşün tükendiğine ve alıcıların kontrolü aldığına işaret eder.', 'Sinyaller'],
   ['Geriye dönük test', 'Kuralların geçmiş veride, yalnızca o güne kadar bilinen bilgiyle uygulanması. Burada giriş ertesi gün açılışta yapılır, aynı gün stop ve hedef görülürse stop sayılır, komisyon ve kayma düşülür.', 'Sinyaller'],
   ['Takip eden stop (trailing stop)', 'Fiyat yükseldikçe yukarı taşınan, hiç aşağı inmeyen stop. Burada fiyat +1R kâra ulaşınca devreye girer ve o güne kadar görülen en yüksek fiyatın 1R altında durur; böylece trend sürdükçe pozisyon taşınır, dönüşte kârın bir kısmı korunur.', 'Sinyaller'],

@@ -740,25 +740,41 @@ def quality_scores(t: str, df: pd.DataFrame, m: dict, f: dict, fin: dict | None,
 
 
 def write_signals(out: Path, prices: dict[str, pd.DataFrame], stocks: list[dict], idx: pd.DataFrame | None = None, intraday_on: bool = True):
-    """Morning star kurulumu, günlük ve 4 saatlik mumlarda: açık sinyaller, hazırlanan formasyonlar, son sonuçlar ve
-    geriye dönük test (data/signals.json)."""
+    """Tüm stratejiler (scripts/strategies/), desteklediği periyotlarda (günlük, 4 saatlik): açık sinyaller, hazırlanan
+    kurulumlar, son sonuçlar ve geriye dönük test (data/signals.json)."""
     t0 = time.time()
     by = {s["t"]: s for s in stocks}
     tiers = {t: s.get("idx") for t, s in by.items()}
-    runs = {"1D": signals.run(prices, tiers, tf="1D")}
-    if intraday_on:
+    strats = list(signals.REGISTRY.values())
+    data = {"1D": prices}
+    if intraday_on and any("4H" in st.TIMEFRAMES for st in strats):
         # 4 saatlik: yalnızca evrendeki ve son gün likidite filtresini geçen hisseler (diğerlerinde sinyal oluşmaz)
         liquid = [t for t, df in prices.items() if tiers.get(t) in ("30", "50", "100", "TÜM")
                   and float((df["Close"] * df["Volume"]).tail(20).mean()) >= signals.MIN_TURNOVER]
         try:
             h4 = intraday.load_h4(liquid, prices, log=lambda m: print(m, flush=True))
             if h4:
-                runs["4H"] = signals.run(h4, tiers, tf="4H")
+                data["4H"] = h4
         except Exception as e:  # noqa: BLE001 — 4 saatlik hata günlük sinyalleri engellemesin
-            print(f"  4 saatlik sinyaller üretilemedi ({e}).", flush=True)
-    active = [a for R in runs.values() for a in R["active"]]
-    recent = [a for R in runs.values() for a in R["recent"]]
-    cands = [a for R in runs.values() for a in R["candidates"]]
+            print(f"  4 saatlik veri alınamadı ({e}).", flush=True)
+    metas, active, recent, cands = [], [], [], []
+    for st in strats:
+        runs = {}
+        for tf in st.TIMEFRAMES:
+            if tf not in data:
+                continue
+            try:
+                runs[tf] = signals.run(data[tf], tiers, st, tf=tf)
+            except Exception as e:  # noqa: BLE001 — bir stratejinin hatası diğerlerini engellemesin
+                print(f"  {st.ID} ({tf}) çalıştırılamadı: {e}", flush=True)
+        if not runs:
+            continue
+        m = signals.meta(st)
+        m.update(tfs=list(runs), stats={k: R["stats"] for k, R in runs.items()}, accounts={k: R["accounts"] for k, R in runs.items()})
+        metas.append(m)
+        for R in runs.values():
+            active += R["active"]; recent += R["recent"]; cands += R["candidates"]
+    names = {m["id"]: m["name"] for m in metas}
     active.sort(key=lambda a: (a["d"], a["t"]), reverse=True)
     recent.sort(key=lambda a: (a.get("xd") or a["d"], a["t"]), reverse=True)
     cands.sort(key=lambda a: (a["dist"], a["t"]))
@@ -767,20 +783,21 @@ def write_signals(out: Path, prices: dict[str, pd.DataFrame], stocks: list[dict]
         if s is None:
             continue
         a.update(tedbir=bool(s.get("tedbir")), fScore=s.get("fScore"), dsScore=s.get("dsScore"))
-        s.setdefault("sig", []).append({"k": "morningstar", "tf": a["tf"], "d": a["d"], "e": a["e"], "s": a["s"], "s0": a["s0"],
-                                        "a": a["a"], "armed": a["armed"], "st": a["st"]})
+        s.setdefault("sig", []).append({"k": a["k"], "n": names.get(a["k"], a["k"]), "tf": a["tf"], "d": a["d"], "e": a["e"], "s": a["s"],
+                                        "s0": a["s0"], "a": a["a"], "armed": a["armed"], "st": a["st"]})
     payload = {
+        "version": 2,
         "updated": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
-        "strategy": signals.STRATEGY, "variants": signals.VARIANTS, "defaultV": signals.DEFAULT_V,
-        "timeframes": {k: {"name": v["name"], "hold": v["hold"]} for k, v in signals.TIMEFRAMES.items() if k in runs},
+        "groups": signals.GROUPS, "strategies": metas,
+        "timeframes": {k: {"name": v["name"], "hold": v["hold"]} for k, v in signals.TIMEFRAMES.items() if k in data},
         "tierSets": list(signals.TIER_SETS), "defaultSet": signals.DEFAULT_SET,
         "account": signals.ACCOUNT, "bench": signals.bench(idx),
         "params": {"hold": signals.HOLD_MAX, "cost": signals.COST, "minTurnover": signals.MIN_TURNOVER},
-        "stats": {k: R["stats"] for k, R in runs.items()}, "accounts": {k: R["accounts"] for k, R in runs.items()},
-        "active": active, "recent": recent, "candidates": cands, "candMaxDist": signals.CAND_MAX_DIST,
+        "active": active, "recent": recent, "candidates": cands,
     }
     (out / "data" / "signals.json").write_text(json.dumps(clean(payload), ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-    print(f"Sinyaller (morning star; {', '.join(runs)}): {len(active)} açık, {len(cands)} hazırlanan, "
+    desc = ", ".join(m["name"] + " " + "/".join(m["tfs"]) for m in metas)
+    print(f"Sinyaller ({desc}): {len(active)} açık, {len(cands)} hazırlanan, "
           f"son 60 günde {len(recent)} sonuçlanmış ({time.time() - t0:.0f} sn).", flush=True)
 
 

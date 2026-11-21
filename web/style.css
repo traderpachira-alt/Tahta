@@ -600,3 +600,7 @@ details.sigcard[open] > summary { margin-bottom: 8px; }
 @media (max-width: 640px) { .today { grid-template-columns: 1fr 1fr; } }
 .chartbar { position: relative; }
 #view > .presets + .panel, #view > .panel + .panel, #view > .panel + details.panel, #view > .dhead + .presets { margin-top: 12px; }
+.presets.tiers { margin-top: 10px; align-items: center; }
+.presets.tiers .lbl { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin-right: 2px; }
+.presets.tiers button { padding: 3px 10px; font-size: 12px; }
+#view > .presets + .presets.sub { margin-top: 8px; }

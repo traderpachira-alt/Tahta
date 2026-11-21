@@ -82,7 +82,16 @@ beta × piyasa risk primi (%4,5) + ülke risk primi (%4). Net borç ve azınlık
 (fiyatın ima ettiği büyüme); hisse sayfasında varsayımlar değiştirilebilir. Banka, sigorta, finansal kuruluş, GYO, yatırım
 ortaklığı ve holdinglere ve serbest nakit akışı negatif şirketlere uygulanmaz.
 
-Sinyaller (`scripts/signals.py`, testleri `tests/test_signals.py`): morning star kurulumu. 1. mum sert kırmızı
+Sinyaller modüler: `scripts/signals.py` ortak motordur (likidite ve risk filtresi, işlem yürütme, rastgele giriş kıyası,
+hesap simülasyonu, endeks gruplarına göre istatistik); her strateji `scripts/strategies/` altında ayrı bir modüldür ve
+`strategies/__init__.py`'deki `REGISTRY`'ye eklenir. Stratejiler gruplar (`GROUPS`: mum formasyonları, trend takip, kırılım,
+ortalamaya dönüş) altında sinyal sayfasında listelenir; "Tüm stratejiler" görünümünde açık sinyaller birlikte ve stratejiler
+karşılaştırma tablosunda görünür, bir strateji seçilince yalnızca onun sinyalleri, kuralları ve ayrıntılı testi açılır.
+`status: "test"` olan stratejiler "deneme" etiketiyle gösterilir. Yeni strateji: modülü yazın (arayüz
+`strategies/__init__.py` içinde), `REGISTRY`'ye ekleyin, testini `tests/test_signals.py`'ye yazın; arayüz kendiliğinden
+gösterir. Testler `tests/test_signals.py`.
+
+Morning star (`scripts/strategies/morningstar.py`): 1. mum sert kırmızı
 (gövde ≥ 0,5 ATR), 2. mum küçük (gövde ≤ 1. mumun %30'u), 3. mum yeşil ve 1. mumun tepesinin üstünde kapanıyor; 1. mumdan önceki 80 mumda
 oluşmuş, doldurulmamış ve girişin üstünde kalan bir düşüş FVG'si varsa işlem yok; 20 mn ₺ hacim filtresi. Giriş 3. mumun kapanışında, başlangıç stopu üç mumun en düşüğünün %0,1 altında; fiyat +1R'ye ulaşınca stop en yüksek
 fiyatın 1R altından takip eder, sabit hedef yok (sabit 3R/5R karşılaştırma için test edilir). Her

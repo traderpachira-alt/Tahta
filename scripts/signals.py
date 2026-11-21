@@ -1,20 +1,14 @@
-"""Morning star (sabah yıldızı) alım kurulumu: sinyal, giriş/stop/hedef ve geriye dönük test.
+"""Sinyal motoru: strateji modüllerini (scripts/strategies/) aynı kurallarla çalıştırır ve geriye dönük test eder.
 
-Kurallar (yalnızca o güne kadarki veri; canlı sinyal ve test aynı kodu kullanır):
-  1. mum: kırmızı ve sert (gövde ≥ 0,5 × ATR 14)
-  2. mum: küçük gövde / doji (gövde ≤ 1. mum gövdesinin %30'u)                       — Ş2
-  3. mum: yeşil ve 1. mumun EN YÜKSEĞİNİN üstünde kapanış                             — Ş5
-  FVG: 1. mumdan önceki 80 mumda oluşmuş, 1. mum anında doldurulmamış ve girişin ÜSTÜNDE kalan bir düşüş FVG'si
-       (fiyat boşluğu: 3. mumun en yükseği < 1. mumun en düşüğü) varsa işlem yok — boşluk hedefe giden yolda direnç olur.
-  Likidite: 20 günlük ortalama işlem hacmi ≥ MIN_TURNOVER.
-İşlem:
-  Giriş 3. mumun kapanışında. Başlangıç stopu = üç mumun en düşüğü × (1 − %0,1); 1R = giriş − başlangıç stopu.
-  Varsayılan çıkış (takip eden stop): fiyat +1R'ye ulaştıktan sonra stop, görülen en yüksek fiyatın 1R altına çekilir
-  (yalnızca yukarı); sabit hedef yok. Karşılaştırma için sabit 3R ve 5R hedefli varyantlar da test edilir.
-  Temkinli sıra: bir günün stopu önceki günlere kadarki en yüksek fiyatla belirlenir; önce stop, sonra hedef kontrol edilir;
-  stopun altında açılan günde açılıştan çıkılır. En fazla HOLD_MAX işlem günü, sonra kapanıştan çıkış.
-  Gidiş-dönüş COST düşülür. Aynı hissede önceki işlem kapanmadan yeni işlem açılmaz.
-Kıyas: aynı hisselerde rastgele günlerde, aynı stop yapısıyla (son üç mumun en düşüğü) ve aynı hedefle giriş.
+Motor, her stratejiye ortak olanları yapar:
+  - Likidite: 20 günlük ortalama işlem hacmi ≥ MIN_TURNOVER (4 saatlikte önceki günün değeri)
+  - Risk aralığı: stop mesafesi fiyatın %0,5–%15'i
+  - İşlem yürütme (simulate): takip eden stop ya da sabit R hedefi; temkinli sıra (bir mumun stopu önceki mumlara kadarki
+    en yüksekle belirlenir; önce stop, sonra hedef; stopun altında açılan mumda açılıştan çıkış), en fazla `hold` mum,
+    gidiş-dönüş COST; aynı hissede önceki işlem kapanmadan yeni işlem açılmaz
+  - Kıyas: aynı hisselerde rastgele mumlarda, stratejinin stop yapısıyla (baseline_stop) ve aynı çıkışla giriş
+  - Hesap simülasyonu (account), endeks al-tut kıyası (bench), endeks gruplarına göre istatistik
+Strateji arayüzü: strategies/__init__.py.
 """
 from __future__ import annotations
 
@@ -24,49 +18,17 @@ import numpy as np
 import pandas as pd
 
 from indicators import rma, true_range
+from strategies import GROUPS, REGISTRY
 
 HOLD_MAX = 60
 COST = 0.002
 MIN_TURNOVER = 20e6
 RISK_MIN, RISK_MAX = 0.005, 0.15      # stop mesafesi fiyatın %0,5–%15'i
-BODY_ATR = 0.5                        # 1. mum gövdesi ≥ 0,5 ATR
-DOJI_MAX = 0.30                       # 2. mum gövdesi ≤ 1. mum gövdesinin %30'u
-STOP_BUF = 0.001                      # stop, üç mumun en düşüğünün %0,1 altı
-FVG_LOOK = 80                         # üstteki düşüş FVG'si için geriye bakılan mum sayısı
-CAND_MAX_DIST = 0.06                  # hazırlanan formasyonlar: tetiğe en fazla %6 uzaklık
-VARIANTS = {"trail": "Takip eden stop (+1R sonrası 1R)", "3": "Sabit hedef 3R", "5": "Sabit hedef 5R"}
-DEFAULT_V = "trail"
-TRAIL_AFTER, TRAIL_DIST = 1.0, 1.0     # +1R'den sonra, en yüksek fiyatın 1R altından takip
 RANDOM_PER_STOCK = 60
 ACCOUNT = {"capital": 1_000_000, "risk": 0.005, "maxPos": 20}
 TIER_SETS = {"BIST 30": ("30",), "BIST 50": ("30", "50"), "BIST 100": ("30", "50", "100"),
              "BIST TÜM": ("30", "50", "100", "TÜM")}
 DEFAULT_SET = "BIST TÜM"
-
-STRATEGY = {
-    "name": "Morning star",
-    "summary": "Sert düşüşten sonra kararsızlık (doji) ve ardından satıcıların başladığı yerin üstüne çıkan güçlü yeşil mum",
-    "rules": [
-        "1. mum kırmızı ve sert: gövdesi en az 0,5 ATR",
-        "2. mum küçük (doji benzeri): gövdesi 1. mumun gövdesinin en fazla %30'u",
-        "3. mum yeşil ve 1. mumun en yükseğinin üstünde kapanıyor",
-        "Yol açık: 1. mumdan önceki 80 mumda oluşmuş, doldurulmamış ve girişin üstünde kalan bir düşüş FVG'si (fiyat boşluğu) yok",
-        "Likidite: 20 günlük ortalama işlem hacmi en az 20 mn ₺",
-        "Giriş: 3. mumun kapanışı · Başlangıç stopu: üç mumun en düşüğünün %0,1 altı (1R = giriş − stop)",
-        "Çıkış: fiyat +1R'ye ulaşınca stop, görülen en yüksek fiyatın 1R altından takip eder (yalnızca yukarı); sabit hedef yok · En fazla 60 işlem günü",
-    ],
-    "notes": [
-        "Avantaj 2022–2024'te belirgindi, 2025–2026'da zayıfladı. Canlı sonuçları yıllık tablodan izleyin.",
-        "Üstte doldurulmamış düşüş FVG'si olan formasyonlar test edilen her örneklemde (günlük BIST 100, BIST 100 dışı, 4 saatlik) belirgin şekilde zayıftı; bu yüzden elenir.",
-        "Aynı kurallar ABD (S&P 100) ve Almanya (DAX 40) hisselerinde rastgele girişten iyi sonuç vermedi: etki BIST'e özgü görünüyor.",
-        "En güçlü etki orta ölçekli hisselerde (BIST 100'ün 31–100. sıraları); BIST 30'da zayıf.",
-        "Sermayenin çoğu zaman boşta kalır; tek başına strateji olarak değil, giriş zamanlaması aracı olarak kullanın.",
-        "Takip eden stop, sabit 3R hedefe göre toplamda biraz daha az kazandırır; karşılığında işlemlerin yarısından fazlası kârla kapanır, kayıp serileri ve düşüşler kısalır. Karşılaştırma tabloda.",
-        "İşlem başına önerilen risk sermayenin %0,5'i: yine de art arda 10+ kayıp yaşanabilir.",
-        "4 saatlik test yalnızca son ~2 yılı (Yahoo saatlik veri sınırı) kapsar; günlük testten kısa olduğu için daha az güvenilirdir.",
-        "4 saatlik mumlar 13:30 ve kapanışta biter. Veri gecikmeli gelir ve site saatlik güncellenir: 13:30 sinyali sayfada birkaç saat sonra görünebilir, giriş fiyatı o zamana kadar değişmiş olabilir.",
-    ],
-}
 
 
 def frame(df: pd.DataFrame) -> dict | None:
@@ -78,84 +40,31 @@ def frame(df: pd.DataFrame) -> dict | None:
             "turn": df["turn"].to_numpy(dtype=float) if "turn" in df.columns else pd.Series(c * v).rolling(20).mean().to_numpy()}
 
 
-def pattern_at(F, t) -> dict | None:
-    """t günü kapanışında morning star tamamlandıysa {"entry", "stop", "volx"}; değilse None."""
-    if t < 22:
+def signal_at(strat, F, t) -> dict | None:
+    """Stratejinin t mumundaki sinyali + motorun ortak filtreleri (likidite, risk aralığı). {"entry", "stop", "volx", ...}"""
+    if not (F["turn"][t] >= MIN_TURNOVER):
         return None
-    o, h, lo, c = F["o"], F["h"], F["l"], F["c"]
-    a, b = t - 2, t - 1
-    body1 = o[a] - c[a]
-    atr = F["atr"][a]
-    if not (np.isfinite(atr) and F["turn"][t] >= MIN_TURNOVER):
+    sig = strat.signal(F, t)
+    if not sig:
         return None
-    if not (c[a] < o[a] and body1 >= BODY_ATR * atr):
+    rp = (sig["entry"] - sig["stop"]) / sig["entry"]
+    if not (RISK_MIN <= rp <= RISK_MAX):
         return None
-    if not abs(c[b] - o[b]) <= DOJI_MAX * body1:
-        return None
-    if not (c[t] > o[t] and c[t] > h[a]):
-        return None
-    entry = c[t]
-    stop = min(lo[a], lo[b], lo[t]) * (1 - STOP_BUF)
-    if not (RISK_MIN <= (entry - stop) / entry <= RISK_MAX):
-        return None
-    if overhead_fvg(F, t) is not None:
-        return None
-    vavg = np.mean(F["v"][t - 20:t])
-    return {"entry": entry, "stop": stop, "volx": F["v"][t] / vavg if vavg > 0 else None}
+    vavg = np.mean(F["v"][max(0, t - 20):t]) if t > 0 else 0
+    return {**sig, "volx": F["v"][t] / vavg if vavg > 0 else None}
 
 
-def overhead_fvg(F, t) -> tuple[float, float] | None:
-    """t'de tamamlanan formasyonun 1. mumundan (t-2) önceki FVG_LOOK mumda oluşan, 1. mum anında doldurulmamış ve girişin
-    üstünde kalan düşüş FVG'si: (alt, üst) ya da None. Düşüş FVG'si: i. mumun en yükseği < (i-2). mumun en düşüğü;
-    boşluk [h[i], l[i-2]]. Doldurulma: sonraki mumlardan birinin en yükseği boşluğun üst sınırına ulaşırsa."""
-    h, lo = F["h"], F["l"]
-    a = t - 2
-    entry = F["c"][t]
-    for i in range(max(2, a - FVG_LOOK), a):
-        if h[i] < lo[i - 2] and h[i] > entry:
-            top = lo[i - 2]
-            if h[i + 1:a + 1].max() < top:
-                return (h[i], top)
-    return None
-
-
-def unfilled_bearish_fvgs(F, a) -> list[tuple[float, float]]:
-    """a. mumdan önceki FVG_LOOK mumda oluşmuş ve a anında doldurulmamış düşüş FVG'leri: [(alt, üst)]."""
-    h, lo = F["h"], F["l"]
-    out = []
-    for i in range(max(2, a - FVG_LOOK), a):
-        if h[i] < lo[i - 2] and h[i + 1:a + 1].max() < lo[i - 2]:
-            out.append((h[i], lo[i - 2]))
-    return out
-
-
-def candidate_at(F, b) -> dict | None:
-    """b günü kapanışında morning star'ın ilk iki mumu hazırsa (a = b-1 sert kırmızı, b doji) ertesi gün için tetik.
-    Tetik: ertesi gün kapanış 1. mumun en yükseğinin üstünde ve yeşil olmalı; girişin üstünde kalan doldurulmamış düşüş
-    FVG'si sinyali engellediği için kapanış bu boşlukların alt sınırını da geçmelidir (etkin tetik)."""
-    if b < 22:
+def candidate_at(strat, F, b) -> dict | None:
+    """Stratejinin "hazırlanan" kurulumu (varsa) + likidite ve risk üst sınırı."""
+    if not hasattr(strat, "candidate") or not (F["turn"][b] >= MIN_TURNOVER):
         return None
-    o, h, lo, c = F["o"], F["h"], F["l"], F["c"]
-    a = b - 1
-    body1 = o[a] - c[a]
-    atr = F["atr"][a]
-    if not (np.isfinite(atr) and F["turn"][b] >= MIN_TURNOVER):
+    cd = strat.candidate(F, b)
+    if not cd or cd["risk"] > RISK_MAX:
         return None
-    if not (c[a] < o[a] and body1 >= BODY_ATR * atr and abs(c[b] - o[b]) <= DOJI_MAX * body1):
-        return None
-    trig = h[a]
-    blocks = [g for g in unfilled_bearish_fvgs(F, a) if g[0] > trig]
-    eff = max([trig] + [g[0] for g in blocks])
-    dist = eff / c[b] - 1
-    stop = min(lo[a], lo[b]) * (1 - STOP_BUF)
-    risk = (eff - stop) / eff
-    if dist > CAND_MAX_DIST or risk > RISK_MAX:
-        return None
-    fvg = max(blocks, key=lambda g: g[0]) if blocks else None
-    return {"trig": trig, "eff": eff, "dist": dist, "stop": stop, "risk": risk, "fvg": fvg}
+    return cd
 
 
-def simulate(F, t, entry, stop, mode=DEFAULT_V, hold=None) -> dict:
+def simulate(F, t, entry, stop, mode="trail", hold=None, trail=(1.0, 1.0)) -> dict:
     """Girişi t kapanışında yapılmış işlemi yürütür. mode: 'trail' (takip eden stop) ya da hedef R'si (3, 5, '3', '5').
     status: 'stop' (başlangıç stopu) | 'trail' (takip stopu) | 'tp' | 'time' | 'open'.
     Açık işlemde 'stop_now' (güncel stop) ve 'armed' (takip başladı mı) da döner."""
@@ -177,10 +86,10 @@ def simulate(F, t, entry, stop, mode=DEFAULT_V, hold=None) -> dict:
             return res("tp", tp, i)
         hi = max(hi, F["h"][i])
         if mode == "trail":
-            if hi >= entry + TRAIL_AFTER * risk:
+            if hi >= entry + trail[0] * risk:
                 armed = True
             if armed:
-                cur = max(cur, hi - TRAIL_DIST * risk)
+                cur = max(cur, hi - trail[1] * risk)
     if n - 1 < t + hold:
         return {"status": "open", "r": (F["c"][-1] - entry) / risk, "pct": F["c"][-1] / entry - 1, "stop_now": cur, "armed": armed}
     last = t + hold
@@ -258,31 +167,34 @@ TIMEFRAMES = {"1D": {"name": "Günlük", "hold": 60, "bars_per_day": 1, "fmt": "
               "4H": {"name": "4 saat", "hold": 120, "bars_per_day": 2, "fmt": "%Y-%m-%d %H:%M"}}
 
 
-def run(prices: dict[str, pd.DataFrame], tiers: dict[str, str | None], recent_days: int = 60, years: int = 4, tf: str = "1D") -> dict:
-    """Tüm hisselerde sinyal üret ve test et. tiers: {KOD: '30' | '50' | '100' | 'TÜM' | None}.
-    Döner: {"stats": {grup: {varyant: istatistik}}, "accounts": {grup: {varyant: hesap}}, "active", "recent"}."""
-    trades = {v: [] for v in VARIANTS}
-    rnd = {v: [] for v in VARIANTS}
+def run(prices: dict[str, pd.DataFrame], tiers: dict[str, str | None], strat=None, recent_days: int = 60, years: int = 4,
+        tf: str = "1D") -> dict:
+    """Bir stratejiyi tüm hisselerde çalıştır ve test et. tiers: {KOD: '30' | '50' | '100' | 'TÜM' | None}.
+    Döner: {"stats": {grup: {varyant: istatistik}}, "accounts": {grup: {varyant: hesap}}, "active", "recent", "candidates"}.
+    Kayıtlar "k" (strateji kimliği) ve "tf" taşır."""
+    strat = strat or REGISTRY["morningstar"]
+    V, DV, trail = strat.VARIANTS, strat.DEFAULT_V, strat.TRAIL
+    trades = {v: [] for v in V}
+    rnd = {v: [] for v in V}
     active, recent, candidates = [], [], []
+    bpd, fmt_, hold = TIMEFRAMES[tf]["bars_per_day"], TIMEFRAMES[tf]["fmt"], TIMEFRAMES[tf]["hold"]
     for sym, df in prices.items():
         tier = tiers.get(sym)
         F = frame(df)
         if F is None or tier not in ("30", "50", "100", "TÜM"):
             continue
         n = len(F["c"])
-        bpd, fmt_ = TIMEFRAMES[tf]["bars_per_day"], TIMEFRAMES[tf]["fmt"]
-        hold = TIMEFRAMES[tf]["hold"]
-        start = max(22, n - years * 252 * bpd)
-        busy = {v: -1 for v in VARIANTS}
+        start = max(strat.WARMUP, n - years * 252 * bpd)
+        busy = {v: -1 for v in V}
         for t in range(start, n):
-            sig = pattern_at(F, t)
+            sig = signal_at(strat, F, t)
             if not sig:
                 continue
             date = F["idx"][t].strftime(fmt_)
-            for R in VARIANTS:
+            for R in V:
                 if t <= busy[R]:
                     continue
-                r = simulate(F, t, sig["entry"], sig["stop"], R, hold)
+                r = simulate(F, t, sig["entry"], sig["stop"], R, hold, trail)
                 rp = (sig["entry"] - sig["stop"]) / sig["entry"]
                 if r["status"] == "open":
                     busy[R] = n
@@ -290,46 +202,56 @@ def run(prices: dict[str, pd.DataFrame], tiers: dict[str, str | None], recent_da
                     busy[R] = r["exit_t"]
                     trades[R].append({"r": r["r"], "pct": r["pct"], "bars": r["exit_t"] - t, "y": F["idx"][t].year, "st": r["status"],
                                       "d0": F["idx"][t], "d1": F["idx"][r["exit_t"]], "rp": rp, "sym": sym, "tier": tier})
-                if R != DEFAULT_V:
+                if R != DV:
                     continue
                 risk = sig["entry"] - sig["stop"]
-                rec = {"t": sym, "tf": tf, "idx": tier, "d": date, "e": round(sig["entry"], 4), "s0": round(sig["stop"], 4),
-                       "a": round(sig["entry"] + TRAIL_AFTER * risk, 4),
+                rec = {"k": strat.ID, "t": sym, "tf": tf, "idx": tier, "d": date, "e": round(sig["entry"], 4), "s0": round(sig["stop"], 4),
+                       "a": round(sig["entry"] + trail[0] * risk, 4) if DV == "trail" else round(sig["entry"] + float(DV) * risk, 4),
                        "volx": round(sig["volx"], 2) if sig["volx"] else None, "st": r["status"], "r": round(r["r"], 3)}
+                if sig.get("info"):
+                    rec["info"] = sig["info"]
                 if r["status"] == "open":
                     rec.update(c=round(float(F["c"][-1]), 4), s=round(r["stop_now"], 4), armed=r["armed"])
                     active.append(rec)
                 elif t >= n - recent_days * bpd:
                     rec.update(xd=F["idx"][r["exit_t"]].strftime(fmt_), x=round(r["exit"], 4))
                     recent.append(rec)
-        # Hazırlanan formasyonlar: son gün itibarıyla ilk iki mumu hazır olanlar (yarın tamamlanabilir)
-        cd = candidate_at(F, n - 1)
+        # Hazırlanan kurulumlar: son mum itibarıyla bir sonraki mumda tamamlanabilecekler
+        cd = candidate_at(strat, F, n - 1)
         if cd:
-            candidates.append({"t": sym, "tf": tf, "idx": tier, "d1": F["idx"][n - 2].strftime(fmt_), "d2": F["idx"][n - 1].strftime(fmt_),
-                               "c": round(float(F["c"][-1]), 4), "trig": round(cd["trig"], 4), "eff": round(cd["eff"], 4),
-                               "dist": round(cd["dist"], 4), "s": round(cd["stop"], 4), "risk": round(cd["risk"], 4),
-                               "fvg": [round(cd["fvg"][0], 4), round(cd["fvg"][1], 4)] if cd["fvg"] else None})
-        # Kıyas: rastgele günler, aynı stop yapısı (son üç mumun en düşüğü), aynı hedef (tekrarlanabilir örneklem)
-        cand = [t for t in range(max(start, 22), n - 1) if F["turn"][t] >= MIN_TURNOVER]
+            candidates.append({"k": strat.ID, "t": sym, "tf": tf, "idx": tier, "d1": F["idx"][cd["d1"]].strftime(fmt_),
+                               "d2": F["idx"][cd["d2"]].strftime(fmt_), "c": round(float(F["c"][-1]), 4),
+                               "trig": round(cd["trig"], 4), "eff": round(cd["eff"], 4), "dist": round(cd["dist"], 4),
+                               "s": round(cd["stop"], 4), "risk": round(cd["risk"], 4),
+                               "fvg": [round(cd["fvg"][0], 4), round(cd["fvg"][1], 4)] if cd.get("fvg") else None})
+        # Kıyas: rastgele mumlar, stratejinin stop yapısı, aynı çıkış (tekrarlanabilir örneklem)
+        cand = [t for t in range(max(start, strat.WARMUP), n - 1) if F["turn"][t] >= MIN_TURNOVER]
         if cand:
             rng = np.random.default_rng(zlib.crc32(sym.encode()))
             for t in rng.choice(cand, size=min(RANDOM_PER_STOCK, len(cand)), replace=False):
                 entry = F["c"][t]
-                stop = min(F["l"][t - 2], F["l"][t - 1], F["l"][t]) * (1 - STOP_BUF)
+                stop = strat.baseline_stop(F, t)
                 if not (RISK_MIN <= (entry - stop) / entry <= RISK_MAX):
                     continue
-                for R in VARIANTS:
-                    r = simulate(F, t, entry, stop, R, hold)
+                for R in V:
+                    r = simulate(F, t, entry, stop, R, hold, trail)
                     if r["status"] != "open":
                         rnd[R].append((tier, r["r"]))
     stats, accounts = {}, {}
     for name, ts in TIER_SETS.items():
         stats[name] = {}
-        for R in VARIANTS:
+        for R in V:
             lst = [x for x in trades[R] if x["tier"] in ts]
             stats[name][R] = _stats(lst, [r for tier, r in rnd[R] if tier in ts])
-        accounts[name] = {v: account([x for x in trades[v] if x["tier"] in ts]) for v in VARIANTS}
+        accounts[name] = {v: account([x for x in trades[v] if x["tier"] in ts]) for v in V}
     active.sort(key=lambda a: (a["d"], a["t"]), reverse=True)
     recent.sort(key=lambda a: (a["d"], a["t"]), reverse=True)
     candidates.sort(key=lambda x: (x["dist"], x["t"]))
     return {"stats": stats, "accounts": accounts, "active": active, "recent": recent, "candidates": candidates}
+
+
+def meta(strat) -> dict:
+    """Sinyal sayfası için strateji tanımı."""
+    return {"id": strat.ID, **strat.META, "groupName": GROUPS.get(strat.META.get("group"), strat.META.get("group")),
+            "variants": strat.VARIANTS, "defaultV": strat.DEFAULT_V, "candidates": hasattr(strat, "candidate"),
+            "candMaxDist": getattr(strat, "CAND_MAX_DIST", None)}

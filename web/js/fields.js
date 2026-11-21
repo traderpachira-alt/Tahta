@@ -171,7 +171,7 @@ export const PRESETS = [
   { id: 'tedbir',   label: '⚠ Tedbirli',       test: s => !!s.tedbir?.length, hint: 'Borsa İstanbul tedbiri uygulanan hisseler' },
   { id: 'divSoon',  label: 'Yaklaşan temettü', test: s => !!s.divUpcoming?.length, hint: 'Açıklanmış, henüz ödenmemiş temettüsü olanlar (tarihli olanlar önce)', sort: ['_nextDiv', 1] },
   { id: 'divHigh',  label: 'Yüksek temettü',   test: s => Math.max(s.divYield || 0, s.divYieldPrev || 0) >= 0.06, hint: 'Bu yılın ya da geçen yılın temettü verimi ≥ %6', sort: ['divYield', -1] },
-  { id: 'signal',   label: '◎ Aktif sinyal',     test: s => !!s.sig?.length, hint: 'Morning star kurulumunda açık sinyali olanlar (Sinyaller sayfası)' },
+  { id: 'signal',   label: '◎ Aktif sinyal',     test: s => !!s.sig?.length, hint: 'Herhangi bir stratejide açık sinyali olanlar (Sinyaller sayfası)' },
   { id: 'divSafe',  label: 'Güvenli temettü',  test: s => s.dsScore >= 70, hint: 'Temettü güvenlik skoru ≥ 70', sort: ['dsScore', -1] },
   { id: 'yieldTop', label: 'Verim bandının tepesi', test: s => s.yieldPct >= 0.8 && s.dsScore >= 50, hint: 'Piyasaya göre verimi kendi 4 yıllık geçmişinin üst %20\'sinde ve güvenlik skoru ≥ 50', sort: ['yieldPct', -1] },
   { id: 'dcfModest', label: 'Mütevazı fiyatlama', test: s => ok(s.dcfImpliedG) && s.dcfImpliedG <= 0.02, hint: 'Ters DCF: fiyat, serbest nakit akışının dolar bazında en fazla %2 büyümesini varsayıyor', sort: ['dcfImpliedG', 1] },

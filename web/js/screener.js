@@ -203,7 +203,7 @@ export function presetBar(counts) {
 function todayHtml() {
   const cards = [];
   const nSig = DATA.stocks.filter(s => s.sig?.length).length;
-  cards.push(`<a class="tcard" href="#/sinyal"><span>Sinyaller</span><b>${nSig} açık</b><small id="tCand">morning star</small></a>`);
+  cards.push(`<a class="tcard" href="#/sinyal"><span>Sinyaller</span><b>${nSig} açık</b><small id="tCand">&nbsp;</small></a>`);
   const rows = state.portfolio.length ? pfRows().filter(r => r.open) : [];
   if (rows.length) {
     const v = rows.reduce((a, r) => a + (r.value || 0), 0), d = rows.reduce((a, r) => a + (r.day || 0), 0);
@@ -257,5 +257,5 @@ export function renderScreener() {
     </div>
   </section>
   <div class="tablewrap">${rows.length ? tableHtml(rows, cols) : '<p class="empty">Bu koşullara uyan hisse yok.</p>'}</div>`;
-  loadSignals().then(S => { const el = view.querySelector('#tCand'); if (el && S.candidates) el.textContent = `${S.candidates.length} hazırlanan formasyon`; }).catch(() => {});
+  loadSignals().then(S => { const el = view.querySelector('#tCand'); if (el && S.candidates) el.textContent = `${S.strategies.length} strateji · ${S.candidates.length} hazırlanan`; }).catch(() => {});
 }
