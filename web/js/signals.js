@@ -39,6 +39,7 @@ const STATUS = {
   trail: ['Takip stopu', '', 'Fiyat +1R\'yi gördükten sonra takip eden stop çalıştı'],
   tp: ['Hedef', 'up', 'Hedefe ulaştı'],
   stop: ['Stop', 'down', 'Başlangıç stopuna indi (−1R)'],
+  chan: ['Kanal çıkışı', '', 'Kapanış son 10 günün en düşüğünün altına indi'],
   time: ['Süre doldu', 'warn', '60 işlem günü doldu, kapanıştan çıkıldı'],
 };
 const chip = st => { const [l, c, t] = STATUS[st] || [st, '', '']; return `<span class="chip ${c}" title="${esc(t)}">${l}</span>`; };
@@ -52,7 +53,7 @@ function statsTable(S, u) {
     <th title="1.000.000 ₺, işlem başına %0,5 risk, en fazla 20 pozisyon">Hesap: yıllık / düşüş</th></tr></thead><tbody>
     ${S.tierSets.map(name => vs.map((v, i) => { const st = u.stats?.[tfSel]?.[name]?.[v] || {}, ac = u.accounts?.[tfSel]?.[name]?.[v]; return `<tr class="${name === tierSel ? 'sel' : ''}">
       ${i === 0 ? `<td class="tk" rowspan="${vs.length}">${esc(name)}</td>` : ''}<td class="txt">${esc(u.variants[v])}${v === u.defaultV ? ' <small class="muted">(varsayılan)</small>' : ''}</td>
-      <td>${st.n ?? 0}</td><td>${ok(st.win) ? '%' + Math.round(st.win * 100) : '—'}</td><td>${v === 'trail' ? '—' : ok(st.tp) ? '%' + Math.round(st.tp * 100) : '—'}</td>
+      <td>${st.n ?? 0}</td><td>${ok(st.win) ? '%' + Math.round(st.win * 100) : '—'}</td><td>${isNaN(+v) ? '—' : ok(st.tp) ? '%' + Math.round(st.tp * 100) : '—'}</td>
       <td class="${cls(st.avgR)}">${rFmt(st.avgR)}</td><td class="muted">${rFmt(st.randR)}</td>
       <td class="${cls(st.sumR)}">${usd(ok(st.sumR) ? st.sumR * 100 : null)}</td><td>${st.streak ?? '—'}</td>
       <td>${ac ? `<span class="${cls(ac.cagr)}">${fmt.pct(ac.cagr)}</span> / <span class="down">−%${Math.round(ac.mdd * 100)}</span>` : '—'}</td></tr>`; }).join('')).join('')}
@@ -131,7 +132,7 @@ function strategyCard(S, u) {
     <h3>Geriye dönük test</h3>
     ${u.tfs.length > 1 ? `<div class="seg" role="group" aria-label="Zaman dilimi" style="margin-bottom:8px">${u.tfs.map(k =>
       `<button type="button" data-sigtf="${k}" aria-pressed="${tfSel === k}">${esc(S.timeframes?.[k]?.name || k)}</button>`).join('')}</div>` : ''}
-    <p class="muted" style="font-size:12px;margin:0 0 8px">${tfSel === '4H' ? '4 saatlik mumlar: günde iki mum (13:30 ve kapanış); saatlik veri son ~2 yıl için mevcut. En fazla 120 mum (≈60 işlem günü).' : 'Günlük mumlar, son 4 yıl. En fazla 60 işlem günü.'}</p>
+    <p class="muted" style="font-size:12px;margin:0 0 8px">${u.tfs.length === 1 && tfSel === '1D' ? 'Yalnızca günlük mumlar, son 4 yıl. En fazla 60 işlem günü.' : tfSel === '4H' ? '4 saatlik mumlar: günde iki mum (13:30 ve kapanış); saatlik veri son ~2 yıl için mevcut. En fazla 120 mum (≈60 işlem günü).' : 'Günlük mumlar, son 4 yıl. En fazla 60 işlem günü.'}</p>
     ${statsTable(S, u)}
     ${yearsTable(S, u)}
     ${accountHtml(S, u)}
@@ -174,7 +175,7 @@ export async function renderSignals() {
       <th>Son fiyat</th><th title="Girişe göre güncel sonuç, R cinsinden">Güncel</th><th class="txt">Not</th></tr></thead><tbody>
       ${act.map(a => `<tr data-t="${a.t}">${tk(a)}${stratCol(a)}<td>${dfmt(a.d)}</td><td>${fmt.price(a.e)}</td>
         <td>${a.armed ? `<b>${fmt.price(a.s)}</b> <span class="chip up">takipte</span>`
-          : `${fmt.price(a.s0)} <small class="down">${fmt.pct(pctFrom(a.s0, a.e))}</small>${a.a ? `<small class="sub2">+1R: ${fmt.price(a.a)} <span class="up">${fmt.pct(pctFrom(a.a, a.e))}</span></small>` : ''}`}</td>
+          : `${fmt.price(a.s0)} <small class="down">${fmt.pct(pctFrom(a.s0, a.e))}</small>${a.xl > a.s ? `<small class="sub2" title="Kanal çıkışı: kapanış bu seviyenin (son 10 günün en düşüğü) altına inerse çıkılır">çıkış: kapanış &lt; ${fmt.price(a.xl)}</small>` : a.xl ? '<small class="sub2" title="Kanal çıkış seviyesi (son 10 günün en düşüğü) şu an stopun altında; önce stop geçerli">kanal çıkışı stopun altında</small>' : a.a ? `<small class="sub2">+1R: ${fmt.price(a.a)} <span class="up">${fmt.pct(pctFrom(a.a, a.e))}</span></small>` : ''}`}</td>
         <td>${fmt.price(a.c)}</td><td class="${cls(a.r)}">${rFmt(a.r)}</td>
         <td class="txt">${a.tedbir ? '<span class="chip warn">⚠ Tedbir</span> ' : ''}<span class="muted" title="Sinyal mumunun hacmi / 20 mumluk ortalama (bilgi amaçlı)">${IDX_LABEL[a.idx] || ''}${ok(a.volx) ? ` · hacim ${F1.format(a.volx)}x` : ''}</span></td></tr>`).join('')}
     </tbody></table></div>` : '<p class="muted">Bu seçimde şu an açık sinyal yok.</p>'}

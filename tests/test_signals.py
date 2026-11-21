@@ -230,3 +230,62 @@ class RegistryTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class DonchianTest(unittest.TestCase):
+    """Donchian kırılımı: kırılım + trend + direnç/FVG filtreleri, kanal çıkışı."""
+    from strategies import donchian as DC
+
+    def trend_df(self, n=320, kick=None):
+        # Düzenli yükselen, likit hisse; son bölümde yatay bant ve ardından (kick verilirse) kırılım
+        rng = np.random.default_rng(3)
+        c = 50 + np.arange(n) * 0.15 + rng.normal(0, 0.2, n)
+        c[n - 40:n - 1] = c[n - 41] + rng.normal(0, 0.3, 39)
+        if kick is not None:
+            c[n - 1] = c[n - 41] + kick
+        o = np.r_[c[0], c[:-1]]
+        h = np.maximum(o, c) + 0.3
+        lo = np.minimum(o, c) - 0.3
+        return pd.DataFrame({"Open": o, "High": h, "Low": lo, "Close": c, "Volume": np.full(n, 2e6)},
+                            index=pd.bdate_range("2022-01-01", periods=n))
+
+    def test_breakout_signal(self):
+        DC = self.DC
+        df = self.trend_df(kick=3.0)
+        F = S.frame(df)
+        t = len(df) - 1
+        sig = S.signal_at(DC, F, t)
+        self.assertIsNotNone(sig)
+        self.assertAlmostEqual(sig["entry"], df["Close"].iloc[t])
+        self.assertAlmostEqual(sig["stop"], sig["entry"] - DC.ATR_STOP * F["atr"][t])
+        self.assertIsNone(S.signal_at(DC, S.frame(self.trend_df(kick=0.0)), t))   # kırılım yok
+
+    def test_trend_filter(self):
+        DC = self.DC
+        df = self.trend_df(kick=3.0)
+        df.iloc[:-41, :4] = df.iloc[:-41, :4].to_numpy() + np.linspace(60, 0, len(df) - 41)[:, None]   # öncesi düşen trend
+        self.assertIsNone(S.signal_at(DC, S.frame(df), len(df) - 1))
+
+    def test_channel_exit(self):
+        DC = self.DC
+        a = np.array([(100, 101, 99, 100)] * 12 + [(100, 102, 99.5, 101), (101, 104, 100.5, 103), (103, 103.5, 97, 97.5)], dtype=float)
+        F = {"o": a[:, 0], "h": a[:, 1], "l": a[:, 2], "c": a[:, 3], "idx": pd.bdate_range("2026-01-01", periods=len(a))}
+        x = DC.simulate(F, 11, 100.0, 90.0, "chan", 60)
+        self.assertEqual(x["status"], "chan")             # kapanış 97,5 < önceki 10 günün en düşüğü (99)
+        self.assertAlmostEqual(x["exit"], 97.5)
+        F = {"o": a[:, 0], "h": a[:, 1], "l": a[:, 2], "c": a[:, 3], "idx": F["idx"]}
+        self.assertEqual(DC.simulate(F, 11, 100.0, 98.0, "chan", 60)["status"], "stop")   # önce başlangıç stopu
+        b = a[:14]                                         # düşüş mumu henüz yok: işlem açık
+        F2 = {"o": b[:, 0], "h": b[:, 1], "l": b[:, 2], "c": b[:, 3], "idx": F["idx"][:14]}
+        x = DC.simulate(F2, 11, 100.0, 90.0, "chan", 60)
+        self.assertEqual(x["status"], "open")
+        self.assertAlmostEqual(x["exit_level"], 99.0)       # son 10 günün en düşüğü
+
+    def test_engine_custom_exit(self):
+        R = S.run({"AAA": self.trend_df(kick=3.0)}, {"AAA": "30"}, self.DC)
+        self.assertEqual(set(R["stats"]["BIST TÜM"]), {"chan", "trail", "5"})
+        self.assertTrue(R["active"])
+        for a in R["active"]:
+            self.assertEqual(a["k"], "donchian")
+            self.assertIsNone(a["a"])
+            self.assertIn("xl", a)

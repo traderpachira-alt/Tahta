@@ -174,6 +174,15 @@ def run(prices: dict[str, pd.DataFrame], tiers: dict[str, str | None], strat=Non
     Kayıtlar "k" (strateji kimliği) ve "tf" taşır."""
     strat = strat or REGISTRY["morningstar"]
     V, DV, trail = strat.VARIANTS, strat.DEFAULT_V, strat.TRAIL
+    # Stratejiye özel çıkışlar (ör. kanal çıkışı): strateji CUSTOM_EXITS'te listeler ve kendi simulate'ini sağlar.
+    # Diğer varyantlar ve bu kancayı kullanmayan stratejiler motorun simulate'iyle yürür.
+    custom = set(getattr(strat, "CUSTOM_EXITS", ()))
+    base_ok = getattr(strat, "baseline_ok", None)
+
+    def sim(F, t, entry, stop, R):
+        if R in custom:
+            return strat.simulate(F, t, entry, stop, R, hold)
+        return simulate(F, t, entry, stop, R, hold, trail)
     trades = {v: [] for v in V}
     rnd = {v: [] for v in V}
     active, recent, candidates = [], [], []
@@ -194,7 +203,7 @@ def run(prices: dict[str, pd.DataFrame], tiers: dict[str, str | None], strat=Non
             for R in V:
                 if t <= busy[R]:
                     continue
-                r = simulate(F, t, sig["entry"], sig["stop"], R, hold, trail)
+                r = sim(F, t, sig["entry"], sig["stop"], R)
                 rp = (sig["entry"] - sig["stop"]) / sig["entry"]
                 if r["status"] == "open":
                     busy[R] = n
@@ -206,12 +215,14 @@ def run(prices: dict[str, pd.DataFrame], tiers: dict[str, str | None], strat=Non
                     continue
                 risk = sig["entry"] - sig["stop"]
                 rec = {"k": strat.ID, "t": sym, "tf": tf, "idx": tier, "d": date, "e": round(sig["entry"], 4), "s0": round(sig["stop"], 4),
-                       "a": round(sig["entry"] + trail[0] * risk, 4) if DV == "trail" else round(sig["entry"] + float(DV) * risk, 4),
+                       "a": round(sig["entry"] + trail[0] * risk, 4) if DV == "trail" else None if DV in custom else round(sig["entry"] + float(DV) * risk, 4),
                        "volx": round(sig["volx"], 2) if sig["volx"] else None, "st": r["status"], "r": round(r["r"], 3)}
                 if sig.get("info"):
                     rec["info"] = sig["info"]
                 if r["status"] == "open":
                     rec.update(c=round(float(F["c"][-1]), 4), s=round(r["stop_now"], 4), armed=r["armed"])
+                    if r.get("exit_level") is not None:
+                        rec["xl"] = round(r["exit_level"], 4)
                     active.append(rec)
                 elif t >= n - recent_days * bpd:
                     rec.update(xd=F["idx"][r["exit_t"]].strftime(fmt_), x=round(r["exit"], 4))
@@ -225,7 +236,7 @@ def run(prices: dict[str, pd.DataFrame], tiers: dict[str, str | None], strat=Non
                                "s": round(cd["stop"], 4), "risk": round(cd["risk"], 4),
                                "fvg": [round(cd["fvg"][0], 4), round(cd["fvg"][1], 4)] if cd.get("fvg") else None})
         # Kıyas: rastgele mumlar, stratejinin stop yapısı, aynı çıkış (tekrarlanabilir örneklem)
-        cand = [t for t in range(max(start, strat.WARMUP), n - 1) if F["turn"][t] >= MIN_TURNOVER]
+        cand = [t for t in range(max(start, strat.WARMUP), n - 1) if F["turn"][t] >= MIN_TURNOVER and (base_ok is None or base_ok(F, t))]
         if cand:
             rng = np.random.default_rng(zlib.crc32(sym.encode()))
             for t in rng.choice(cand, size=min(RANDOM_PER_STOCK, len(cand)), replace=False):
@@ -234,7 +245,7 @@ def run(prices: dict[str, pd.DataFrame], tiers: dict[str, str | None], strat=Non
                 if not (RISK_MIN <= (entry - stop) / entry <= RISK_MAX):
                     continue
                 for R in V:
-                    r = simulate(F, t, entry, stop, R, hold, trail)
+                    r = sim(F, t, entry, stop, R)
                     if r["status"] != "open":
                         rnd[R].append((tier, r["r"]))
     stats, accounts = {}, {}

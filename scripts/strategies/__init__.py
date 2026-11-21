@@ -20,10 +20,15 @@ Arayüz (modül düzeyinde):
   baseline_stop(F, t) rastgele giriş kıyasında kullanılacak stop (stratejinin stop yapısıyla aynı mantık)
   candidate(F, b)     isteğe bağlı: b kapanışında "hazırlanan" kurulum varsa {"trig", "eff", "dist", "stop", "risk", ...}
   CAND_MAX_DIST       candidate varsa: tetiğe en fazla uzaklık
+  İsteğe bağlı kancalar (kullanmayan stratejiler motorun varsayılanıyla çalışır):
+  CUSTOM_EXITS        stratejinin kendi yürüttüğü çıkış varyantları, ör. ("chan",)
+  simulate(F, t, entry, stop, mode, hold)  bu varyantlar için işlem yürütme; signals.simulate ile aynı biçimde sonuç döner
+                      (açık işlemde "stop_now", "armed" ve isteğe bağlı "exit_level": kapanışla çıkış seviyesi)
+  baseline_ok(F, t)   rastgele giriş kıyasında hangi mumların kullanılacağı (ör. yalnızca yükseliş trendindekiler)
 """
-from . import morningstar
+from . import donchian, morningstar
 
 # Gruplar: sinyal sayfasında stratejiler bu başlıklar altında toplanır (tarama sayfasındaki hazır taramalar gibi)
 GROUPS = {"formasyon": "Mum formasyonları", "trend": "Trend takip", "kirilim": "Kırılım", "donus": "Ortalamaya dönüş"}
 
-REGISTRY = {m.ID: m for m in (morningstar,)}
+REGISTRY = {m.ID: m for m in (morningstar, donchian)}

@@ -784,7 +784,7 @@ def write_signals(out: Path, prices: dict[str, pd.DataFrame], stocks: list[dict]
             continue
         a.update(tedbir=bool(s.get("tedbir")), fScore=s.get("fScore"), dsScore=s.get("dsScore"))
         s.setdefault("sig", []).append({"k": a["k"], "n": names.get(a["k"], a["k"]), "tf": a["tf"], "d": a["d"], "e": a["e"], "s": a["s"],
-                                        "s0": a["s0"], "a": a["a"], "armed": a["armed"], "st": a["st"]})
+                                        "s0": a["s0"], "a": a["a"], "xl": a.get("xl"), "armed": a["armed"], "st": a["st"]})
     payload = {
         "version": 2,
         "updated": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),

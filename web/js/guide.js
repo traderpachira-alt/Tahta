@@ -24,7 +24,7 @@ const GUIDE = [
     stratejiyi seçince yalnızca onun sinyalleri, kuralları ve geriye dönük testi açılır. "Deneme" etiketli stratejilerin kuralları değişebilir.
     Satırdaki <b>1G / 4S</b> etiketi sinyalin günlük mi 4 saatlik mumda mı oluştuğunu gösterir. Açık sinyali olan hissenin grafiğinde giriş ve stop çizilir.
     <b>Hazırlanan kurulumlar</b>, bir sonraki mumda tamamlanabilecek hisseleri tetik fiyatıyla gösterir. Şu an: <b>Morning star</b> (sert kırmızı mum, doji,
-    1. mumun tepesinin üstünde kapanan yeşil mum; üstte doldurulmamış düşüş FVG'si varsa sinyal yok; +1R'den sonra takip eden stop).`],
+    1. mumun tepesinin üstünde kapanan yeşil mum; üstte doldurulmamış düşüş FVG'si varsa sinyal yok; +1R'den sonra takip eden stop) ve deneme aşamasında <b>Donchian kırılımı</b> (yükseliş trendinde 20 günlük zirvenin kırılımı, yalnızca günlük; kapanış son 10 günün en düşüğünün altına inince çıkış). Test tablosunda sonuçları BIST 30 / 50 / 100 / TÜM ayrımıyla karşılaştırın.`],
 
   ['Karşılaştır', `En fazla 5 hisseyi ve BIST 100'ü aynı başlangıçtan (%0) itibaren getiri olarak üst üste çizer.`],
   ['Portföy', `<b>+ Varlık ekle</b> ile hisse (Temettü ya da Trend/Momentum), emtia/döviz ya da kripto ekleyin. Her varlık bir işlem
@@ -122,6 +122,8 @@ const TERMS = [
   ['R (risk birimi)', 'Bir işlemde göze alınan kayıp: giriş fiyatı − stop. Sonuçlar R cinsinden verilir; +2R riske edilenin iki katı kazanç, −1R stop olmak demektir. Pozisyon büyüklüğü 1R kaybı göze alınabilecek tutara göre belirlenir.', 'Sinyaller'],
   ['Kurulum (setup)', 'Giriş koşulu, stop ve hedefi önceden tanımlı işlem kuralı.', 'Sinyaller'],
   ['FVG (fair value gap, fiyat boşluğu)', 'Üç mumluk dizide 1. ve 3. mumun fiyat aralıklarının çakışmadığı, arada işlem görmemiş bölge. Düşüş FVG\'si: 3. mumun en yükseği 1. mumun en düşüğünün altında. Fiyat sonradan boşluğun üst sınırına ulaşmadıysa boşluk doldurulmamış sayılır ve çoğu zaman direnç gibi davranır.', 'Sinyaller'],
+  ['Donchian kanalı', 'Son N günün en yüksek ve en düşük fiyatı arasındaki bant. Kapanışın üst bandın (ör. 20 günlük zirve) üstüne çıkması kırılım sayılır; trend takip sistemlerinin en eski ve en çok test edilen girişidir.', 'Sinyaller'],
+  ['Kanal çıkışı', 'Kırılım işlemlerinde kullanılan çıkış: kapanış son 10 günün en düşüğünün altına inince pozisyon kapatılır. Trend sürdükçe pozisyonu taşır, dönüşte kârın bir kısmını geri verir. Başlangıç stopu her zaman geçerlidir.', 'Sinyaller'],
   ['Strateji grubu', 'Sinyal sayfasında benzer mantıktaki stratejilerin toplandığı başlık: mum formasyonları, trend takip, kırılım, ortalamaya dönüş.', 'Sinyaller'],
   ['Morning star (sabah yıldızı)', 'Üç mumluk dönüş formasyonu: sert bir kırmızı mum, ardından kararsızlığı gösteren küçük gövdeli bir mum (doji) ve satıcıların başladığı yerin üstüne çıkan güçlü bir yeşil mum. Düşüşün tükendiğine ve alıcıların kontrolü aldığına işaret eder.', 'Sinyaller'],
   ['Geriye dönük test', 'Kuralların geçmiş veride, yalnızca o güne kadar bilinen bilgiyle uygulanması. Burada giriş ertesi gün açılışta yapılır, aynı gün stop ve hedef görülürse stop sayılır, komisyon ve kayma düşülür.', 'Sinyaller'],

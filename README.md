@@ -91,6 +91,13 @@ karşılaştırma tablosunda görünür, bir strateji seçilince yalnızca onun 
 `strategies/__init__.py` içinde), `REGISTRY`'ye ekleyin, testini `tests/test_signals.py`'ye yazın; arayüz kendiliğinden
 gösterir. Testler `tests/test_signals.py`.
 
+Donchian kırılımı (`scripts/strategies/donchian.py`, deneme, yalnızca günlük): kapanış önceki 20 günün en yükseğinin üstünde
+(ilk kırılım günü), kapanış SMA200 üstünde ve SMA50 > SMA200, önceki 1 yılın tepesi girişin 0–2R üstünde değil, üstte
+doldurulmamış düşüş FVG'si yok. Stop giriş − 2 ATR; varsayılan çıkış kanal çıkışı (kapanış önceki 10 günün en düşüğünün altına
+inince), karşılaştırma için takip eden stop ve sabit 5R. Kanal çıkışı stratejinin kendi `simulate`'iyle yürür (`CUSTOM_EXITS`);
+rastgele kıyas yalnızca yükseliş trendindeki günlerden (`baseline_ok`). Bu kancaları kullanmayan stratejiler (morning star)
+motorun varsayılanıyla aynen çalışır.
+
 Morning star (`scripts/strategies/morningstar.py`): 1. mum sert kırmızı
 (gövde ≥ 0,5 ATR), 2. mum küçük (gövde ≤ 1. mumun %30'u), 3. mum yeşil ve 1. mumun tepesinin üstünde kapanıyor; 1. mumdan önceki 80 mumda
 oluşmuş, doldurulmamış ve girişin üstünde kalan bir düşüş FVG'si varsa işlem yok; 20 mn ₺ hacim filtresi. Giriş 3. mumun kapanışında, başlangıç stopu üç mumun en düşüğünün %0,1 altında; fiyat +1R'ye ulaşınca stop en yüksek
