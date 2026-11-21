@@ -5,7 +5,7 @@ Fiyatlar Yahoo Finance'ten, mali tablolar İş Yatırım'dan, endeks listesi Bor
 
 Çıktı:
   <out>/data/summary.json      her hisse için özet (getiriler, teknik göstergeler, temel oranlar)
-  <out>/data/signals.json      alım kurulumları: kurallar, geriye dönük test, aktif ve son sinyaller
+  <out>/data/signals.json      morning star kurulumu: kurallar, geriye dönük test, açık ve son sinyaller
   <out>/data/hist/<KOD>.json   2 yıllık günlük OHLCV (grafik için)
 
 Kullanım:
@@ -739,27 +739,26 @@ def quality_scores(t: str, df: pd.DataFrame, m: dict, f: dict, fin: dict | None,
 
 
 def write_signals(out: Path, prices: dict[str, pd.DataFrame], stocks: list[dict], idx: pd.DataFrame | None = None):
+    """Morning star kurulumu: aktif sinyaller, son sonuçlar ve geriye dönük test (data/signals.json)."""
     t0 = time.time()
-    R = signals.run(prices)
     by = {s["t"]: s for s in stocks}
+    R = signals.run(prices, {t: s.get("idx") for t, s in by.items()})
     for a in R["active"]:
         s = by.get(a["t"])
         if s is None:
             continue
-        # Bağlam (testte kullanılmaz, yalnızca bilgi): tedbir, güçlü destek bölgesi, F-skoru, temettü güvenliği
-        a.update(tedbir=bool(s.get("tedbir")), supS=s.get("supS"), supDist=s.get("supDist"), fScore=s.get("fScore"),
-                 dsScore=s.get("dsScore"), idx=s.get("idx"))
-        s.setdefault("sig", []).append({k: a[k] for k in ("k", "d", "e", "s", "tp", "st")})
+        a.update(tedbir=bool(s.get("tedbir")), fScore=s.get("fScore"), dsScore=s.get("dsScore"))
+        s.setdefault("sig", []).append({"k": "morningstar", "d": a["d"], "e": a["e"], "s": a["s"], "tp": a["tp"], "st": a["st"]})
     payload = {
         "updated": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
+        "strategy": signals.STRATEGY, "defaultR": signals.DEFAULT_R, "targets": list(signals.TARGETS),
+        "tierSets": list(signals.TIER_SETS), "defaultSet": signals.DEFAULT_SET,
         "account": signals.ACCOUNT, "bench": signals.bench(idx),
-        "params": {"hold": signals.HOLD_MAX, "cost": signals.COST, "minTurnover": signals.MIN_TURNOVER,
-                   "riskMin": signals.RISK_MIN, "riskMax": signals.RISK_MAX, "chase": signals.CHASE_R, "tpRule": signals.TP_RULE},
-        "setups": {k: {**v, "stats": R["stats"].get(k, {})} for k, v in signals.SETUPS.items()},
-        "active": R["active"], "recent": R["recent"],
+        "params": {"hold": signals.HOLD_MAX, "cost": signals.COST, "minTurnover": signals.MIN_TURNOVER},
+        "stats": R["stats"], "accounts": R["accounts"], "active": R["active"], "recent": R["recent"],
     }
     (out / "data" / "signals.json").write_text(json.dumps(clean(payload), ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-    print(f"Sinyaller: {len(R['active'])} aktif, son 60 günde {len(R['recent'])} sonuçlanmış ({time.time() - t0:.0f} sn).", flush=True)
+    print(f"Sinyaller (morning star): {len(R['active'])} açık, son 60 günde {len(R['recent'])} sonuçlanmış ({time.time() - t0:.0f} sn).", flush=True)
 
 
 def download_prices(symbols: list[str]) -> dict[str, pd.DataFrame]:

@@ -496,3 +496,6 @@ table.dcfsens td.base { outline: 2px solid var(--accent); outline-offset: -2px; 
 .dcfmore { margin-top: 10px; }
 .dcfmore summary { cursor: pointer; font-weight: 600; font-size: 13px; }
 @media (max-width: 860px) { .dcfgrid { grid-template-columns: 1fr; } }
+
+table.sigstat tr.sel td { background: var(--sunk); }
+.sigcard h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 14px 0 8px; }

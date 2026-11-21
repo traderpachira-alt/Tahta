@@ -1,229 +1,121 @@
-"""Alım kurulumları (setup): giriş, stop ve hedef (TP) ile sinyal üretimi ve geriye dönük test.
+"""Morning star (sabah yıldızı) alım kurulumu: sinyal, giriş/stop/hedef ve geriye dönük test.
 
-Her kurulum yalnızca o güne kadarki veriyi kullanır (ileriye bakmaz); canlı sinyal ve geriye dönük test aynı kuralları
-aynı kodla çalıştırır. Yalnızca alış (BIST'te açığa satış çoğu yatırımcı için pratik değil).
-
-İşlem kuralları (test ve canlı):
-- Sinyal gün sonu kapanışla oluşur; giriş ertesi gün AÇILIŞTA yapılır. Açılış stopun altındaysa ya da planlanan
-  girişin 0,5R'den fazla üstündeyse (fırsat kaçtı) işlem açılmaz.
-- Stop ve hedef sabittir. Aynı gün hem stop hem hedef görülürse stop varsayılır (temkinli). Açılış stopun altında/hedefin
-  üstünde gelirse açılıştan çıkılır. En fazla HOLD_MAX işlem günü tutulur, sonra kapanıştan çıkılır.
-- Sonuç R cinsindendir (1R = giriş − stop). Komisyon+kayma için gidiş-dönüş COST düşülür.
-- Aynı hissede aynı kurulumdan, önceki işlem kapanmadan yeni işlem açılmaz.
+Kurallar (yalnızca o güne kadarki veri; canlı sinyal ve test aynı kodu kullanır):
+  1. mum: kırmızı ve sert (gövde ≥ 0,5 × ATR 14)
+  2. mum: küçük gövde / doji (gövde ≤ 1. mum gövdesinin %30'u)                       — Ş2
+  3. mum: yeşil ve 1. mumun EN YÜKSEĞİNİN üstünde kapanış                             — Ş5
+  Likidite: 20 günlük ortalama işlem hacmi ≥ MIN_TURNOVER.
+İşlem:
+  Giriş 3. mumun kapanışında. Stop = üç mumun en düşüğü × (1 − %0,1). Hedef = giriş + R × risk (varsayılan 3R; 5R de test
+  edilir). Aynı gün stop ve hedef görülürse stop (temkinli). En fazla HOLD_MAX işlem günü, sonra kapanıştan çıkış.
+  Gidiş-dönüş COST düşülür. Aynı hissede önceki işlem kapanmadan yeni işlem açılmaz.
+Kıyas: aynı hisselerde rastgele günlerde, aynı stop yapısıyla (son üç mumun en düşüğü) ve aynı hedefle giriş.
 """
 from __future__ import annotations
+
+import zlib
 
 import numpy as np
 import pandas as pd
 
-from indicators import ema, rma, sma, stoch_rsi, supertrend, true_range, wilder_rsi
+from indicators import rma, true_range
 
-HOLD_MAX = 40          # en uzun tutma (işlem günü)
-COST = 0.002           # gidiş-dönüş komisyon + kayma (fiyatın oranı)
-MIN_TURNOVER = 20e6    # 20 günlük ortalama işlem hacmi alt sınırı (TL)
-RISK_MIN, RISK_MAX = 0.015, 0.12   # stop mesafesi fiyatın %1,5–%12'si arasında olmalı
-MIN_RR, DEFAULT_RR, MAX_RR = 1.5, 2.5, 5.0
-MIN_ROOM = {"destek": 2.5, "kirilim": 2.0}
-RISK_MAX_BY = {"destek": 0.05}  # destekten dönüşte stop desteğe yakın olmalı (fiyat gerçekten destekte)  # bu kurulumlarda en yakın direnç en az bu kadar R uzakta olmalı
-CHASE_R = 0.5          # giriş fiyatı bu kadar R yukarıda açılırsa işlem yapılmaz
-PIVOT = 5              # dönüş noktası: iki yanında 5'er mum (5 gün sonra kesinleşir)
+HOLD_MAX = 60
+COST = 0.002
+MIN_TURNOVER = 20e6
+RISK_MIN, RISK_MAX = 0.005, 0.15      # stop mesafesi fiyatın %0,5–%15'i
+BODY_ATR = 0.5                        # 1. mum gövdesi ≥ 0,5 ATR
+DOJI_MAX = 0.30                       # 2. mum gövdesi ≤ 1. mum gövdesinin %30'u
+STOP_BUF = 0.001                      # stop, üç mumun en düşüğünün %0,1 altı
+TARGETS = (3, 5)
+DEFAULT_R = 3
+RANDOM_PER_STOCK = 60
+ACCOUNT = {"capital": 1_000_000, "risk": 0.005, "maxPos": 20}
+TIER_SETS = {"BIST 30": ("30",), "BIST 50": ("30", "50"), "BIST 100": ("30", "50", "100"),
+             "BIST TÜM": ("30", "50", "100", "TÜM")}
+DEFAULT_SET = "BIST 100"
 
-SETUPS = {
-    "destek": {
-        "name": "Destekten dönüş",
-        "summary": "Yükselen trendde desteğe geri çekilen ve tepki veren hisse",
-        "trial": "Deneme aşamasında: ek filtreler seçilirken test dönemine de bakıldı; sonuç diğer kurulumlara göre daha az güvenilir.",
-        "rules": [
-            "Trend yukarı: fiyat > SMA200, SMA50 > SMA200 ve SMA50 son 10 günde yükselmiş",
-            "Geri çekilme: RSI 14 30 ile 50 arasında",
-            "Destek: son 120 günün kesinleşmiş en yakın dip noktası ya da SMA50 (hangisi fiyata yakın ve altındaysa); fiyat desteğin en fazla 1 ATR üstünde",
-            "Tepki: gün yeşil kapanmış ve önceki kapanışın üstünde",
-            "Onay: hacim 20 günlük ortalamanın en az 1,2 katı ya da Supertrend yukarı",
-            "Yer: stop mesafesi en fazla %5 (fiyat desteğe gerçekten yakın) ve en yakın direnç en az 2,5R uzakta",
-            "Stop: destek − 0,5 ATR",
-        ],
-    },
-    "kirilim": {
-        "name": "Hacimli kırılım",
-        "summary": "Trend içinde 55 günlük zirveyi hacimle kıran hisse",
-        "rules": [
-            "Kapanış önceki 55 günün en yükseğinin üstünde",
-            "Hacim 20 günlük ortalamanın en az 1,5 katı; kapanış günün üst %40'ında",
-            "Trend: fiyat > SMA50 > SMA200; RSI 14 < 75 (aşırı uzamamış)",
-            "Yer: en yakın direnç en az 2R uzakta (yoksa alınmaz)",
-            "Stop: kırılan seviye − 1 ATR (kırılım başarısız sayılır)",
-        ],
-    },
-    "dipdonus": {
-        "name": "Aşırı satımdan dönüş",
-        "summary": "Uzun vadeli trendi yukarı olup kısa vadede aşırı satılan ve dönen hisse",
-        "trial": "Zayıf: test sonucu başa başa yakın ve yıldan yıla dalgalı.",
-        "rules": [
-            "Uzun vade: fiyat > SMA200",
-            "Son 5 günde RSI 14 < 30 olmuş, bugün 30'un üstüne çıkmış",
-            "Gün yeşil kapanmış ve kapanış önceki günün en yükseğinin üstünde",
-            "Stop: son 10 günün en düşüğü − 0,25 ATR",
-        ],
-    },
-    "supertrend": {
-        "name": "Supertrend dönüşü",
-        "summary": "Supertrend yukarı dönen, momentumu ve hacmi onaylayan hisse",
-        "rules": [
-            "Supertrend (10, 3) bugün yukarı döndü",
-            "MACD histogramı pozitif, fiyat > SMA50",
-            "Hacim 20 günlük ortalamanın en az 1,2 katı",
-            "Stop: Supertrend çizgisi",
-        ],
-    },
+STRATEGY = {
+    "name": "Morning star",
+    "summary": "Sert düşüşten sonra kararsızlık (doji) ve ardından satıcıların başladığı yerin üstüne çıkan güçlü yeşil mum",
+    "rules": [
+        "1. mum kırmızı ve sert: gövdesi en az 0,5 ATR",
+        "2. mum küçük (doji benzeri): gövdesi 1. mumun gövdesinin en fazla %30'u",
+        "3. mum yeşil ve 1. mumun en yükseğinin üstünde kapanıyor",
+        "Likidite: 20 günlük ortalama işlem hacmi en az 20 mn ₺",
+        "Giriş: 3. mumun kapanışı · Stop: üç mumun en düşüğünün %0,1 altı",
+        "Hedef: 3R (5R sonuçları karşılaştırma için) · En fazla 60 işlem günü",
+    ],
+    "notes": [
+        "Avantaj 2022–2024'te belirgindi; 2025–2026'da işlem başına ~0,1R'ye geriledi. Canlı sonuçları yıllık tablodan izleyin.",
+        "Aynı kurallar ABD (S&P 100) ve Almanya (DAX 40) hisselerinde rastgele girişten iyi sonuç vermedi: etki BIST'e özgü görünüyor.",
+        "En güçlü etki orta ölçekli hisselerde (BIST 100'ün 31–100. sıraları); BIST 30'da zayıf.",
+        "Sermayenin çoğu zaman boşta kalır; tek başına strateji olarak değil, giriş zamanlaması aracı olarak kullanın.",
+        "İşlem başına önerilen risk sermayenin %0,5'i: isabet oranı ~%30 olduğu için art arda 20+ kayıp yaşanabilir.",
+    ],
 }
-TP_RULE = ("Hedef: girişin en az 1,5R üstündeki en yakın direnç (son 250 günün kesinleşmiş tepe noktaları, 120 günlük zirve, "
-           "SMA50/SMA200). Yakında direnç yoksa (fiyat zirvede) 2,5R; en fazla 5R.")
-
-
-def _pivots(h, lo, n=PIVOT):
-    """Kesinleşmiş dönüş noktaları: (indeks, değer) listeleri. i noktası i+n'de kesinleşir."""
-    lows, highs = [], []
-    for i in range(n, len(lo) - n):
-        w_lo, w_hi = lo[i - n:i + n + 1], h[i - n:i + n + 1]
-        if lo[i] == w_lo.min():
-            lows.append((i, lo[i]))
-        if h[i] == w_hi.max():
-            highs.append((i, h[i]))
-    return lows, highs
 
 
 def frame(df: pd.DataFrame) -> dict | None:
-    """Kurulumlar için günlük göstergeler (numpy dizileri)."""
-    if len(df) < 260:
+    if len(df) < 60:
         return None
     o, h, lo, c, v = (df[k].to_numpy(dtype=float) for k in ("Open", "High", "Low", "Close", "Volume"))
-    tr = true_range(h, lo, c)
-    macd = ema(c, 12) - ema(c, 26)
-    st_line, st_trend = supertrend(h, lo, c)
-    vol_avg = pd.Series(v).rolling(20).mean().shift(1).to_numpy()
-    k, d = stoch_rsi(c)
-    return {
-        "idx": df.index, "o": o, "h": h, "l": lo, "c": c, "v": v,
-        "sma50": sma(c, 50), "sma200": sma(c, 200), "rsi": wilder_rsi(c), "atr": rma(tr, 14),
-        "macdh": macd - ema(macd, 9), "st_line": st_line, "st_trend": st_trend,
-        "volr": v / np.where(vol_avg > 0, vol_avg, np.nan),
-        "turn": pd.Series(c * v).rolling(20).mean().to_numpy(),
-        "hh55": pd.Series(h).rolling(55).max().shift(1).to_numpy(),
-        "hh120": pd.Series(h).rolling(120).max().shift(1).to_numpy(),
-        "stk": k, "std": d,
-        "piv": _pivots(h, lo),
-    }
+    return {"idx": df.index, "o": o, "h": h, "l": lo, "c": c, "v": v, "atr": rma(true_range(h, lo, c), 14),
+            "turn": pd.Series(c * v).rolling(20).mean().to_numpy()}
 
 
-def _support(F, t):
-    """t gününde bilinen en yakın destek (fiyatın altında): son 120 günün kesinleşmiş dipleri ve SMA50."""
-    c = F["c"][t]
-    cands = [val for i, val in F["piv"][0] if t - 120 <= i <= t - PIVOT and val <= c]
-    if F["sma50"][t] <= c:
-        cands.append(F["sma50"][t])
-    return max(cands) if cands else None
+def pattern_at(F, t) -> dict | None:
+    """t günü kapanışında morning star tamamlandıysa {"entry", "stop", "volx"}; değilse None."""
+    if t < 22:
+        return None
+    o, h, lo, c = F["o"], F["h"], F["l"], F["c"]
+    a, b = t - 2, t - 1
+    body1 = o[a] - c[a]
+    atr = F["atr"][a]
+    if not (np.isfinite(atr) and F["turn"][t] >= MIN_TURNOVER):
+        return None
+    if not (c[a] < o[a] and body1 >= BODY_ATR * atr):
+        return None
+    if not abs(c[b] - o[b]) <= DOJI_MAX * body1:
+        return None
+    if not (c[t] > o[t] and c[t] > h[a]):
+        return None
+    entry = c[t]
+    stop = min(lo[a], lo[b], lo[t]) * (1 - STOP_BUF)
+    if not (RISK_MIN <= (entry - stop) / entry <= RISK_MAX):
+        return None
+    vavg = np.mean(F["v"][t - 20:t])
+    return {"entry": entry, "stop": stop, "volx": F["v"][t] / vavg if vavg > 0 else None}
 
 
-def _target(F, t, entry, risk):
-    """Girişin en az MIN_RR·R üstündeki en yakın direnç; yoksa DEFAULT_RR·R; en fazla MAX_RR·R."""
-    floor_, cap = entry + MIN_RR * risk, entry + MAX_RR * risk
-    cands = [val for i, val in F["piv"][1] if t - 250 <= i <= t - PIVOT]
-    cands += [F["hh120"][t], F["sma50"][t], F["sma200"][t]]
-    above = [x for x in cands if np.isfinite(x) and floor_ <= x <= cap]
-    return min(above) if above else entry + DEFAULT_RR * risk
-
-
-def setups_at(F, t) -> list[dict]:
-    """t günü kapanışında oluşan sinyaller: [{"k", "entry", "stop", "tp"}]."""
-    if t < 220:
-        return []
-    c, o, h, lo = F["c"][t], F["o"][t], F["h"][t], F["l"][t]
-    atr, rsi, s50, s200 = F["atr"][t], F["rsi"][t], F["sma50"][t], F["sma200"][t]
-    if not all(np.isfinite([c, atr, rsi, s50, s200])) or atr <= 0 or not F["turn"][t] >= MIN_TURNOVER:
-        return []
-    out = []
-    green = c > o and c > F["c"][t - 1]
-
-    # 1) Destekten dönüş
-    confirm = F["volr"][t] >= 1.2 or F["st_trend"][t] == 1
-    if c > s200 and s50 > s200 and s50 > F["sma50"][t - 10] and 30 <= rsi < 50 and green and confirm:
-        sup = _support(F, t)
-        if sup is not None and c - sup <= atr:
-            out.append({"k": "destek", "stop": sup - 0.5 * atr})
-    # 2) Hacimli kırılım
-    hh = F["hh55"][t]
-    if (np.isfinite(hh) and c > hh and F["volr"][t] >= 1.5 and c > s50 > s200 and rsi < 75
-            and h > lo and (c - lo) / (h - lo) >= 0.6):
-        out.append({"k": "kirilim", "stop": hh - atr})
-    # 3) Aşırı satımdan dönüş
-    r5 = F["rsi"][t - 5:t]
-    if c > s200 and np.nanmin(r5) < 30 and rsi >= 30 and c > o and c > F["h"][t - 1]:
-        out.append({"k": "dipdonus", "stop": F["l"][t - 9:t + 1].min() - 0.25 * atr})
-    # 4) Supertrend dönüşü
-    if F["st_trend"][t] == 1 and F["st_trend"][t - 1] == -1 and F["macdh"][t] > 0 and c > s50 and F["volr"][t] >= 1.2:
-        out.append({"k": "supertrend", "stop": F["st_line"][t]})
-
-    res = []
-    for s in out:
-        risk = c - s["stop"]
-        if not (RISK_MIN <= risk / c <= RISK_MAX_BY.get(s["k"], RISK_MAX)):
-            continue
-        tp = _target(F, t, c, risk)
-        if (tp - c) / risk < MIN_ROOM.get(s["k"], MIN_RR) - 1e-9:
-            continue  # en yakın direnç çok yakın
-        res.append({"k": s["k"], "entry": c, "stop": s["stop"], "tp": tp})
-    return res
-
-
-def simulate(F, t, sig) -> dict:
-    """t gününde oluşan sinyali t+1 açılışından itibaren yürütür. Döner {"status", "r", "exit_t", "fill"}.
-    status: 'tp' | 'stop' | 'time' | 'open' (henüz sonuçlanmadı) | 'pending' (yarın açılışta) | 'skip' (açılış uygun değil)"""
+def simulate(F, t, entry, stop, R) -> dict:
+    """Girişi t kapanışında yapılmış işlemi yürütür. status: 'tp' | 'stop' | 'time' | 'open'."""
     n = len(F["c"])
-    if t + 1 >= n:
-        return {"status": "pending"}
-    entry, stop, tp = sig["entry"], sig["stop"], sig["tp"]
-    plan_risk = entry - stop
-    fill = F["o"][t + 1]
-    if not np.isfinite(fill) or fill <= stop or fill > entry + CHASE_R * plan_risk:
-        return {"status": "skip", "fill": fill}
-    # R, PLANLANAN riske göre: pozisyon büyüklüğü sinyal akşamı (giriş − stop) ile belirlenir. Gerçekleşen açılışa göre
-    # hesaplamak, açılış stopa çok yakın geldiğinde riski kâğıt üzerinde sıfıra yaklaştırıp sonucu şişirirdi.
-    risk = plan_risk
-    cost_r = COST * fill / risk
+    risk = entry - stop
+    tp = entry + R * risk
+    cost_r = COST * entry / risk
 
     def res(status, px, i):
-        return {"status": status, "r": (px - fill) / risk - cost_r, "pct": (px - fill) / fill - COST,
-                "exit_t": i, "fill": fill, "exit": px}
+        return {"status": status, "r": (px - entry) / risk - cost_r, "pct": px / entry - 1 - COST, "exit_t": i, "exit": px}
 
     for i in range(t + 1, min(n, t + 1 + HOLD_MAX)):
-        o, h, lo = F["o"][i], F["h"][i], F["l"][i]
-        if i > t + 1 and o <= stop:
-            return res("stop", o, i)
-        if i > t + 1 and o >= tp:
-            return res("tp", o, i)
-        if lo <= stop:
+        if F["l"][i] <= stop:
             return res("stop", stop, i)
-        if h >= tp:
+        if F["h"][i] >= tp:
             return res("tp", tp, i)
-    last = min(n, t + 1 + HOLD_MAX) - 1
-    if last == n - 1 and n - 1 < t + HOLD_MAX:
-        return {"status": "open", "r": (F["c"][-1] - fill) / risk, "pct": F["c"][-1] / fill - 1, "fill": fill}
+    if n - 1 < t + HOLD_MAX:
+        return {"status": "open", "r": (F["c"][-1] - entry) / risk, "pct": F["c"][-1] / entry - 1}
+    last = t + HOLD_MAX
     return res("time", F["c"][last], last)
-
-
-ACCOUNT = {"capital": 100_000, "risk": 0.01, "maxPos": 10}
 
 
 def account(trades: list[dict], capital: float = ACCOUNT["capital"], risk: float = ACCOUNT["risk"],
             max_pos: int = ACCOUNT["maxPos"]) -> dict | None:
-    """Gerçekçi hesap: sinyaller tarih sırasıyla alınır; her işlemde 1R = özsermayenin `risk` oranı (pozisyon = risk /
-    stop mesafesi), kaldıraç yok (nakit yetmezse pozisyon küçülür), en fazla `max_pos` açık pozisyon; aynı gün daha fazla
-    sinyal varsa listedeki sıraya göre (hisse koduna göre) alınır. Açık pozisyonlar maliyetle değerlenir.
-    Döner: alınan işlem, son değer, yıllık getiri, en büyük düşüş."""
+    """Gerçekçi hesap: sinyaller tarih sırasıyla; 1R = özsermayenin `risk` oranı (pozisyon = risk / stop mesafesi);
+    kaldıraç yok; en fazla `max_pos` açık pozisyon; aynı gün birden fazla sinyalde hisse koduna göre sıra (geleceğe
+    bakmadan). Açık pozisyonlar maliyetle değerlenir; boşta kalan nakde faiz eklenmez."""
     if not trades:
         return None
-    # Aynı gün birden fazla sinyal: yalnızca o gün bilinen bilgiyle (hisse koduna göre) sırala. Çıkış tarihine göre
-    # sıralamak geleceğe bakmak olurdu (kısa süren işlemler, genelde kaybedenler, öne geçerdi).
     T = sorted(trades, key=lambda x: (x["d0"], x.get("sym", "")))
     days = sorted({x["d0"] for x in T} | {x["d1"] for x in T})
     by_day = {}
@@ -241,7 +133,7 @@ def account(trades: list[dict], capital: float = ACCOUNT["capital"], risk: float
             if len(open_) >= max_pos:
                 break
             pos = min(equity * risk / max(x["rp"], 1e-6), cash)
-            if pos < equity * 0.02:  # nakit kalmadı
+            if pos < equity * 0.005:
                 continue
             cash -= pos
             open_.append({"pos": pos, "pct": x["pct"], "d1": x["d1"]})
@@ -253,7 +145,7 @@ def account(trades: list[dict], capital: float = ACCOUNT["capital"], risk: float
 
 
 def bench(idx: pd.DataFrame | None, years: int = 4) -> dict | None:
-    """Aynı dönemde endeksi alıp tutmanın yıllık getirisi ve en büyük düşüşü (karşılaştırma için)."""
+    """Aynı dönemde endeksi alıp tutmanın yıllık getirisi ve en büyük düşüşü."""
     if idx is None or len(idx) < 300:
         return None
     c = idx["Close"].dropna()
@@ -262,71 +154,90 @@ def bench(idx: pd.DataFrame | None, years: int = 4) -> dict | None:
     return {"cagr": round(float((c.iloc[-1] / c.iloc[0]) ** (1 / yrs) - 1), 4), "mdd": round(float((1 - c / c.cummax()).max()), 4)}
 
 
-def run(prices: dict[str, pd.DataFrame], recent_days: int = 60, years: int = 4) -> dict:
-    """Tüm hisselerde sinyal üret ve test et. Döner: {"stats", "active", "recent", "trades_n"}."""
-    trades = {k: [] for k in SETUPS}
+def _stats(lst: list[dict], rnd: list[float]) -> dict:
+    if not lst:
+        return {"n": 0}
+    rs = np.array([x["r"] for x in lst])
+    pos, neg = rs[rs > 0].sum(), -rs[rs < 0].sum()
+    by_year = {}
+    for y in sorted({x["y"] for x in lst}):
+        ry = np.array([x["r"] for x in lst if x["y"] == y])
+        by_year[str(y)] = {"n": int(len(ry)), "avgR": round(float(ry.mean()), 3), "win": round(float((ry > 0).mean()), 3),
+                           "sumR": round(float(ry.sum()), 2)}
+    streak = worst = 0
+    for x in sorted(lst, key=lambda x: x["d0"]):
+        streak = streak + 1 if x["r"] < 0 else 0
+        worst = max(worst, streak)
+    return {
+        "n": int(len(rs)), "tp": round(sum(x["st"] == "tp" for x in lst) / len(lst), 3),
+        "win": round(float((rs > 0).mean()), 3), "avgR": round(float(rs.mean()), 3), "sumR": round(float(rs.sum()), 2),
+        "pf": round(float(pos / neg), 2) if neg > 0 else None, "bars": round(float(np.mean([x["bars"] for x in lst])), 1),
+        "streak": worst, "randR": round(float(np.mean(rnd)), 3) if rnd else None, "byYear": by_year,
+    }
+
+
+def run(prices: dict[str, pd.DataFrame], tiers: dict[str, str | None], recent_days: int = 60, years: int = 4) -> dict:
+    """Tüm hisselerde sinyal üret ve test et. tiers: {KOD: '30' | '50' | '100' | 'TÜM' | None}.
+    Döner: {"stats": {grup: {R: istatistik}}, "accounts": {grup: hesap (varsayılan R)}, "active", "recent"}."""
+    trades = {R: [] for R in TARGETS}
+    rnd = {R: [] for R in TARGETS}
     active, recent = [], []
-    end_dates = {}
     for sym, df in prices.items():
+        tier = tiers.get(sym)
         F = frame(df)
-        if F is None:
+        if F is None or tier not in ("30", "50", "100", "TÜM"):
             continue
         n = len(F["c"])
-        start = max(220, n - years * 252)
-        busy = {k: -1 for k in SETUPS}  # o kurulumda açık işlemin bittiği gün
-        end_dates[sym] = F["idx"][-1]
+        start = max(22, n - years * 252)
+        busy = {R: -1 for R in TARGETS}
         for t in range(start, n):
-            for sig in setups_at(F, t):
-                k = sig["k"]
-                if t <= busy[k]:
+            sig = pattern_at(F, t)
+            if not sig:
+                continue
+            date = F["idx"][t].strftime("%Y-%m-%d")
+            for R in TARGETS:
+                if t <= busy[R]:
                     continue
-                r = simulate(F, t, sig)
-                date = F["idx"][t].strftime("%Y-%m-%d")
-                rec = {"t": sym, "k": k, "d": date, "e": round(sig["entry"], 4), "s": round(sig["stop"], 4),
-                       "tp": round(sig["tp"], 4), "st": r["status"]}
-                if r["status"] in ("tp", "stop", "time"):
-                    busy[k] = r["exit_t"]
-                    trades[k].append({"r": r["r"], "pct": r["pct"], "bars": r["exit_t"] - t, "y": F["idx"][t].year, "st": r["status"],
-                                      "d0": F["idx"][t + 1], "d1": F["idx"][r["exit_t"]], "rp": (sig["entry"] - sig["stop"]) / r["fill"],
-                                      "sym": sym})
-                    rec.update(r=round(r["r"], 3), xd=F["idx"][r["exit_t"]].strftime("%Y-%m-%d"), x=round(r["exit"], 4))
-                elif r["status"] == "open":
-                    busy[k] = n
-                    rec.update(r=round(r["r"], 3), f=round(r["fill"], 4))
-                if r["status"] == "skip" and "fill" in r:
-                    rec["f"] = round(float(r["fill"]), 4)
-                if t >= n - recent_days:
-                    if r["status"] in ("pending", "open"):
-                        rec["c"] = round(float(F["c"][-1]), 4)
-                        active.append(rec)
-                    else:
-                        recent.append(rec)
-    stats = {}
-    for k, lst in trades.items():
-        rs = np.array([x["r"] for x in lst])
-        if not len(rs):
-            stats[k] = {"n": 0}
-            continue
-        pos, neg = rs[rs > 0].sum(), -rs[rs < 0].sum()
-        by_year = {}
-        for y in sorted({x["y"] for x in lst}):
-            ry = np.array([x["r"] for x in lst if x["y"] == y])
-            by_year[str(y)] = {"n": int(len(ry)), "avgR": round(float(ry.mean()), 3), "win": round(float((ry > 0).mean()), 3)}
-        stats[k] = {
-            "n": int(len(rs)),
-            "tp": round(sum(x["st"] == "tp" for x in lst) / len(lst), 3),
-            "stop": round(sum(x["st"] == "stop" for x in lst) / len(lst), 3),
-            "time": round(sum(x["st"] == "time" for x in lst) / len(lst), 3),
-            "win": round(float((rs > 0).mean()), 3),
-            "avgPct": round(float(np.mean([x["pct"] for x in lst])), 4),
-            "avgR": round(float(rs.mean()), 3),
-            "medR": round(float(np.median(rs)), 3),
-            "pf": round(float(pos / neg), 2) if neg > 0 else None,
-            "bars": round(float(np.mean([x["bars"] for x in lst])), 1),
-            "byYear": by_year,
-            "account": account(lst),
-        }
-    active = [a for a in active if a["st"] != "skip"]
+                r = simulate(F, t, sig["entry"], sig["stop"], R)
+                rp = (sig["entry"] - sig["stop"]) / sig["entry"]
+                if r["status"] == "open":
+                    busy[R] = n
+                else:
+                    busy[R] = r["exit_t"]
+                    trades[R].append({"r": r["r"], "pct": r["pct"], "bars": r["exit_t"] - t, "y": F["idx"][t].year, "st": r["status"],
+                                      "d0": F["idx"][t], "d1": F["idx"][r["exit_t"]], "rp": rp, "sym": sym, "tier": tier})
+                if R != DEFAULT_R:
+                    continue
+                rec = {"t": sym, "idx": tier, "d": date, "e": round(sig["entry"], 4), "s": round(sig["stop"], 4),
+                       "tp": round(sig["entry"] + DEFAULT_R * (sig["entry"] - sig["stop"]), 4),
+                       "tp5": round(sig["entry"] + 5 * (sig["entry"] - sig["stop"]), 4),
+                       "volx": round(sig["volx"], 2) if sig["volx"] else None, "st": r["status"], "r": round(r["r"], 3)}
+                if r["status"] == "open":
+                    rec["c"] = round(float(F["c"][-1]), 4)
+                    active.append(rec)
+                elif t >= n - recent_days:
+                    rec.update(xd=F["idx"][r["exit_t"]].strftime("%Y-%m-%d"), x=round(r["exit"], 4))
+                    recent.append(rec)
+        # Kıyas: rastgele günler, aynı stop yapısı (son üç mumun en düşüğü), aynı hedef (tekrarlanabilir örneklem)
+        cand = [t for t in range(max(start, 22), n - 1) if F["turn"][t] >= MIN_TURNOVER]
+        if cand:
+            rng = np.random.default_rng(zlib.crc32(sym.encode()))
+            for t in rng.choice(cand, size=min(RANDOM_PER_STOCK, len(cand)), replace=False):
+                entry = F["c"][t]
+                stop = min(F["l"][t - 2], F["l"][t - 1], F["l"][t]) * (1 - STOP_BUF)
+                if not (RISK_MIN <= (entry - stop) / entry <= RISK_MAX):
+                    continue
+                for R in TARGETS:
+                    r = simulate(F, t, entry, stop, R)
+                    if r["status"] != "open":
+                        rnd[R].append((tier, r["r"]))
+    stats, accounts = {}, {}
+    for name, ts in TIER_SETS.items():
+        stats[name] = {}
+        for R in TARGETS:
+            lst = [x for x in trades[R] if x["tier"] in ts]
+            stats[name][str(R)] = _stats(lst, [r for tier, r in rnd[R] if tier in ts])
+        accounts[name] = account([x for x in trades[DEFAULT_R] if x["tier"] in ts])
     active.sort(key=lambda a: (a["d"], a["t"]), reverse=True)
     recent.sort(key=lambda a: (a["d"], a["t"]), reverse=True)
-    return {"stats": stats, "active": active, "recent": recent}
+    return {"stats": stats, "accounts": accounts, "active": active, "recent": recent}

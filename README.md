@@ -76,12 +76,11 @@ beta × piyasa risk primi (%4,5) + ülke risk primi (%4). Net borç ve azınlık
 (fiyatın ima ettiği büyüme); hisse sayfasında varsayımlar değiştirilebilir. Banka, sigorta, finansal kuruluş, GYO, yatırım
 ortaklığı ve holdinglere ve serbest nakit akışı negatif şirketlere uygulanmaz.
 
-Sinyaller (`scripts/signals.py`, testleri `tests/test_signals.py`): dört alım kurulumu (destekten dönüş, hacimli kırılım,
-aşırı satımdan dönüş, Supertrend dönüşü), her biri giriş, stop ve hedefle. Kurallar her güncellemede son 4 yılda aynı kodla
-geriye dönük test edilir: giriş ertesi gün açılışta, aynı gün stop ve hedef görülürse stop, en fazla 40 gün, %0,2 komisyon+kayma.
-Ek onay filtreleri 2022–2024 verisinde seçilip 2025–2026 verisinde doğrulandı. R, sinyal akşamı planlanan riske
-(giriş − stop) göre ölçülür. Her kurulum için 100.000 ₺'lik hesap simülasyonu (işlem başına %1 risk, en fazla 10 pozisyon,
-kaldıraç yok) ve aynı dönemde BIST 100'ü alıp tutma karşılaştırması verilir. Sonuçlar `data/signals.json`.
+Sinyaller (`scripts/signals.py`, testleri `tests/test_signals.py`): morning star kurulumu. 1. mum sert kırmızı
+(gövde ≥ 0,5 ATR), 2. mum küçük (gövde ≤ 1. mumun %30'u), 3. mum yeşil ve 1. mumun tepesinin üstünde kapanıyor; 20 mn ₺
+hacim filtresi. Giriş 3. mumun kapanışında, stop üç mumun en düşüğünün %0,1 altında, hedef 3R (5R karşılaştırma). Her
+güncellemede son 4 yıl BIST 30/50/100/TÜM için yeniden test edilir: rastgele giriş kıyası, yıllara göre sonuç, hesap
+simülasyonu (işlem başına %0,5 risk, en fazla 20 pozisyon). Kurallar BIST'te seçildi; ABD ve Almanya'da etki bulunmadı.
 
 Temettü: temettuhisseleri.com tutarları **net** ve bedelsizlere göre **düzeltilmemiş**tir; Yahoo'nun bölünme
 çarpanları ve o tarihteki stopajla (2022–2024 arası %10, öncesi ve sonrası %15, GYO/YO %0) brüt, düzeltilmiş

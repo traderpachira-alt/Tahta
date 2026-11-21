@@ -14,7 +14,7 @@ import { F1, F2, F4, TREND, cls, esc, fmt, ok } from './util.js';
    ============================================================ */
 export let charts = [];
 export function destroyCharts() { charts.forEach(c => c.remove()); charts = []; }
-export const SIG_NAMES = { destek: 'Destekten dönüş', kirilim: 'Hacimli kırılım', dipdonus: 'Aşırı satımdan dönüş', supertrend: 'Supertrend dönüşü' };
+export const SIG_NAMES = { morningstar: 'Morning star' };
 export const RANGES = { '1A': 1, '3A': 3, '6A': 6, '1Y': 12, '2Y': 24 };
 // Açılışta son mumun sağında bırakılan boşluk (görünen genişliğe oranı): son mumlar kenara yapışmaz, ortaya yakın durur
 export const RIGHT_SPACE = 0.35;
@@ -158,7 +158,7 @@ export async function renderDetail(t) {
   </div>
 
   ${(s.sig || []).map(g => `<p class="note-ok sigline">Aktif sinyal: <b>${esc(SIG_NAMES[g.k] || g.k)}</b> (${fmt.date(g.d)}) · giriş ${fmt.price(g.e)} · stop ${fmt.price(g.s)} · hedef ${fmt.price(g.tp)}
-    ${g.st === 'pending' ? '· giriş bir sonraki seansın açılışında' : '· pozisyonda'} · <a href="#/sinyal">Sinyaller</a></p>`).join('')}
+    · giriş sinyal günü kapanışında, pozisyon açık · <a href="#/sinyal">Sinyaller</a></p>`).join('')}
   ${isIdx ? '' : srPanelHtml(s)}
   ${isIdx ? '' : '<section class="panel" id="divPanel"><h2>Temettü geçmişi</h2><p class="muted">Yükleniyor…</p></section>'}
   ${isIdx ? '' : '<section class="panel" id="qualPanel"><h2>Temettü güvenliği ve finansal kalite</h2><p class="muted">Yükleniyor…</p></section>'}
