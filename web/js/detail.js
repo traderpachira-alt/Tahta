@@ -7,7 +7,7 @@ import { FIELDS, ICHI, SR_STRONG, ST, tierChip } from './fields.js';
 import { colsFor, sorted, tableHtml } from './screener.js';
 import { state } from './store.js';
 import { tedbirIcon } from './tedbir.js';
-import { F1, F2, F4, TREND, cls, esc, fmt, ok } from './util.js';
+import { F1, F2, F4, TREND, cls, esc, fmt, info, ok } from './util.js';
 
 /* ============================================================
    Hisse detayı
@@ -37,6 +37,11 @@ export const SR_LABELS = {
   S200: 'SMA200', S50: 'SMA50', WS50: 'Haftalık SMA50', PP: 'Aylık pivot', PS1: 'Aylık S1', PR1: 'Aylık R1', GAP: 'Kapanmamış boşluk', RND: 'Yuvarlak sayı',
 };
 export const srWidth = z => z.s >= 12 ? 4 : z.s >= 8 ? 3 : z.s >= 5 ? 2 : 1;
+// Açık göstergeler: araç çubuğunda küçük etiketler (dokununca kapanır)
+export function indChips() {
+  return [...OVERLAYS, ...PANES.map(([k, l]) => [k, l])].filter(([k]) => state.chart[k])
+    .map(([k, l, c]) => `<button type="button" class="tg on" data-tg="${k}" aria-pressed="true" title="${esc(l)} kapat">${c ? `<i style="--c:var(${c})"></i>` : ''}${esc(l)} <span aria-hidden="true">×</span></button>`).join('');
+}
 export function srPanelHtml(s) {
   const zs = [...(s.srRes || []).slice().reverse().map((z, i, a) => ({ ...z, kind: 'R', i: a.length - i })), ...(s.srSup || []).map((z, i) => ({ ...z, kind: 'D', i: i + 1 }))];
   if (!zs.length) return '';
@@ -55,8 +60,8 @@ export function srPanelHtml(s) {
       <tr class="srnow"><td class="tk"><b>Fiyat</b></td><td><b>${fmt.price(s.last)}</b></td><td colspan="4"></td></tr>
       ${zs.filter(z => z.kind === 'D').map(row).join('')}
     </tbody></table></div>
-    <p class="muted" style="font-size:12px;margin:8px 0 0">Önceki yıl/çeyrek/ay/hafta yüksek-düşük-orta seviyeleri, dönem açılışları, haftalık dönüş noktaları, 1 yıllık hacim profili, 52 hafta, ortalamalar, aylık pivot ve kapanmamış boşluklar
-      yarım ATR toleransla bölgelere birleştirilir. Güç: kesişen seviyelerin ağırlık toplamı (uzun dönem daha ağır); skor ≥ 10 güçlü sayılır. En az 2 farklı yöntemin kesiştiği, fiyatın ±%30'u içindeki en güçlü 3 destek ve 3 direnç gösterilir.</p>
+    ${info(`Önceki yıl/çeyrek/ay/hafta yüksek-düşük-orta seviyeleri, dönem açılışları, haftalık dönüş noktaları, 1 yıllık hacim profili, 52 hafta, ortalamalar, aylık pivot ve kapanmamış boşluklar
+      yarım ATR toleransla bölgelere birleştirilir. Güç: kesişen seviyelerin ağırlık toplamı (uzun dönem daha ağır); skor ≥ 10 güçlü sayılır. En az 2 farklı yöntemin kesiştiği, fiyatın ±%30'u içindeki en güçlü 3 destek ve 3 direnç gösterilir.`)}
   </section>`;
 }
 export async function renderDetail(t) {
@@ -91,6 +96,10 @@ export async function renderDetail(t) {
     ['VWMA20 farkı', `<span class="${cls(s.vsVwma20)}">${fmt.pct(s.vsVwma20)}</span>`, ''],
     ['ATR 14', fmt.pctPlain(s.atrPct), ok(s.atrPct) && ok(s.last) ? `<span class="muted num">≈ ${fmt.price(s.atrPct * s.last)} ₺</span>` : ''],
   ];
+  const hasSr = !isIdx && !!((s.srRes || []).length + (s.srSup || []).length);
+  const tabs = [['genel', 'Genel'], ...(hasSr ? [['sr', 'Destek / direnç']] : []), ...(isIdx ? [] : [['temettu', 'Temettü'], ['temel', 'Temel ve değerleme']]),
+    ...(peers.length > 1 ? [['sektor', `Sektör <span class="n">${peers.length}</span>`]] : [])];
+  const tab = tabs.some(([k]) => k === state.dtab) ? state.dtab : 'genel';
   const fundRows = [
     ['Piyasa değeri', 'mcap', x => fmt.big(x) + ' ₺'], ['F/K', 'pe'], ['PD/DD', 'pb'], ['FD/FAVÖK', 'evEbitda'],
     ['Net marj', 'netMargin'], ['ÖK kârlılığı', 'roe'], ['Borç / ÖK', 'de'], ['Satış büyümesi', 'revGrowth'], ['Kâr büyümesi', 'epsGrowth'], [`Temettü verimi (${DIV_Y})`, 'divYield'], ['Dağıtma oranı', 'payout'], ['Halka açıklık', 'freeFloat'],
@@ -101,7 +110,7 @@ export async function renderDetail(t) {
     <a class="back" href="#/">← Tarama</a>
     <div>
       <h1>${isIdx ? '' : `<button type="button" class="star" data-star="${t}" aria-pressed="${starred}" aria-label="İzleme listesi">★</button>`}${esc(t)}${tedbirIcon(s)}</h1>
-      <p class="sub">${isIdx ? '' : tierChip(s) + ' '}${esc(s.name || '')}${s.sector ? ' · ' + esc(s.sector) : ''}${s.industry ? ' · ' + esc(s.industry) : ''}</p>
+      <p class="sub">${isIdx ? '' : tierChip(s, true) + ' '}${esc(s.name || '')}${s.sector ? ' · ' + esc(s.sector) : ''}${s.industry ? ' · ' + esc(s.industry) : ''}</p>
     </div>
     <div class="px"><span class="price">${fmt.price(s.last)}${isIdx ? '' : ' ₺'}</span><span class="chg ${cls(s.chg1d)}">${fmt.pct(s.chg1d)}</span><span class="date">${fmt.date(s.date)} kapanış</span></div>
     ${isIdx ? '' : `<div class="row"><button type="button" class="btn" data-cmpadd="${t}">${state.compare.includes(t) ? '⇆ Karşılaştırmada' : '⇆ Karşılaştır'}</button><button type="button" class="btn" data-pfaddsym="${t}">+ Portföye ekle${state.portfolio.some(p => p.sym === t) ? ' <span class="chip up">var</span>' : ''}</button></div>`}
@@ -111,14 +120,24 @@ export async function renderDetail(t) {
   <div class="chartbar">
     <div class="seg" role="group" aria-label="Zaman aralığı">${Object.keys(RANGES).map(r => `<button type="button" data-range="${r}" aria-pressed="${state.chart.range === r}">${r}</button>`).join('')}</div>
     <div class="seg" role="group" aria-label="Fiyat ölçeği">${[['lin', 'Doğrusal', 'Doğrusal fiyat ölçeği'], ['log', 'Log', 'Logaritmik ölçek: oransal hareketler eşit görünür'], ['pct', '%', 'Ekrandaki ilk muma göre yüzde değişim']].map(([k, l, t]) => `<button type="button" data-cscale="${k}" aria-pressed="${state.chart.scale === k}" title="${t}">${l}</button>`).join('')}</div>
-    <div class="toggles" role="group" aria-label="Görünüm">
-      <button type="button" class="tg" data-tg="vol" aria-pressed="${state.chart.vol !== false}" title="Hacim çubuklarını göster/gizle">Hacim</button>
-      <button type="button" class="tg" data-tg="magnet" aria-pressed="${!!state.chart.magnet}" title="İmleç mumların açılış/yüksek/düşük/kapanış değerlerine yapışsın">🧲 Mıknatıs</button>
-      <button type="button" class="tg" data-cview="reset" title="Kaydırma ve yakınlaştırmayı sıfırla (seçili aralık + otomatik ölçek)">↺ Sıfırla</button>
-      <button type="button" class="tg" data-cview="full" title="Tam ekran (Esc ile çık)">⤢ Tam ekran</button>
+    <details class="dd" id="indMenu"><summary class="btn">Göstergeler ▾</summary>
+      <div class="dd-panel">
+        <div class="ms-grp">Grafik üzerinde</div>
+        <div class="dd-grid">${OVERLAYS.map(([k, l, c]) => `<button type="button" class="tg" data-tg="${k}" aria-pressed="${!!state.chart[k]}"><i style="--c:var(${c})"></i>${l}</button>`).join('')}</div>
+        <div class="ms-grp">Alt paneller</div>
+        <div class="dd-grid">${PANES.map(([k, l]) => `<button type="button" class="tg" data-tg="${k}" aria-pressed="${!!state.chart[k]}">${l}</button>`).join('')}</div>
+        <div class="ms-grp">Görünüm</div>
+        <div class="dd-grid">
+          <button type="button" class="tg" data-tg="vol" aria-pressed="${state.chart.vol !== false}" title="Hacim çubuklarını göster/gizle">Hacim</button>
+          <button type="button" class="tg" data-tg="magnet" aria-pressed="${!!state.chart.magnet}" title="İmleç mumların açılış/yüksek/düşük/kapanış değerlerine yapışsın">🧲 Mıknatıs</button>
+        </div>
+      </div>
+    </details>
+    <div class="toggles" id="indChips">${indChips()}</div>
+    <div class="toggles cview">
+      <button type="button" class="tg" data-cview="reset" title="Kaydırma ve yakınlaştırmayı sıfırla (seçili aralık + otomatik ölçek)" aria-label="Sıfırla">↺</button>
+      <button type="button" class="tg" data-cview="full" title="Tam ekran (Esc ile çık)" aria-label="Tam ekran">⤢</button>
     </div>
-    <div class="toggles" role="group" aria-label="Grafik katmanları">${OVERLAYS.map(([k, l, c]) => `<button type="button" class="tg" data-tg="${k}" aria-pressed="${!!state.chart[k]}"><i style="--c:var(${c})"></i>${l}</button>`).join('')}</div>
-    <div class="toggles" role="group" aria-label="Alt paneller">${PANES.map(([k, l]) => `<button type="button" class="tg" data-tg="${k}" aria-pressed="${!!state.chart[k]}">${l}</button>`).join('')}</div>
   </div>
   <div class="charts">
     <div class="legend" id="legend"></div>
@@ -126,10 +145,14 @@ export async function renderDetail(t) {
     ${PANES.map(([k, , title]) => `<div class="c-sub" id="pane-${k}"${state.chart[k] ? '' : ' hidden'}><span class="lbl">${title}</span></div>`).join('')}
     <button type="button" class="fullclose" data-cview="full" aria-label="Tam ekrandan çık">✕</button>
   </div>
-  <p class="charthint muted">Kaydırmak için sürükleyin, yakınlaştırmak için tekerlek ya da iki parmak. Fiyat ölçeği: sağdaki fiyat ekseninin üzerinde tekerlek ya da eksene basılı tutup yukarı/aşağı sürükleme; sonra grafik serbestçe yukarı/aşağı da kaydırılır. Eksene çift tıklama ya da ↺ Sıfırla otomatik ölçeğe döner.</p>
+  <div class="charthint">${info('Kaydırmak için sürükleyin, yakınlaştırmak için tekerlek ya da iki parmak. Fiyat ölçeği: sağdaki fiyat ekseninin üzerinde tekerlek ya da eksene basılı tutup yukarı/aşağı sürükleme; sonra grafik serbestçe yukarı/aşağı da kaydırılır. Eksene çift tıklama ya da ↺ otomatik ölçeğe döner.', 'Grafik nasıl kullanılır?')}</div>
   </div>
 
-  <div class="panels">
+  ${(s.sig || []).map(g => `<p class="note-ok sigline">Aktif sinyal: <b>${esc(SIG_NAMES[g.k] || g.k)}</b> · ${g.tf === '4H' ? '4 saatlik' : 'günlük'} (${g.d.includes(' ') ? fmt.date(g.d.split(' ')[0]) + ' ' + g.d.split(' ')[1] : fmt.date(g.d)}) · giriş ${fmt.price(g.e)} · ${g.armed ? `takip stopu ${fmt.price(g.s)}` : `stop ${fmt.price(g.s)} · +1R'de (${fmt.price(g.a)}) takip başlar`}
+    · giriş sinyal günü kapanışında, pozisyon açık · <a href="#/sinyal">Sinyaller</a></p>`).join('')}
+  ${tabs.length > 1 ? `<nav class="dtabs" role="tablist" aria-label="Hisse bölümleri">${tabs.map(([k, l]) => `<button type="button" role="tab" data-dtab="${k}" aria-selected="${k === tab}">${l}</button>`).join('')}</nav>` : ''}
+  <div class="dpane" data-pane="genel"${tab === 'genel' ? '' : ' hidden'}>
+  <div class="panels two">
     <section class="panel">
       <h2>Getiriler</h2>
       <div class="rets">${rets.map(([l, k]) => `<div class="ret"><span>${l}</span><b class="${cls(s[k])}">${fmt.pct(s[k])}</b></div>`).join('')}</div>
@@ -143,9 +166,17 @@ export async function renderDetail(t) {
       <h2>Teknik görünüm</h2>
       <dl class="kv">${tech.map(([l, v, n]) => `<dt>${l}</dt><dd>${v}</dd><dd class="note">${n}</dd>`).join('')}</dl>
     </section>
+  </div>
+  </div>
+  ${isIdx ? '' : `<div class="dpane" data-pane="sr"${tab === 'sr' ? '' : ' hidden'}>${srPanelHtml(s)}</div>
+  <div class="dpane" data-pane="temettu"${tab === 'temettu' ? '' : ' hidden'}>
+    <section class="panel" id="divPanel"><h2>Temettü geçmişi</h2><p class="muted">Yükleniyor…</p></section>
+    <section class="panel" id="qualPanel"><h2>Temettü güvenliği ve finansal kalite</h2><p class="muted">Yükleniyor…</p></section>
+  </div>
+  <div class="dpane" data-pane="temel"${tab === 'temel' ? '' : ' hidden'}>
     <section class="panel">
       <h2>Temel veriler</h2>
-      ${isIdx ? '<p class="muted">Endeks için temel veri yok.</p>' : `
+      
       <dl class="kv">
         <dt class="colhead"></dt><dd class="colhead">${esc(t)}</dd><dd class="colhead note">Sektör medyanı</dd>
         ${fundRows.map(([l, k, f]) => {
@@ -153,20 +184,15 @@ export async function renderDetail(t) {
           return `<dt>${l}</dt><dd class="${fd.color ? cls(s[k]) : ''}">${fn(s[k])}</dd><dd class="note num">${fn(med[k])}</dd>`;
         }).join('')}
       </dl>
-      <p class="muted" style="font-size:12px;margin:8px 0 0">${s.period ? `Son bilanço: <b>${esc(s.period)}</b> · ` : 'Mali tablo bulunamadı · '}Gelir kalemleri son 12 ay. ${s.finGroup === 'UFRS' ? 'Banka/sigorta: satışa dayalı oranlar hesaplanmaz. ' : ''}Sektör: ${esc(s.sector || '—')} (${med.n || 0} hisse).</p>`}
+      <p class="muted" style="font-size:12px;margin:8px 0 0">${s.period ? `Son bilanço: <b>${esc(s.period)}</b> · ` : 'Mali tablo bulunamadı · '}Gelir kalemleri son 12 ay. ${s.finGroup === 'UFRS' ? 'Banka/sigorta: satışa dayalı oranlar hesaplanmaz. ' : ''}Sektör: ${esc(s.sector || '—')} (${med.n || 0} hisse).</p>
     </section>
-  </div>
-
-  ${(s.sig || []).map(g => `<p class="note-ok sigline">Aktif sinyal: <b>${esc(SIG_NAMES[g.k] || g.k)}</b> · ${g.tf === '4H' ? '4 saatlik' : 'günlük'} (${g.d.includes(' ') ? fmt.date(g.d.split(' ')[0]) + ' ' + g.d.split(' ')[1] : fmt.date(g.d)}) · giriş ${fmt.price(g.e)} · ${g.armed ? `takip stopu ${fmt.price(g.s)}` : `stop ${fmt.price(g.s)} · +1R'de (${fmt.price(g.a)}) takip başlar`}
-    · giriş sinyal günü kapanışında, pozisyon açık · <a href="#/sinyal">Sinyaller</a></p>`).join('')}
-  ${isIdx ? '' : srPanelHtml(s)}
-  ${isIdx ? '' : '<section class="panel" id="divPanel"><h2>Temettü geçmişi</h2><p class="muted">Yükleniyor…</p></section>'}
-  ${isIdx ? '' : '<section class="panel" id="qualPanel"><h2>Temettü güvenliği ve finansal kalite</h2><p class="muted">Yükleniyor…</p></section>'}
-  ${isIdx ? '' : '<section class="panel" id="finPanel"><h2>Mali tablolar</h2><p class="muted">Yükleniyor…</p></section>'}
-  ${isIdx ? '' : '<section class="panel" id="dcfPanel"><h2>DCF · indirgenmiş nakit akışı</h2><p class="muted">Yükleniyor…</p></section>'}
-
+    <section class="panel" id="finPanel"><h2>Mali tablolar</h2><p class="muted">Yükleniyor…</p></section>
+    <section class="panel" id="dcfPanel"><h2>DCF · indirgenmiş nakit akışı</h2><p class="muted">Yükleniyor…</p></section>
+  </div>`}
+  <div class="dpane" data-pane="sektor"${tab === 'sektor' ? '' : ' hidden'}>
   ${peers.length > 1 ? `<section class="panel peers"><h2>${esc(s.sector)} sektöründeki hisseler</h2>
-    <div class="tablewrap">${tableHtml(sorted(peers), colsFor(state.view), { sortable: false, highlight: t })}</div></section>` : ''}`;
+    <div class="tablewrap">${tableHtml(sorted(peers), colsFor(state.view), { sortable: false, highlight: t })}</div></section>` : ''}
+  </div>`;
 
   if (!isIdx) {
     (s.period || s.dsScore != null ? loadFin(t) : Promise.resolve(null)).then(j => {
@@ -221,7 +247,7 @@ export function renderDivPanel(s, h) {
       ${years.map(y => `<tr><td class="tk">${y}</td><td>${fmt.price(byYear[y])}</td><td>${fmt.pctPlain(avgYear[y])}</td><td>${fmt.pctPlain(byYear[y] / s.last)}</td></tr>`).join('')}
     </tbody></table></div>
   </div>
-  <p class="muted" style="font-size:12px;margin:8px 0 0">Verim: <b>O gün</b> ödeme günündeki fiyata, <b>Bağıl</b> önceki temettüden bu temettüye kadarki ortalama kapanış fiyatına (ilk temettüde son 1 yıl), <b>Bugün</b> güncel fiyata göre. Geçmiş ödemeler brüt, bedelsiz sermaye artırımlarına göre düzeltilmiş (temettuhisseleri.com ve Yahoo Finance karşılaştırılarak); tarih, hak kullanım tarihidir. Açıklanan temettüler stopaj sonrası net tutardır (temettuhisseleri.com).</p>`;
+  ${info(`Verim: <b>O gün</b> ödeme günündeki fiyata, <b>Bağıl</b> önceki temettüden bu temettüye kadarki ortalama kapanış fiyatına (ilk temettüde son 1 yıl), <b>Bugün</b> güncel fiyata göre. Geçmiş ödemeler brüt, bedelsiz sermaye artırımlarına göre düzeltilmiş (temettuhisseleri.com ve Yahoo Finance karşılaştırılarak); tarih, hak kullanım tarihidir. Açıklanan temettüler stopaj sonrası net tutardır (temettuhisseleri.com).`, 'Verim nasıl hesaplanır?')}`;
 }
 export function css(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
 export function drawCharts(h) {

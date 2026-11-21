@@ -1,6 +1,6 @@
 import { DATA } from './data.js';
 import { $ } from './dom.js';
-import { F1, F2, esc, fmt, ok } from './util.js';
+import { F1, F2, esc, fmt, ok, info } from './util.js';
 
 /* ============================================================
    Hisse sayfası: temettü güvenliği, F-skoru, verim bandı ve mali tablolar
@@ -63,8 +63,8 @@ function bandHtml(s) {
         <dt>Mutlak</dt><dd>%${Math.round(s.yieldPctAbs * 100)}. dilim</dd><dd class="note">çubuktaki konum</dd>
         ${ok(mk) ? `<dt>Piyasa verimi</dt><dd>${fmt.pctPlain(mk)}</dd><dd class="note">${ok(mkp) ? `4 yılın %${Math.round(mkp * 100)}. diliminde` : ''}</dd>` : ''}
       </dl>
-      <p class="muted" style="font-size:12px;margin:6px 0 0">Piyasa genelinde verim yükseldiğinde (ör. 2022'de ~%1, bugün ~%3) her hisse kendi geçmişine göre "ucuz" görünür. Bu yüzden ana ölçü,
-        hissenin piyasaya göre veriminin kendi geçmişindeki yeridir: üst dilimler hissenin piyasaya göre her zamankinden ucuz olduğunu gösterir. Temettü kesilecekse yanıltıcıdır; güvenlik skoruyla birlikte okuyun.</p>
+      ${info(`Piyasa genelinde verim yükseldiğinde (ör. 2022'de ~%1, bugün ~%3) her hisse kendi geçmişine göre "ucuz" görünür. Bu yüzden ana ölçü,
+        hissenin piyasaya göre veriminin kendi geçmişindeki yeridir: üst dilimler hissenin piyasaya göre her zamankinden ucuz olduğunu gösterir. Temettü kesilecekse yanıltıcıdır; güvenlik skoruyla birlikte okuyun.`, 'Neden piyasaya göre?')}
     </div>`;
 }
 
@@ -72,6 +72,9 @@ export function renderQualityPanel(s, j) {
   const el = $('#qualPanel');
   if (!el) return;
   const ds = j?.ds, f = j?.f;
+  // Hiçbir bölüm hesaplanamadıysa kartı gösterme
+  el.hidden = !ds && !f?.fItems && !(ok(s.yieldPctAbs) && ok(s.yieldMax) && s.yieldMax > 0);
+  if (el.hidden) return;
   const dsHtml = !ds ? `<p class="muted">${(s.divCur || s.divPrev) ? 'Skor için yeterli mali tablo verisi yok.' : 'Son iki takvim yılında temettü ödemediği için temettü güvenlik skoru hesaplanmaz.'}</p>` : `
     <div class="bigscore"><span class="score ${ok(s.dsScore) ? scoreCls(s.dsScore, 70, 50) : ''}">${ok(s.dsScore) ? s.dsScore : '—'}</span><span class="muted">/ 100</span>
       ${ok(s.dsScore) ? '' : '<span class="muted" style="font-size:12px">bileşenlerin çoğu eksik</span>'}</div>
@@ -81,7 +84,7 @@ export function renderQualityPanel(s, j) {
         <td class="pbar">${pts == null ? '<span class="muted">uygulanmaz</span>' : `<span class="meter"><i style="width:${pts / mx * 100}%"></i></span>`}</td>
         <td class="num">${pts == null ? '' : `${F1.format(pts).replace(',0', '')}/${mx}`}</td></tr>`;
     }).join('')}</tbody></table>
-    <p class="muted" style="font-size:12px;margin:6px 0 0">Satırın üzerine gelince (telefonda dokununca) puanlama eşikleri görünür. Uygulanamayan ya da verisi olmayan bileşenler hesaba katılmaz; puan kalanların toplamına göre 100'e ölçeklenir.</p>`;
+    ${info(`Satırın üzerine gelince (telefonda dokununca) puanlama eşikleri görünür. Uygulanamayan ya da verisi olmayan bileşenler hesaba katılmaz; puan kalanların toplamına göre 100'e ölçeklenir.`)}`;
   const fHtml = !f?.fItems ? `<p class="muted">${s.finGroup === 'UFRS' ? 'Bankalarda kalem yapısı farklı olduğu için hesaplanmaz.' : 'Mali tablo verisi yetersiz.'}</p>` : `
     <div class="bigscore"><span class="score ${ok(s.fScore) ? scoreCls(s.fScore, 7, 4) : ''}">${ok(s.fScore) ? s.fScore : '—'}</span><span class="muted">/ 9</span></div>
     <table class="grid parts"><thead><tr><th class="tk"></th><th>Şimdi</th><th>Bir yıl önce</th></tr></thead><tbody>${F_ITEMS.map(([label, hint, kind], i) => {
@@ -90,7 +93,7 @@ export function renderQualityPanel(s, j) {
       const prevShown = [2, 4, 5, 7, 8].includes(i) ? fv(b, kind) : i === 3 ? `net kâr ${fv(b, kind)}` : '';
       return `<tr title="${esc(hint)}"><td class="tk">${mark} ${label}</td><td class="num">${fv(a, kind)}</td><td class="num muted">${prevShown}</td></tr>`;
     }).join('')}</tbody></table>
-    <p class="muted" style="font-size:12px;margin:6px 0 0">Son 12 ay, bir yıl önceki son 12 ayla karşılaştırılır. Enflasyon muhasebesi (TMS 29) nedeniyle tutarlar yaklaşıktır; kriterlerin çoğu oran olduğu için daha az etkilenir.</p>`;
+    ${info(`Son 12 ay, bir yıl önceki son 12 ayla karşılaştırılır. Enflasyon muhasebesi (TMS 29) nedeniyle tutarlar yaklaşıktır; kriterlerin çoğu oran olduğu için daha az etkilenir.`)}`;
   el.innerHTML = `<h2>Temettü güvenliği ve finansal kalite</h2>
     <div class="qualgrid">
       <div><h3>Temettü güvenlik skoru</h3>${dsHtml}</div>
@@ -105,7 +108,8 @@ export function renderFinPanel(s, j) {
   const el = $('#finPanel');
   if (!el) return;
   const st = j?.st;
-  if (!st) { el.innerHTML = '<h2>Mali tablolar</h2><p class="muted">Bu hisse için mali tablo verisi yok (İş Yatırım verisi yeni yüklenmiş olabilir; bir sonraki güncellemelerde gelir).</p>'; return; }
+  el.hidden = !st;
+  if (!st) return;
   const q = finMode === 'q';
   const heads = q ? st.q.map(qLabel) : st.y.map(String);
   const rows = st.rows.map(([k, label, kind, qv, yv]) => {
@@ -121,7 +125,7 @@ export function renderFinPanel(s, j) {
       <button type="button" data-finmode="y" aria-pressed="${!q}">Yıllık</button>
     </div>
     <div class="tablewrap flat"><table class="grid fintable"><thead><tr><th class="tk">Kalem</th><th></th>${heads.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div>
-    <p class="muted" style="font-size:12px;margin:8px 0 0">Kaynak: İş Yatırım mali tabloları (konsolide). Çeyreklik: yalnızca o çeyreğin tutarı (bilanço kalemleri dönem sonu).${st.group === 'XI_29' ? ` FAVÖK = faaliyet kârı + amortisman;
-      serbest nakit akışı = faaliyet nakit akışı − yatırım harcaması.` : ''} Enflasyon muhasebesi (TMS 29) nedeniyle her rapor kendi dönem sonu satın alma gücüyle yayımlanır; dönemler arası tutar karşılaştırmaları yaklaşıktır.</p>`;
+    ${info(`Kaynak: İş Yatırım mali tabloları (konsolide). Çeyreklik: yalnızca o çeyreğin tutarı (bilanço kalemleri dönem sonu).${st.group === 'XI_29' ? ` FAVÖK = faaliyet kârı + amortisman;
+      serbest nakit akışı = faaliyet nakit akışı − yatırım harcaması.` : ''} Enflasyon muhasebesi (TMS 29) nedeniyle her rapor kendi dönem sonu satın alma gücüyle yayımlanır; dönemler arası tutar karşılaştırmaları yaklaşıktır.`, 'Kaynak ve notlar')}`;
   el.querySelectorAll('[data-finmode]').forEach(b => b.addEventListener('click', () => { finMode = b.dataset.finmode; renderFinPanel(s, j); }));
 }

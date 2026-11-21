@@ -17,7 +17,13 @@ Tarayıcıda çalışır, telefonda ana ekrana eklenince uygulama gibi açılır
   dönüş noktaları, 1 yıllık hacim profili (POC/VAH/VAL), 52 hafta, SMA200/50, haftalık SMA50, aylık pivot, kapanmamış
   boşluklar ve yuvarlak sayılar yarım ATR toleransla bölgelere birleştirilir; ağırlıklı skor (≥ 10 güçlü) ve kesişim
   sayısı. Grafikte katman, hisse sayfasında tablo, taramada uzaklık/güç sütunları ve hazır taramalar, portföyde destek.
-- **Sütun seçimi ve sırası:** her sekmede "☰ Sütunlar" ile sütun gizle/göster, diğer sekmelerden ya da ek alanlardan
+- **Arayüz düzeni:** üstte Tarama · Sinyaller · Portföy · Karşılaştır (telefonda alt sekme çubuğu); Rehber (?) ve
+  Aktar (⚙) sağ üstte; veri tarihi üst çubukta rozet olarak (eskiyse sarı). Taramanın üstünde "Bugün" kartları (açık
+  sinyaller, portföy, izleme listesi, 14 gün içindeki temettüler). Hazır taramalar Teknik / Temettü / Temel / Kayıtlı
+  başlıkları altında gruplu. Hisse sayfasında grafik üstte, altında sekmeler (Genel, Destek / direnç, Temettü, Temel ve
+  değerleme, Sektör); göstergeler tek menüde, açık olanlar etiket olarak; verisi olmayan kartlar gizlenir. Uzun
+  açıklamalar "ⓘ" satırlarında katlı.
+- **Sütun seçimi ve sırası:** her sekmede "☰ Görünüm" ile sütun gizle/göster, diğer sekmelerden ya da ek alanlardan
   sütun ekle, ↑ ↓ ile sırala; bilgisayarda başlıkları sürükleyerek de sıralanır. Sekme başına saklanır,
   "Varsayılana dön" ile sıfırlanır.
 - **Kayıtlı taramalar:** filtre + endeks + sektör + hazır tarama kombinasyonunu adıyla kaydet, tek dokunuşla aç.
@@ -41,7 +47,7 @@ Tarayıcıda çalışır, telefonda ana ekrana eklenince uygulama gibi açılır
   GitHub Gist'inde tutulur; erişim anahtarı (yalnızca `gist` yetkisi) sadece cihazın tarayıcısında saklanır.
   Açılışta, uygulamaya dönünce ve değişiklikten sonra eşitlenir; iki cihaz habersiz değiştirirse sorulur.
   Site bağlantısı paylaşılabilir: başkaları kendi (boş) portföyünü görür.
-- **Aktar:** izleme listesi, kayıtlı taramalar ve portföyü bir kod ya da bağlantıyla başka cihaza taşı.
+- **Aktar (⚙):** izleme listesi, kayıtlı taramalar ve portföyü bir kod ya da bağlantıyla başka cihaza taşı.
 - **Güncelleme uyarısı:** yeni sürüm yayınlanınca uygulamada "Yeni sürüm hazır · Yenile" çıkar.
 
 ## Veri kaynakları

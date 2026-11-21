@@ -1,6 +1,6 @@
 import { CMP_MAX, renderCompare } from './compare.js';
 import { BY, DATA, HIST, loadSummary } from './data.js';
-import { PANES, charts, drawCharts, renderDetail, setRange, toggleFull } from './detail.js';
+import { PANES, charts, drawCharts, indChips, renderDetail, setRange, toggleFull } from './detail.js';
 import { $, view } from './dom.js';
 import { PRESETS, VIEWS } from './fields.js';
 import { ASSETS, ASSET_CATS, CASH, applyTx, confirmDiv, ensureCash, isAssetCat, isCash, isCoin, isCrypto, num, numDec, pfCalc, pfId, removePosition, removeTx, toTl, trNum, undoDiv } from './pfcore.js';
@@ -68,9 +68,11 @@ view.addEventListener('click', e => {
     if (state.preset === 'watch' && !location.hash.startsWith('#/h/')) renderScreener();
     return;
   }
+  if (d.pgroup) { ui.pgroup = ui.pgroup === d.pgroup ? null : d.pgroup; renderScreener(); return; }
   if (d.preset) {
     state.preset = d.preset;
     const p = PRESETS.find(x => x.id === d.preset);
+    if (!p?.group) ui.pgroup = null;
     if (p?.sort) state.sort = { key: p.sort[0], dir: p.sort[1] };
     persist(); renderScreener(); return;
   }
@@ -211,9 +213,16 @@ view.addEventListener('click', e => {
     return;
   }
   if (d.cview === 'full') { toggleFull(); return; }
+  if (d.dtab) {
+    state.dtab = d.dtab; persist();
+    view.querySelectorAll('[data-dtab]').forEach(x => x.setAttribute('aria-selected', x.dataset.dtab === d.dtab));
+    view.querySelectorAll('.dpane').forEach(x => { x.hidden = x.dataset.pane !== d.dtab; });
+    return;
+  }
   if (d.tg) {
-    state.chart[d.tg] = !state.chart[d.tg]; persist();
-    b.setAttribute('aria-pressed', state.chart[d.tg]);
+    state.chart[d.tg] = d.tg === 'vol' ? state.chart.vol === false : !state.chart[d.tg]; persist();
+    view.querySelectorAll(`#indMenu [data-tg="${d.tg}"]`).forEach(x => x.setAttribute('aria-pressed', state.chart[d.tg]));
+    const chips = $('#indChips'); if (chips) chips.innerHTML = indChips();
     for (const [k] of PANES) $(`#pane-${k}`).hidden = !state.chart[k];
     const t = location.hash.slice(4);
     if (HIST.has(t)) drawCharts(HIST.get(t));
@@ -221,6 +230,8 @@ view.addEventListener('click', e => {
   }
   if (d.t) location.hash = `#/h/${d.t}`;
 });
+// Açılır menüler (<details class="dd">): dışarı tıklanınca kapanır
+document.addEventListener('click', e => { document.querySelectorAll('details.dd[open]').forEach(x => { if (!x.contains(e.target)) x.open = false; }); });
 // Bilgisayarda başlığı sürükleyip bırakarak sütun sırası
 export let dragCol = null;
 view.addEventListener('dragstart', e => {
@@ -248,6 +259,7 @@ view.addEventListener('drop', e => {
 view.addEventListener('change', e => {
   if (e.target.id === 'backupFile') { readBackupFile(e.target.files?.[0]); return; }
   if (e.target.id === 'indexSel') { state.index = e.target.value; persist(); renderScreener(); return; }
+  if (e.target.id === 'hideTedbir') { state.hideTedbir = e.target.checked; persist(); refreshResults(); return; }
   const ms = e.target.closest('.ms');
   if (ms && e.target.type === 'checkbox') {
     const k = ms.dataset.ms, v = e.target.value;
@@ -262,7 +274,6 @@ view.addEventListener('change', e => {
   }
   if (e.target.id === 'txFlow') { txReadForm(); const el = $('#txAmt'); if (el) el.innerHTML = txPreview(ui.txForm); return; }
   if (e.target.id === 'pfSym' && isAssetCat(ui.pfForm?.cat)) { pfReadForm(); ui.pfForm.cost = ui.pfForm.sym === 'TRY' ? '' : coinSym(ui.pfForm) ? usdPrice(ui.pfForm.sym) : currentPrice(ui.pfForm); ui.pfForm.flow = defaultFlow(ui.pfForm.sym, false); renderPortfolio(); return; }
-  if (e.target.id === 'hideTedbir') { state.hideTedbir = e.target.checked; persist(); renderScreener(); return; }
   const row = e.target.closest('.frow');
   if (!row) return;
   const f = state.filters[+row.dataset.i];

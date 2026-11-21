@@ -28,17 +28,20 @@
     <nav class="nav" aria-label="Bölümler">
       <a href="#/" data-nav="tarama">Tarama</a>
       <a href="#/sinyal" data-nav="sinyal">Sinyaller</a>
-      <a href="#/karsilastir" data-nav="karsilastir">Karşılaştır</a>
       <a href="#/portfoy" data-nav="portfoy">Portföy</a>
-      <a href="#/aktar" data-nav="aktar">Aktar</a>
-      <a href="#/rehber" data-nav="rehber">Rehber</a>
+      <a href="#/karsilastir" data-nav="karsilastir">Karşılaştır</a>
     </nav>
     <div class="idx" id="idx"></div>
+    <button type="button" class="stamp" id="dataBadge" hidden></button>
     <form class="search" id="searchForm" role="search">
       <label class="sr" for="search">Hisse ara</label>
       <input id="search" list="tickerList" placeholder="Hisse kodu, ör. THYAO" autocomplete="off" autocapitalize="characters" spellcheck="false">
       <datalist id="tickerList"></datalist>
     </form>
+    <div class="tools">
+      <a href="#/rehber" data-nav="rehber" class="icon" title="Rehber ve terim sözlüğü" aria-label="Rehber">?</a>
+      <a href="#/aktar" data-nav="aktar" class="icon" title="Yedek, senkronizasyon ve aktarma" aria-label="Yedek ve aktarma">⚙</a>
+    </div>
   </div>
 </header>
 <div class="wrap">
@@ -49,6 +52,12 @@
     <span>Fiyat: Yahoo Finance (gecikmeli) · Temettü: temettuhisseleri.com + Yahoo · Mali tablolar: İş Yatırım · Endeksler: Borsa İstanbul. Yatırım tavsiyesi değildir.</span>
   </footer>
 </div>
+<nav class="bnav" aria-label="Bölümler (alt)">
+  <a href="#/" data-nav="tarama"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Tarama</a>
+  <a href="#/sinyal" data-nav="sinyal"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/></svg>Sinyaller</a>
+  <a href="#/portfoy" data-nav="portfoy"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v9l7.8 4.5"/><circle cx="12" cy="12" r="9"/></svg>Portföy</a>
+  <a href="#/karsilastir" data-nav="karsilastir"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 17l5-6 4 3 7-9"/><path d="M4 20h16"/></svg>Karşılaştır</a>
+</nav>
 <div class="syncbar" id="syncBar" role="alert" hidden></div>
 <div class="updatebar" id="updateBar" role="status" hidden>Yeni sürüm hazır. <button type="button" id="reloadBtn">Yenile</button></div>
 </body>

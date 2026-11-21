@@ -18,3 +18,5 @@ export const fmt = {
 export const cls = x => !ok(x) || x === 0 ? '' : x > 0 ? 'up' : 'down';
 export const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 export const TREND = { up: ['Yükseliş', 'up'], down: ['Düşüş', 'down'], flat: ['Yatay', ''] };
+// Uzun açıklamalar: varsayılan kapalı, "ⓘ Nasıl hesaplanır?" satırına dokununca açılır
+export const info = (html, label = 'Nasıl hesaplanır?') => `<details class="info"><summary>ⓘ ${label}</summary><div>${html}</div></details>`;

@@ -34,10 +34,16 @@ export async function loadSummary() {
   $('#idx').innerHTML = ix ? `<a href="#/h/XU100" class="muted" style="text-decoration:none">BIST 100</a> <b class="num">${F2.format(ix.last)}</b> <span class="num ${cls(ix.chg1d)}">${fmt.pct(ix.chg1d)}</span>` : '';
   const upd = new Date(DATA.updated);
   $('#stamp').textContent = `Son veri: ${fmt.date(DATA.lastDate)} · güncellendi ${upd.toLocaleString('tr-TR', { dateStyle: 'short', timeStyle: 'short' })}`;
-  const banner = $('#banner');
+  const banner = $('#banner'), badge = $('#dataBadge');
   const ageDays = (Date.now() - new Date(DATA.lastDate + 'T18:00:00+03:00')) / 864e5;
+  const stale = !DATA.sample && ageDays > 4;
+  badge.hidden = false;
+  badge.classList.toggle('warn', stale);
+  badge.textContent = `Veri ${fmt.date(DATA.lastDate).slice(0, 5)}${stale ? ' ⚠' : ''}`;
+  badge.title = `Son kapanış ${fmt.date(DATA.lastDate)} · güncellendi ${upd.toLocaleString('tr-TR', { dateStyle: 'short', timeStyle: 'short' })}`;
+  const staleMsg = `Veri ${fmt.date(DATA.lastDate)} tarihli. Otomatik güncelleme aksamış olabilir (GitHub Actions'ı kontrol edin).`;
+  badge.onclick = () => { if (!DATA.sample) { banner.textContent = stale ? staleMsg : badge.title + '. Fiyatlar gecikmelidir; site gün içinde saatlik güncellenir.'; banner.hidden = !banner.hidden; } };
   if (DATA.sample) { banner.textContent = 'ÖRNEK VERİ: Bu sayılar rastgele üretildi, gerçek piyasa verisi değildir. Yalnızca arayüzü denemek içindir.'; banner.hidden = false; }
-  else if (ageDays > 4) { banner.textContent = `Veri ${fmt.date(DATA.lastDate)} tarihli. Otomatik güncelleme aksamış olabilir (GitHub Actions'ı kontrol edin).`; banner.hidden = false; }
 }
 export async function loadHist(t) {
   if (HIST.has(t)) return HIST.get(t);

@@ -1,10 +1,12 @@
 import { DATA } from './data.js';
 import { destroyCharts } from './detail.js';
 import { view } from './dom.js';
-import { FIELDS, MKT_NAME, OPS, PRESETS, TEXTCOLS, TIER_RANK, VIEWS, tierRank, val } from './fields.js';
+import { FIELDS, MKT_NAME, OPS, PRESETS, PRESET_GROUPS, TEXTCOLS, TIER_RANK, VIEWS, tierRank, val } from './fields.js';
 import { listOf, persist, state, ui } from './store.js';
 import { tedbirIcon } from './tedbir.js';
-import { cls, esc, ok } from './util.js';
+import { pfRows } from './pfcore.js';
+import { loadSignals } from './signals.js';
+import { cls, esc, fmt, ok } from './util.js';
 
 /* ============================================================
    Tarama ekranı
@@ -101,7 +103,7 @@ export function refreshResults() {
   view.querySelector('.count b').textContent = rows.length;
   view.querySelectorAll('.ms').forEach(m => {
     const k = m.dataset.ms;
-    if (k === 'cols') { m.querySelector('.ms-lbl').textContent = `☰ Sütunlar (${colsFor(state.view).length})`; m.classList.toggle('on', colsCustom(state.view)); return; }
+    if (k === 'cols') { m.classList.toggle('on', colsCustom(state.view) || !!state.hideTedbir); return; }
     m.querySelector('.ms-lbl').textContent = msLabel(k, m.dataset.all, m.dataset.unit);
     m.classList.toggle('on', state[k].length > 0);
   });
@@ -153,12 +155,13 @@ export function colsPanel() {
   const seen = new Set(shown);
   const addRow = k => `<label><input type="checkbox" value="${k}"> <span>${esc(colLabel(k))}</span></label>`;
   const group = (title, keys) => { keys = keys.filter(k => !seen.has(k) && (seen.add(k), true)); return keys.length ? `<div class="ms-grp">${title}</div>` + keys.map(addRow).join('') : ''; };
-  return `<div class="ms${colsCustom(v) ? ' on' : ''}" data-ms="cols">
-    <button type="button" class="btn ms-btn" data-mstoggle="cols" aria-haspopup="true" aria-expanded="${open}" title="Tabloda görünecek sütunları ve sıralarını seçin"><span class="ms-lbl">☰ Sütunlar (${cur.size})</span> ▾</button>
+  return `<div class="ms${colsCustom(v) || state.hideTedbir ? ' on' : ''}" data-ms="cols">
+    <button type="button" class="btn ms-btn" data-mstoggle="cols" aria-haspopup="true" aria-expanded="${open}" title="Sütunlar ve görünüm ayarları"><span class="ms-lbl">☰ Görünüm</span> ▾</button>
     <div class="ms-panel colpanel"${open ? '' : ' hidden'}>
+      <label class="chkrow"><input type="checkbox" id="hideTedbir"${state.hideTedbir ? ' checked' : ''}> Tedbirli hisseleri gizle</label>
       <input type="search" class="ms-q" placeholder="Sütun ara…" aria-label="Sütun ara" autocomplete="off">
       <div class="ms-list">
-        <div class="ms-grp">Görünen sütunlar · soldan sağa</div>
+        <div class="ms-grp">Sütunlar · soldan sağa (${cur.size})</div>
         ${shown.map((k, i) => `<label class="colrow"><input type="checkbox" value="${k}" checked> <span>${esc(colLabel(k))}</span>
           <button type="button" class="ic" data-colmove="${k}|-1" aria-label="${esc(colLabel(k))} sola taşı"${i === 0 ? ' disabled' : ''}>↑</button><button type="button" class="ic" data-colmove="${k}|1" aria-label="${esc(colLabel(k))} sağa taşı"${i === shown.length - 1 ? ' disabled' : ''}>↓</button></label>`).join('')}
         ${group(`${VIEWS[v].label} sekmesinden gizlenenler`, def)}
@@ -169,6 +172,52 @@ export function colsPanel() {
       <div class="ms-foot"><button type="button" class="btn" data-colsreset="1">Varsayılana dön</button><button type="button" class="btn primary" data-msclose="1">Tamam</button></div>
     </div>
   </div>`;
+}
+/* Hazır taramalar: Tümü, İzleme listem ve Aktif sinyal tek dokunuş; diğerleri Teknik / Temettü / Temel / Kayıtlı başlıkları altında.
+   Başlığa dokununca altında o grubun taramaları açılır; seçili tarama başlıkta yazar. */
+const presetBtn = (p, counts) => `<button type="button" data-preset="${p.id}" aria-pressed="${state.preset === p.id}" title="${esc(p.hint || '')}">${esc(p.label)}<span class="n">${counts[p.id]}</span></button>`;
+export function presetBar(counts) {
+  const cur = PRESETS.find(p => p.id === state.preset);
+  const anySaved = state.saved.some(sameScreen);
+  if (ui.pgroup === undefined) ui.pgroup = cur?.group || (anySaved ? 'kayitli' : null);
+  const g = ui.pgroup;
+  const grpBtn = (k, label) => {
+    const sel = k === 'kayitli' ? anySaved : cur?.group === k;
+    const sub = k === 'kayitli' ? (sel ? state.saved.find(sameScreen)?.name : null) : sel ? cur.label : null;
+    return `<button type="button" class="grp${sel ? ' sel' : ''}" data-pgroup="${k}" aria-expanded="${g === k}">${esc(label)}${sub ? `: <b>${esc(sub)}</b>` : k === 'kayitli' && state.saved.length ? `<span class="n">${state.saved.length}</span>` : ''} <span class="car" aria-hidden="true">▾</span></button>`;
+  };
+  const row = g === 'kayitli' ? `<div class="saved" role="group" aria-label="Kayıtlı taramalar">
+      ${state.saved.map((sv, i) => `<span class="svchip${sameScreen(sv) ? ' on' : ''}"><button type="button" data-load="${i}" title="${esc(describeScreen(sv))}">${esc(sv.name)}</button><button type="button" class="x" data-unsave="${i}" aria-label="${esc(sv.name)} taramasını sil">×</button></span>`).join('')}
+      ${ui.savingOpen
+        ? `<form id="saveForm" class="saveform"><label class="sr" for="saveName">Tarama adı</label><input id="saveName" maxlength="40" placeholder="Tarama adı, ör. Dipteki BIST 100" required><button class="btn">Kaydet</button><button type="button" class="btn" data-cancelsave="1">İptal</button></form>`
+        : `<button type="button" class="btn ghost" id="saveBtn">☆ Bu taramayı kaydet</button>`}
+    </div>`
+    : g ? `<div class="presets sub" role="group" aria-label="${esc(PRESET_GROUPS[g])} taramaları">${PRESETS.filter(p => p.group === g).map(p => presetBtn(p, counts)).join('')}</div>` : '';
+  return `<div class="presets" role="group" aria-label="Hazır taramalar">
+      ${PRESETS.filter(p => ['all', 'watch', 'signal'].includes(p.id)).map(p => presetBtn(p, counts)).join('')}
+      ${Object.entries(PRESET_GROUPS).map(([k, l]) => grpBtn(k, l)).join('')}
+      ${grpBtn('kayitli', '☆ Kayıtlı')}
+    </div>${row}`;
+}
+/* Bugün özeti: açık sinyaller, portföy, izleme listesi, yaklaşan temettüler (içeriği olan kartlar) */
+function todayHtml() {
+  const cards = [];
+  const nSig = DATA.stocks.filter(s => s.sig?.length).length;
+  cards.push(`<a class="tcard" href="#/sinyal"><span>Sinyaller</span><b>${nSig} açık</b><small id="tCand">morning star</small></a>`);
+  const rows = state.portfolio.length ? pfRows().filter(r => r.open) : [];
+  if (rows.length) {
+    const v = rows.reduce((a, r) => a + (r.value || 0), 0), d = rows.reduce((a, r) => a + (r.day || 0), 0);
+    cards.push(`<a class="tcard" href="#/portfoy"><span>Portföy</span><b>${fmt.big(v)} ₺</b><small class="${cls(d)}">bugün ${fmt.pct(v - d ? d / (v - d) : null)}</small></a>`);
+  }
+  const w = DATA.stocks.filter(s => state.watch.includes(s.t) && ok(s.chg1d)).sort((a, b) => b.chg1d - a.chg1d);
+  if (w.length) {
+    const mv = (s) => `${s.t} <span class="${cls(s.chg1d)}">${fmt.pct(s.chg1d)}</span>`;
+    cards.push(`<button type="button" class="tcard" data-preset="watch"><span>İzleme listesi · ${w.length}</span><b>${mv(w[0])}</b><small>${w.length > 1 ? 'en zayıf ' + mv(w.at(-1)) : ''}</small></button>`);
+  }
+  const lim = new Date(new Date(DATA.lastDate) * 1 + 14 * 864e5).toISOString().slice(0, 10);
+  const div = DATA.stocks.filter(s => s.nextDivDate && s.nextDivDate >= DATA.lastDate && s.nextDivDate <= lim).sort((a, b) => a.nextDivDate.localeCompare(b.nextDivDate));
+  if (div.length) cards.push(`<button type="button" class="tcard" data-preset="divSoon"><span>Temettü · 14 gün</span><b>${div.length} hisse</b><small>${div.slice(0, 3).map(s => `${s.t} ${fmt.date(s.nextDivDate).slice(0, 5)}`).join(' · ')}</small></button>`);
+  return `<section class="today" aria-label="Bugün özeti">${cards.join('')}</section>`;
 }
 export function renderScreener() {
   destroyCharts();
@@ -181,16 +230,9 @@ export function renderScreener() {
   const preset = PRESETS.find(p => p.id === state.preset);
 
   view.innerHTML = `
+  ${todayHtml()}
   <section class="toolbar">
-    <div class="presets" role="group" aria-label="Hazır taramalar">
-      ${PRESETS.map(p => `<button type="button" data-preset="${p.id}" aria-pressed="${state.preset === p.id}" title="${esc(p.hint || '')}">${esc(p.label)}<span class="n">${counts[p.id]}</span></button>`).join('')}
-    </div>
-    <div class="saved" role="group" aria-label="Kayıtlı taramalar">
-      ${state.saved.map((sv, i) => `<span class="svchip${sameScreen(sv) ? ' on' : ''}"><button type="button" data-load="${i}" title="${esc(describeScreen(sv))}">${esc(sv.name)}</button><button type="button" class="x" data-unsave="${i}" aria-label="${esc(sv.name)} taramasını sil">×</button></span>`).join('')}
-      ${ui.savingOpen
-        ? `<form id="saveForm" class="saveform"><label class="sr" for="saveName">Tarama adı</label><input id="saveName" maxlength="40" placeholder="Tarama adı, ör. Dipteki BIST 100" required><button class="btn">Kaydet</button><button type="button" class="btn" data-cancelsave="1">İptal</button></form>`
-        : `<button type="button" class="btn ghost" id="saveBtn">☆ Bu taramayı kaydet</button>`}
-    </div>
+    ${presetBar(counts)}
     <div class="controls">
       <div class="seg" role="group" aria-label="Sütun grubu">
         ${Object.entries(VIEWS).map(([id, v]) => `<button type="button" data-view="${id}" aria-pressed="${state.view === id}">${v.label}</button>`).join('')}
@@ -199,9 +241,8 @@ export function renderScreener() {
       <select id="indexSel" class="btn">${[['', 'Tüm hisseler'], ['30', 'BIST 30'], ['50', 'BIST 50'], ['100', 'BIST 100']].map(([v, l]) => `<option value="${v}"${v === state.index ? ' selected' : ''}>${l}</option>`).join('')}</select>
       ${multiSelect('markets', 'Tüm pazarlar', 'pazar', MARKET_OPTS.map(([v, l]) => [v, l, DATA.stocks.filter(x => x.mkt === v).length]), false)}
       ${multiSelect('sectors', 'Tüm sektörler', 'sektör', sectors.map(v => [v, v, DATA.stocks.filter(x => x.sector === v).length]), true)}
+      <button type="button" class="btn" id="addFilter">+ Filtre</button>
       ${colsPanel()}
-      <label class="btn chk"><input type="checkbox" id="hideTedbir"${state.hideTedbir ? ' checked' : ''}> Tedbirlileri gizle</label>
-      <button type="button" class="btn" id="addFilter">+ Filtre ekle</button>
       <span class="count"><b class="num">${rows.length}</b> / ${DATA.stocks.length} hisse${preset?.hint ? ` · ${esc(preset.hint)}` : ''}</span>
     </div>
     <div class="filters" id="filters">
@@ -216,4 +257,5 @@ export function renderScreener() {
     </div>
   </section>
   <div class="tablewrap">${rows.length ? tableHtml(rows, cols) : '<p class="empty">Bu koşullara uyan hisse yok.</p>'}</div>`;
+  loadSignals().then(S => { const el = view.querySelector('#tCand'); if (el && S.candidates) el.textContent = `${S.candidates.length} hazırlanan formasyon`; }).catch(() => {});
 }

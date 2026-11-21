@@ -6,14 +6,19 @@ import { esc } from './util.js';
    Rehber: kısa kullanım rehberi ve aranabilir terim sözlüğü
    ============================================================ */
 const GUIDE = [
-  ['Tarama', `Ana sayfa. Üstteki sekmeler (Fiyat, Trend, Momentum, Temettü, Temel) tablonun sütun grubunu değiştirir.
-    Hazır taramalar (Aşırı satım, Güçlü trend, Yüksek temettü…) tek dokunuşla süzer; <b>+ Filtre</b> ile kendi koşulunuzu ekleyin
-    (yüzde alanlara yüzde yazın: 5 = %5). Endeks, pazar ve sektörde birden fazla seçim yapılabilir. Beğendiğiniz taramayı
-    <b>Kaydet</b> ile saklayın. <b>Sütunlar</b> düğmesiyle sütun ekleyip çıkarın; masaüstünde sütun başlığını sürükleyerek, telefonda
-    paneldeki oklarla sırasını değiştirin. Başlığa dokununca sıralanır.`],
-  ['Hisse sayfası', `Tablodaki satıra dokunun. Grafikte dönem, göstergeler ve ölçek (doğrusal / log / %) seçilir;
-    fareyle ya da iki parmakla yakınlaştırıp kaydırabilir, ⤢ Tam ekran ile büyütebilirsiniz. Altta destek/direnç bölgeleri,
-    temel oranlar, temettü geçmişi ve varsa tedbirler bulunur. ★ hisseyi izleme listesine ekler.`],
+  ['Tarama', `Ana sayfa. En üstteki <b>Bugün</b> kartları açık sinyalleri, portföyünüzü, izleme listesindeki en büyük hareketleri ve
+    14 gün içindeki temettüleri özetler. Hazır taramalar gruplara ayrılmıştır: <b>Tümü</b>, <b>İzleme listem</b> ve <b>Aktif sinyal</b> tek dokunuş;
+    <b>Teknik</b>, <b>Temettü</b>, <b>Temel</b> başlıklarına dokununca altında o grubun taramaları açılır; seçili tarama başlıkta yazar.
+    <b>Kayıtlı</b> başlığı kendi taramalarınızı ve "Bu taramayı kaydet" düğmesini gösterir. Alttaki sekmeler (Fiyat, Trend, Momentum, Temettü, Temel)
+    tablonun sütun grubunu değiştirir. <b>+ Filtre</b> ile kendi koşulunuzu ekleyin (yüzde alanlara yüzde yazın: 5 = %5). Endeks, pazar ve sektörde birden
+    fazla seçim yapılabilir. <b>☰ Görünüm</b> panelinde sütun ekleyip çıkarın ve tedbirli hisseleri gizleyin; masaüstünde sütun başlığını sürükleyerek,
+    telefonda paneldeki oklarla sırasını değiştirin. Başlığa dokununca sıralanır. Endeks sütununda 30 / 50 / 100 / TÜM yazar; pazar yalnızca Yıldız ve Ana
+    dışındaysa görünür.`],
+  ['Hisse sayfası', `Tablodaki satıra dokunun. Grafikte dönem ve ölçek (doğrusal / log / %) seçilir; <b>Göstergeler</b> menüsünden ortalamalar,
+    Bollinger, Ichimoku, destek/direnç ve alt paneller (RSI, MACD…) açılır. Açık göstergeler menünün yanında etiket olarak durur; × ile kapanır.
+    Fareyle ya da iki parmakla yakınlaştırıp kaydırabilir, ⤢ ile tam ekran yapabilirsiniz. Grafiğin altındaki sekmeler: <b>Genel</b> (getiriler,
+    teknik görünüm), <b>Destek / direnç</b>, <b>Temettü</b> (geçmiş, güvenlik skoru, verim bandı, F-skoru), <b>Temel ve değerleme</b> (oranlar,
+    mali tablolar, DCF) ve <b>Sektör</b>. Verisi olmayan bölümler gösterilmez. ★ hisseyi izleme listesine ekler. "ⓘ" satırları açıklamaları açar.`],
   ['Sinyaller', `Morning star kurulumu: sert kırmızı mum, ardından küçük gövdeli (doji benzeri) mum ve 1. mumun tepesinin üstünde kapanan yeşil mum.
     Girişin üstünde doldurulmamış bir düşüş FVG'si (fiyat boşluğu) varsa sinyal üretilmez. Giriş 3. mumun kapanışında, başlangıç stopu üç mumun en düşüğünün altında; fiyat +1R'ye ulaşınca stop en yüksek fiyatın 1R altından takip eder (sabit hedef yok). Sayfada endekse göre açık sinyaller, son sonuçlar ve son 4 yılın test
     sonuçları (rastgele giriş kıyası, yıllara göre sonuç, hesap simülasyonu) görünür. Açık sinyali olan hissenin grafiğinde giriş ve stop çizgileri çizilir. "Hazırlanan formasyonlar" listesi, ilk iki mumu oluşmuş ve bir sonraki mumda tamamlanabilecek hisseleri tetik fiyatıyla gösterir. Sinyaller hem günlük (1G) hem 4 saatlik (4S: 13:30 ve kapanışta biten mumlar) grafikte aranır; satırdaki Periyot etiketi işlemin hangi periyotta olduğunu gösterir.`],
@@ -22,12 +27,12 @@ const GUIDE = [
     listesidir: alım ve satımlar ortalama maliyet yöntemiyle hesaplanır. Alımı TL bakiyesinden ödeyebilir, satış gelirini TL bakiyesine
     aktarabilirsiniz; bu iki kayıt birbirine bağlıdır ve birlikte silinir. BTC/ETH/SOL/BNB USDT ya da USDC ile alınır.
     Hisselerinize temettü ödendiğinde portföy sayfası sorar; tutarı onaylayınca kayda geçer.`],
-  ['Verilerinizi korumak', `Portföy ve listeler yalnızca bu cihazın tarayıcısında saklanır. <b>Aktar</b> sayfasında üç yol var:
+  ['Verilerinizi korumak', `Portföy ve listeler yalnızca bu cihazın tarayıcısında saklanır. Sağ üstteki <b>⚙</b> (Aktar) sayfasında üç yol var:
     <b>Yedek dosyası</b> (düzenli indirin, gerekince geri yükleyin), <b>bulut senkronizasyonu</b> (kendi özel GitHub Gist'iniz; cihazlar
     otomatik eşitlenir) ve tek seferlik taşıma için <b>Aktar kodu</b>. Tarayıcı verisini temizlemek ya da uygulamayı silmek
     yedeksiz verileri siler.`],
   ['Güncelleme', `Fiyatlar hafta içi seans boyunca yaklaşık saatte bir (GitHub'ın izin verdiği sıklıkta) güncellenir ve gecikmelidir;
-    alt bilgide son güncelleme saati yazar. Uygulamanın yeni sürümü gelince altta "Yeni sürüm hazır" çıkar; Yenile'ye basmanız yeterli.`],
+    üst çubuktaki <b>Veri</b> rozeti son kapanış tarihini gösterir (veri eskiyse sarıya döner; dokununca ayrıntı çıkar). Uygulamanın yeni sürümü gelince altta "Yeni sürüm hazır" çıkar; Yenile'ye basmanız yeterli.`],
 ];
 
 // [terim, açıklama, grup]

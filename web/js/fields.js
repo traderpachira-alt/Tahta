@@ -87,15 +87,20 @@ export const TIER_RANK = { '30': 0, '50': 1, '100': 2, 'TÜM': 3 };
 export const tierRank = s => TIER_RANK[s.idx] ?? 4;
 export const MKT_RANK = { 'Yıldız': 0, 'Ana': 1, 'Alt': 2, 'YİP': 3, 'GSP': 4, 'PÖİP': 5 };
 export const MKT_NAME = { 'Yıldız': 'Yıldız Pazar', 'Ana': 'Ana Pazar', 'Alt': 'Alt Pazar', 'YİP': 'Yakın İzleme Pazarı', 'GSP': 'Girişim Sermayesi Pazarı', 'PÖİP': 'Piyasa Öncesi İşlem Platformu' };
-export const tierChip = s => {
-  const ix = s.idx ? `<span class="ix ix${tierRank(s)}">${s.idx === 'TÜM' ? 'TÜM' : 'BIST ' + s.idx}</span>` : '<span class="ix ix4">Endeks dışı</span>';
-  const mk = s.mkt ? `<span class="mk${s.mkt === 'YİP' ? ' risk' : ''}" title="${MKT_NAME[s.mkt] || s.mkt}">${s.mkt}</span>` : '';
-  return `<span class="ixmk">${ix}${mk}</span>`;
+// Tabloda kısa etiket (30 / 50 / 100 / TÜM); pazar yalnızca Yıldız ve Ana dışındaysa yazılır, tam adı üzerine gelince görünür.
+// Hisse sayfası başlığında (full) tam hâli.
+export const tierChip = (s, full = false) => {
+  const idxName = s.idx ? (s.idx === 'TÜM' ? 'BIST TÜM' : 'BIST ' + s.idx) : 'Endeks dışı';
+  const title = `${idxName}${s.mkt ? ' · ' + (MKT_NAME[s.mkt] || s.mkt) : ''}`;
+  const ix = s.idx ? `<span class="ix ix${tierRank(s)}">${full ? idxName.replace('BIST TÜM', 'TÜM') : s.idx}</span>` : `<span class="ix ix4">${full ? 'Endeks dışı' : '—'}</span>`;
+  const showMk = s.mkt && (full || !['Yıldız', 'Ana'].includes(s.mkt));
+  const mk = showMk ? `<span class="mk${s.mkt === 'YİP' ? ' risk' : ''}">${s.mkt}</span>` : '';
+  return `<span class="ixmk${full ? ' full' : ''}" title="${esc(title)}">${ix}${mk}</span>`;
 };
 export const SR_STRONG = 10;
  // güçlü bölge eşiği (bölgelerin ~en güçlü %20'si)
 export const TEXTCOLS = {
-  _idx:    { label: 'Endeks · Pazar', sortKey: s => tierRank(s) * 10 + (MKT_RANK[s.mkt] ?? 9), cell: tierChip, title: 'Hissenin yer aldığı en dar endeks ve işlem gördüğü pazar' },
+  _idx:    { label: 'Endeks', sortKey: s => tierRank(s) * 10 + (MKT_RANK[s.mkt] ?? 9), cell: tierChip, title: 'Hissenin yer aldığı en dar endeks (30 / 50 / 100 / TÜM). Pazar yalnızca Yıldız ve Ana dışındaysa yazılır; üzerine gelince tam adı görünür.' },
   _trend:  { label: 'Trend',  sortKey: s => ({ up: 2, flat: 1, down: 0 })[s.trend] ?? null,
              cell: s => s.trend ? `<span class="chip ${TREND[s.trend][1]}">${TREND[s.trend][0]}</span>` : '—' },
   _st:     { label: 'Supertrend', sortKey: s => s.stTrend ? (s.stTrend === 'up' ? 2 : 0) + (s.stFlip ? 1 : 0) : null,
@@ -159,7 +164,7 @@ export const PRESETS = [
   { id: 'tedbir',   label: '⚠ Tedbirli',       test: s => !!s.tedbir?.length, hint: 'Borsa İstanbul tedbiri uygulanan hisseler' },
   { id: 'divSoon',  label: 'Yaklaşan temettü', test: s => !!s.divUpcoming?.length, hint: 'Açıklanmış, henüz ödenmemiş temettüsü olanlar (tarihli olanlar önce)', sort: ['_nextDiv', 1] },
   { id: 'divHigh',  label: 'Yüksek temettü',   test: s => Math.max(s.divYield || 0, s.divYieldPrev || 0) >= 0.06, hint: 'Bu yılın ya da geçen yılın temettü verimi ≥ %6', sort: ['divYield', -1] },
-  { id: 'signal',   label: 'Aktif sinyal',     test: s => !!s.sig?.length, hint: 'Morning star kurulumunda açık sinyali olanlar (Sinyaller sayfası)' },
+  { id: 'signal',   label: '◎ Aktif sinyal',     test: s => !!s.sig?.length, hint: 'Morning star kurulumunda açık sinyali olanlar (Sinyaller sayfası)' },
   { id: 'divSafe',  label: 'Güvenli temettü',  test: s => s.dsScore >= 70, hint: 'Temettü güvenlik skoru ≥ 70', sort: ['dsScore', -1] },
   { id: 'yieldTop', label: 'Verim bandının tepesi', test: s => s.yieldPct >= 0.8 && s.dsScore >= 50, hint: 'Piyasaya göre verimi kendi 4 yıllık geçmişinin üst %20\'sinde ve güvenlik skoru ≥ 50', sort: ['yieldPct', -1] },
   { id: 'dcfModest', label: 'Mütevazı fiyatlama', test: s => ok(s.dcfImpliedG) && s.dcfImpliedG <= 0.02, hint: 'Ters DCF: fiyat, serbest nakit akışının dolar bazında en fazla %2 büyümesini varsayıyor', sort: ['dcfImpliedG', 1] },
@@ -168,6 +173,14 @@ export const PRESETS = [
   { id: 'value',    label: 'Ucuz',             test: s => s.pe > 0 && s.pe < 8 && s.pb > 0 && s.pb < 1.5, hint: 'F/K < 8 ve PD/DD < 1,5', sort: ['pe', 1] },
   { id: 'quality',  label: 'Kârlı büyüme',     test: s => s.roe > 0.25 && s.netMargin > 0.1 && s.revGrowth > 0, hint: 'ÖK kârlılığı > %25, net marj > %10, satış büyüyor', sort: ['roe', -1] },
 ];
+/* Hazır tarama grupları (tarama ekranında başlık altında toplanır) */
+export const PRESET_GROUPS = { teknik: 'Teknik', temettu: 'Temettü', temel: 'Temel' };
+const GROUP_OF = {
+  teknik: ['oversold', 'overbought', 'uptrend', 'golden', 'macdUp', 'stUp', 'fisherUp', 'nearSup', 'nearRes', 'stochLow', 'cloudUp', 'high52', 'volspike', 'tedbir'],
+  temettu: ['divSoon', 'divHigh', 'divSafe', 'yieldTop', 'divReg'],
+  temel: ['dcfModest', 'fStrong', 'value', 'quality'],
+};
+for (const [g, ids] of Object.entries(GROUP_OF)) for (const id of ids) { const p = PRESETS.find(x => x.id === id); if (p) p.group = g; }
 export const OPS = { '>': (a, b) => a > b, '<': (a, b) => a < b };
 if (!VIEWS[state.view]) state.view = 'trend';
 // Sonradan eklenen varsayılan sütunlar, sütunları elle düzenlenmiş görünümlere de kendi yerlerinde eklenir

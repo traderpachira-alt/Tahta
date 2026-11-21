@@ -1,14 +1,15 @@
 import { destroyCharts } from './detail.js';
 import { view } from './dom.js';
-import { F1, F2, cls, esc, fmt, ok } from './util.js';
+import { F1, F2, cls, esc, fmt, info, ok } from './util.js';
 
 /* ============================================================
    Sinyaller: morning star kurulumu (giriş / stop / hedef) ve geriye dönük test
    Veri: data/signals.json (scripts/signals.py, her güncellemede yeniden üretilir)
    ============================================================ */
-let SIG = null, tierSel = null, tfSel = '1D';
+let SIG = null, tierSel = null, tfSel = '1D', cardOpen = false;
 // Tarih: günlük 'YYYY-MM-DD', 4 saatlik 'YYYY-MM-DD HH:MM'
 const dfmt = d => { if (!d) return '—'; const [day, time] = d.split(' '); return time ? `${fmt.date(day).slice(0, 5)} ${time}` : fmt.date(day); };
+const tk = a => `<td class="tk"><a class="code" href="#/h/${a.t}">${a.t}</a> ${tfChip(a.tf)}</td>`;
 const tfChip = tf => tf === '4H' ? '<span class="chip tf4" title="4 saatlik mumlar">4S</span>' : '<span class="chip" title="Günlük mumlar">1G</span>';
 const STATS = (S, tf) => S.timeframes ? S.stats?.[tf] : S.stats;           // eski veri biçimiyle uyumlu
 const ACCTS = (S, tf) => S.timeframes ? S.accounts?.[tf] : S.accounts;
@@ -85,59 +86,65 @@ export async function renderSignals() {
   tierSel ??= S.defaultSet;
   const inSet = a => (TIER_OF[tierSel] || []).includes(a.idx);
   const act = S.active.filter(inSet), rec = S.recent.filter(inSet), cand = (S.candidates || []).filter(inSet), u = S.strategy, P = S.params;
+  const dst = STATS(S, '1D')?.[tierSel]?.[S.defaultV], dac = ACCTS(S, '1D')?.[tierSel]?.[S.defaultV];
+  const brief = dst ? `Günlük test (${esc(tierSel)}): %${Math.round(dst.win * 100)} kârlı · işlem başına ${rFmt(dst.avgR)}${dac ? ` · hesap yıllık ${fmt.pct(dac.cagr)}` : ''}` : '';
   view.innerHTML = `
   <section class="dhead"><div><h1>Sinyaller</h1>
     <p class="sub">${esc(u.name)}: ${esc(u.summary)}</p></div></section>
-  <p class="note-fx" style="margin:0 0 12px">Kurallar son 4 yılda aynı kodla geriye dönük test edildi; sonuçlar aşağıda. Geçmiş başarı geleceği garanti etmez
-    (test bugünkü endeks bileşenleriyle yapıldı). Yatırım tavsiyesi değildir; işlem başına sermayenin en fazla %${F1.format(S.account.risk * 100)}'ini riske etmeniz önerilir.</p>
-  <div class="presets" role="group" aria-label="Endeks" style="margin-bottom:12px">
+  <div class="presets" role="group" aria-label="Endeks">
     ${S.tierSets.map(n => `<button type="button" data-sigt="${esc(n)}" aria-pressed="${tierSel === n}">${esc(n)} <span class="n">${S.active.filter(a => TIER_OF[n].includes(a.idx)).length}</span></button>`).join('')}
   </div>
 
   <section class="panel">
-    <h2>Açık sinyaller <span class="muted" style="font-weight:400">· ${esc(tierSel)} · ${act.length}</span></h2>
+    <h2>Açık sinyaller <span class="muted" style="font-weight:400">· ${act.length}</span></h2>
     ${act.length ? `<div class="tablewrap flat"><table class="grid sigtable"><thead><tr>
-      <th class="tk">Hisse</th><th class="txt" title="1G: günlük mum · 4S: 4 saatlik mum">Periyot</th><th class="txt">Endeks</th><th title="3. mumun kapanışı (4S'de mumun bitiş saati)">Sinyal</th><th title="3. mumun kapanışı">Giriş</th>
-      <th title="Üç mumun en düşüğünün %0,1 altı (−1R)">Başlangıç stopu</th><th title="Bugünkü stop seviyesi: takip başladıysa en yüksek fiyatın 1R altı">Güncel stop</th>
-      <th title="Fiyat bu seviyeye (+1R) ulaşınca stop takibe başlar">Takip başlar</th><th>Son fiyat</th><th title="Girişe göre güncel sonuç">Güncel</th>
-      <th title="3. mumun hacmi / 20 günlük ortalama (bilgi amaçlı)">Hacim</th><th class="txt">Not</th></tr></thead><tbody>
-      ${act.map(a => `<tr data-t="${a.t}"><td class="tk"><a class="code" href="#/h/${a.t}">${a.t}</a></td><td class="txt">${tfChip(a.tf)}</td><td class="txt">${IDX_LABEL[a.idx] || ''}</td>
-        <td>${dfmt(a.d)}</td><td>${fmt.price(a.e)}</td>
-        <td>${fmt.price(a.s0)} <small class="down">${fmt.pct(pctFrom(a.s0, a.e))}</small></td>
-        <td>${a.armed ? `<b>${fmt.price(a.s)}</b> <small class="${cls(pctFrom(a.s, a.e))}">${fmt.pct(pctFrom(a.s, a.e))}</small>` : '<span class="muted">başlangıç stopu</span>'}</td>
-        <td>${a.armed ? '<span class="chip up">başladı</span>' : `${fmt.price(a.a)} <small class="up">${fmt.pct(pctFrom(a.a, a.e))}</small>`}</td>
+      <th class="tk" title="1G: günlük mum · 4S: 4 saatlik mum">Hisse</th><th title="3. mumun kapanışı (4S'de mumun bitiş saati)">Sinyal</th><th title="3. mumun kapanışı">Giriş</th>
+      <th title="Takip başlamadıysa başlangıç stopu (üç mumun en düşüğünün %0,1 altı) ve altında takibin başlayacağı +1R seviyesi; başladıysa en yüksek fiyatın 1R altı">Stop</th>
+      <th>Son fiyat</th><th title="Girişe göre güncel sonuç, R cinsinden">Güncel</th><th class="txt">Not</th></tr></thead><tbody>
+      ${act.map(a => `<tr data-t="${a.t}">${tk(a)}<td>${dfmt(a.d)}</td><td>${fmt.price(a.e)}</td>
+        <td>${a.armed ? `<b>${fmt.price(a.s)}</b> <span class="chip up">takipte</span>`
+          : `${fmt.price(a.s0)} <small class="down">${fmt.pct(pctFrom(a.s0, a.e))}</small><small class="sub2">+1R: ${fmt.price(a.a)} <span class="up">${fmt.pct(pctFrom(a.a, a.e))}</span></small>`}</td>
         <td>${fmt.price(a.c)}</td><td class="${cls(a.r)}">${rFmt(a.r)}</td>
-        <td>${ok(a.volx) ? F1.format(a.volx) + 'x' : '—'}</td>
-        <td class="txt">${a.tedbir ? '<span class="chip warn">⚠ Tedbir</span>' : ''}</td></tr>`).join('')}
+        <td class="txt">${a.tedbir ? '<span class="chip warn">⚠ Tedbir</span> ' : ''}<span class="muted" title="3. mumun hacmi / 20 günlük ortalama (bilgi amaçlı)">${IDX_LABEL[a.idx] || ''}${ok(a.volx) ? ` · hacim ${F1.format(a.volx)}x` : ''}</span></td></tr>`).join('')}
     </tbody></table></div>` : '<p class="muted">Bu evrende şu an açık sinyal yok.</p>'}
-    <p class="muted" style="font-size:12px;margin:8px 0 0"><b>R</b> = giriş − stop (risk birimi). Örnek: sermaye 1.000.000 ₺, işlem başına %0,5 risk = 5.000 ₺;
+    ${info(`<b>R</b> = giriş − stop (risk birimi). Örnek: sermaye 1.000.000 ₺, işlem başına %0,5 risk = 5.000 ₺;
       stop %5 aşağıdaysa pozisyon 100.000 ₺ olur. Giriş 3. mumun kapanışında yapılır. Fiyat +1R'ye ulaşınca stop, o güne kadar görülen en yüksek fiyatın 1R altına çekilir ve yalnızca yukarı taşınır; sabit hedef yoktur.
-      Pozisyon en fazla ${P.hold} işlem günü tutulur; testte gidiş-dönüş %${F1.format(P.cost * 100)} maliyet düşülür; 20 günlük ortalama işlem hacmi
-      ${fmt.big(P.minTurnover)} ₺ altındaki hisseler alınmaz.</p>
+      Pozisyon en fazla ${P.hold} işlem günü (4S'de 120 mum) tutulur; testte gidiş-dönüş %${F1.format(P.cost * 100)} maliyet düşülür; 20 günlük ortalama işlem hacmi
+      ${fmt.big(P.minTurnover)} ₺ altındaki hisseler alınmaz. <b>1G</b>: günlük mum, <b>4S</b>: 4 saatlik mum (13:30 ve kapanışta biter).`, 'R ve stop nasıl işler?')}
   </section>
 
   <section class="panel">
-    <h2>Hazırlanan formasyonlar <span class="muted" style="font-weight:400">· ilk iki mum hazır · ${esc(tierSel)} · ${cand.length}</span></h2>
-    <p class="muted" style="font-size:13px;margin:0 0 8px">Bu liste sinyal değildir. Sert kırmızı mum ve ardından doji oluşmuş; bir sonraki mum
-      (1G: ertesi seans, 4S: bir sonraki 4 saatlik mum) <b>yeşil kapanır ve kapanış tetiğin üstünde olursa</b> morning star tamamlanır. Geçmişte bu adayların yalnızca ~%3'ü sinyale dönüştü
-      (tetiğe yakın olanlarda daha sık). Tetiğe uzaklığı %${Math.round((S.candMaxDist || 0.06) * 100)}'ya kadar olanlar, yakından uzağa sıralı.</p>
+    <h2>Hazırlanan formasyonlar <span class="muted" style="font-weight:400">· ilk iki mum hazır · ${cand.length}</span></h2>
+    <p class="muted" style="font-size:13px;margin:0 0 8px">Sinyal değildir: bir sonraki mum <b>yeşil ve tetiğin üstünde kapanırsa</b> morning star tamamlanır.</p>
     ${cand.length ? `<div class="tablewrap flat"><table class="grid sigtable"><thead><tr>
-      <th class="tk">Hisse</th><th class="txt" title="1G: günlük mum · 4S: 4 saatlik mum">Periyot</th><th class="txt">Endeks</th><th title="1. mum (sert kırmızı) · 2. mum (doji)">Mumlar</th><th>Son kapanış</th>
-      <th title="Yarın kapanış bu seviyenin üstünde ve gün yeşil olmalı">Tetik (kapanış &gt;)</th><th title="Son kapanışa göre gereken yükseliş">Gereken</th>
-      <th title="İlk iki mumun en düşüğünün %0,1 altı; 3. mum daha aşağı inerse stop da iner">Tahmini stop</th><th title="Tetik fiyatından girişte stop mesafesi">Tahmini risk</th>
+      <th class="tk" title="1G: günlük mum · 4S: 4 saatlik mum">Hisse</th><th title="1. mum (sert kırmızı) · 2. mum (doji)">Mumlar</th><th>Son kapanış</th>
+      <th title="Bir sonraki mumun kapanışı bu seviyenin üstünde olmalı ve mum yeşil kapanmalı">Tetik (kapanış &gt;)</th><th title="Son kapanışa göre gereken yükseliş">Gereken</th>
+      <th title="İlk iki mumun en düşüğünün %0,1 altı; 3. mum daha aşağı inerse stop da iner. Parantez içinde tetikten girişteki risk.">Tahmini stop</th>
       <th class="txt">Not</th></tr></thead><tbody>
-      ${cand.map(a => `<tr data-t="${a.t}"><td class="tk"><a class="code" href="#/h/${a.t}">${a.t}</a></td><td class="txt">${tfChip(a.tf)}</td><td class="txt">${IDX_LABEL[a.idx] || ''}</td>
+      ${cand.map(a => `<tr data-t="${a.t}">${tk(a)}
         <td>${a.tf === '4H' ? `${dfmt(a.d1)} · ${dfmt(a.d2).slice(-5)}` : `${fmt.date(a.d1).slice(0, 5)} · ${fmt.date(a.d2).slice(0, 5)}`}</td><td>${fmt.price(a.c)}</td>
         <td><b>${fmt.price(a.eff)}</b></td><td class="up">${fmt.pct(a.dist)}</td>
-        <td>${fmt.price(a.s)}</td><td>%${F1.format(a.risk * 100)}</td>
-        <td class="txt">${a.fvg ? `<span class="chip warn" title="Doldurulmamış düşüş FVG'si: ${fmt.price(a.fvg[0])}–${fmt.price(a.fvg[1])}. Kapanış bu boşluğun altında kalırsa sinyal oluşmaz.">FVG: tetik ${fmt.price(a.trig)} → ${fmt.price(a.eff)}</span>` : ''}</td></tr>`).join('')}
+        <td>${fmt.price(a.s)} <small class="muted">(%${F1.format(a.risk * 100)})</small></td>
+        <td class="txt">${a.fvg ? `<span class="chip warn" title="Doldurulmamış düşüş FVG'si: ${fmt.price(a.fvg[0])}–${fmt.price(a.fvg[1])}. Kapanış bu boşluğun altında kalırsa sinyal oluşmaz.">FVG: tetik ${fmt.price(a.trig)} → ${fmt.price(a.eff)}</span> ` : ''}<span class="muted">${IDX_LABEL[a.idx] || ''}</span></td></tr>`).join('')}
     </tbody></table></div>` : '<p class="muted">Bu evrende şu an hazırlanan formasyon yok.</p>'}
-    <p class="muted" style="font-size:12px;margin:8px 0 0">Kullanım: seansın son dakikalarında fiyat tetiğin üstünde ve gün yeşilse kapanışta girilir. Kesin stop, 3. mumun en düşüğü de hesaba
-      katılarak kapanıştan sonra belirlenir (açık sinyaller tablosunda görünür). Test sonuçları yalnızca tamamlanmış formasyonlar için geçerlidir.</p>
+    ${info(`Sert kırmızı mum ve ardından doji oluşmuş hisseler. Bir sonraki mum (1G: ertesi seans, 4S: bir sonraki 4 saatlik mum) yeşil kapanır ve kapanış tetiğin üstünde olursa
+      morning star tamamlanır. Geçmişte bu adayların yalnızca ~%3'ü sinyale dönüştü (tetiğe yakın olanlarda daha sık). Tetiğe uzaklığı %${Math.round((S.candMaxDist || 0.06) * 100)}'ya kadar olanlar,
+      yakından uzağa sıralı. Kullanım: seansın son dakikalarında fiyat tetiğin üstünde ve gün yeşilse kapanışta girilir. Kesin stop, 3. mumun en düşüğü de hesaba katılarak kapanıştan sonra
+      belirlenir (açık sinyaller tablosunda görünür). Test sonuçları yalnızca tamamlanmış formasyonlar için geçerlidir.`, 'Nasıl kullanılır?')}
   </section>
 
-  <section class="panel sigcard">
-    <h2>${esc(u.name)} · kurallar ve test sonuçları</h2>
+  <section class="panel">
+    <h2>Son 60 günün sonuçlanan sinyalleri <span class="muted" style="font-weight:400">· ${rec.length}</span></h2>
+    ${rec.length ? `<div class="tablewrap flat"><table class="grid sigtable"><thead><tr><th class="tk">Hisse</th><th>Sinyal</th>
+      <th>Giriş</th><th class="txt">Çıkış nedeni</th><th>Çıkış fiyatı</th><th>Çıkış</th><th>Sonuç</th></tr></thead><tbody>
+      ${rec.map(a => `<tr data-t="${a.t}">${tk(a)}<td>${dfmt(a.d)}</td>
+        <td>${fmt.price(a.e)}</td><td class="txt">${chip(a.st)}</td><td>${fmt.price(a.x)}</td>
+        <td>${dfmt(a.xd)}</td><td class="${cls(a.r)}">${rFmt(a.r)}</td></tr>`).join('')}
+    </tbody></table></div>` : '<p class="muted">Bu evrende son 60 günde sonuçlanan sinyal yok.</p>'}
+  </section>
+
+  <details class="panel sigcard"${cardOpen ? ' open' : ''}>
+    <summary><h2>${esc(u.name)} · kurallar ve test sonuçları</h2><span class="muted">${brief}</span></summary>
     <ul class="sigrules">${u.rules.map(r => `<li>${esc(r)}</li>`).join('')}</ul>
     <h3>Geriye dönük test</h3>
     ${S.timeframes ? `<div class="seg" role="group" aria-label="Zaman dilimi" style="margin-bottom:8px">${Object.entries(S.timeframes).map(([k, v]) =>
@@ -148,17 +155,10 @@ export async function renderSignals() {
     ${accountHtml(S)}
     <h3>Bilmeniz gerekenler</h3>
     <ul class="sigrules">${u.notes.map(n => `<li>${esc(n)}</li>`).join('')}</ul>
-  </section>
-
-  <section class="panel">
-    <h2>Son 60 günün sonuçlanan sinyalleri <span class="muted" style="font-weight:400">· ${esc(tierSel)} · ${rec.length}</span></h2>
-    ${rec.length ? `<div class="tablewrap flat"><table class="grid sigtable"><thead><tr><th class="tk">Hisse</th><th class="txt">Periyot</th><th class="txt">Endeks</th><th>Sinyal</th>
-      <th>Giriş</th><th>Başlangıç stopu</th><th class="txt">Çıkış nedeni</th><th>Çıkış fiyatı</th><th>Çıkış</th><th>Sonuç (R)</th></tr></thead><tbody>
-      ${rec.map(a => `<tr data-t="${a.t}"><td class="tk"><a class="code" href="#/h/${a.t}">${a.t}</a></td><td class="txt">${tfChip(a.tf)}</td><td class="txt">${IDX_LABEL[a.idx] || ''}</td><td>${dfmt(a.d)}</td>
-        <td>${fmt.price(a.e)}</td><td>${fmt.price(a.s0)}</td><td class="txt">${chip(a.st)}</td><td>${fmt.price(a.x)}</td>
-        <td>${dfmt(a.xd)}</td><td class="${cls(a.r)}">${rFmt(a.r)}</td></tr>`).join('')}
-    </tbody></table></div>` : '<p class="muted">Bu evrende son 60 günde sonuçlanan sinyal yok.</p>'}
-  </section>`;
+    <p class="note-fx">Kurallar son 4 yılda aynı kodla geriye dönük test edildi. Geçmiş başarı geleceği garanti etmez (test bugünkü endeks bileşenleriyle yapıldı).
+      Yatırım tavsiyesi değildir; işlem başına sermayenin en fazla %${F1.format(S.account.risk * 100)}'ini riske etmeniz önerilir.</p>
+  </details>`;
+  view.querySelector('.sigcard').addEventListener('toggle', e => { cardOpen = e.target.open; });
   view.querySelectorAll('[data-sigt]').forEach(b => b.addEventListener('click', () => { tierSel = b.dataset.sigt; renderSignals(); }));
   view.querySelectorAll('[data-sigtf]').forEach(b => b.addEventListener('click', () => { tfSel = b.dataset.sigtf; renderSignals(); }));
 }

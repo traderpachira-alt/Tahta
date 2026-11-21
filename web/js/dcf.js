@@ -1,5 +1,5 @@
 import { $ } from './dom.js';
-import { F1, F2, cls, esc, fmt, ok } from './util.js';
+import { F1, F2, cls, esc, fmt, ok, info } from './util.js';
 
 /* ============================================================
    DCF hesaplayıcı (dolar bazında) — scripts/dcf.py ile aynı model.
@@ -38,7 +38,8 @@ export function renderDcfPanel(s, j) {
   const el = $('#dcfPanel');
   if (!el) return;
   const d = j?.dcf;
-  if (!d) { el.innerHTML = '<h2>DCF · indirgenmiş nakit akışı</h2><p class="muted">Bu hisse için DCF verisi yok.</p>'; return; }
+  el.hidden = !d;
+  if (!d) return;
   if (!d.ok && !ok(d.margin)) { el.innerHTML = `<h2>DCF · indirgenmiş nakit akışı</h2><p class="muted">${esc(d.why || 'Hesaplanamadı.')}</p>`; return; }
   A = { g1: d.g1, gt: d.gt, margin: d.margin, erp: d.erp, crp: d.crp };
   el.innerHTML = `<h2>DCF · indirgenmiş nakit akışı <span class="muted" style="font-weight:400">· dolar bazında</span></h2>
@@ -55,7 +56,7 @@ export function renderDcfPanel(s, j) {
       </div>
     </div>
     <div class="tablewrap flat"><table class="grid dcfsens" id="dcfSens"></table></div>
-    <p class="muted" style="font-size:12px;margin:6px 0 0">Duyarlılık: hisse başı eder fiyat (₺); satırlar iskonto oranı, sütunlar ilk yıl büyümesi. Yeşil: bugünkü fiyatın üstünde; çerçeveli hücre seçili varsayımlar.</p>
+    ${info(`Duyarlılık: hisse başı eder fiyat (₺); satırlar iskonto oranı, sütunlar ilk yıl büyümesi. Yeşil: bugünkü fiyatın üstünde; çerçeveli hücre seçili varsayımlar.`, 'Tablo nasıl okunur?')}
     <details class="dcfmore"><summary>Girdiler ve yöntem</summary>
       <table class="grid"><thead><tr><th class="tk">Dönem</th><th>Satış ($)</th><th>Serbest nakit akışı ($)</th><th>Marj</th></tr></thead><tbody>
         ${d.pts.map(p => `<tr><td class="tk">${esc(p.p)}</td><td>${fmt.big(p.rev)}</td><td class="${cls(p.fcf)}">${fmt.big(p.fcf)}</td><td>${fmt.pctPlain(p.fcf / p.rev)}</td></tr>`).join('')}

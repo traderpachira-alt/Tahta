@@ -69,7 +69,7 @@ export function setSync(st, msg = '') {
   document.querySelectorAll('[data-syncstatus]').forEach(el => { el.innerHTML = syncStatusHtml(); });
 }
 export function syncStatusHtml() {
-  if (!syncCfg.token) return '<span class="muted">☁ Senkronizasyon kapalı · <a href="#/aktar">Aktar</a>\'dan açabilirsiniz</span>';
+  if (!syncCfg.token) return '<span class="muted">☁ Senkronizasyon kapalı · <a href="#/aktar">⚙ Aktar</a>\'dan açabilirsiniz</span>';
   if (sync.state === 'busy') return '<span class="muted">☁ Eşitleniyor…</span>';
   if (sync.state === 'error') return `<span class="down">☁ Eşitlenemedi: ${esc(sync.msg)}</span>`;
   if (sync.state === 'conflict') return '<span class="down">☁ Çakışma: hangi sürümün kalacağını seçin</span>';
