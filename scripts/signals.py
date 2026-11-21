@@ -63,6 +63,8 @@ STRATEGY = {
         "Sermayenin çoğu zaman boşta kalır; tek başına strateji olarak değil, giriş zamanlaması aracı olarak kullanın.",
         "Takip eden stop, sabit 3R hedefe göre toplamda biraz daha az kazandırır; karşılığında işlemlerin yarısından fazlası kârla kapanır, kayıp serileri ve düşüşler kısalır. Karşılaştırma tabloda.",
         "İşlem başına önerilen risk sermayenin %0,5'i: yine de art arda 10+ kayıp yaşanabilir.",
+        "4 saatlik test yalnızca son ~2 yılı (Yahoo saatlik veri sınırı) kapsar; günlük testten kısa olduğu için daha az güvenilirdir.",
+        "4 saatlik mumlar 13:30 ve kapanışta biter. Veri gecikmeli gelir ve site saatlik güncellenir: 13:30 sinyali sayfada birkaç saat sonra görünebilir, giriş fiyatı o zamana kadar değişmiş olabilir.",
     ],
 }
 
@@ -72,7 +74,8 @@ def frame(df: pd.DataFrame) -> dict | None:
         return None
     o, h, lo, c, v = (df[k].to_numpy(dtype=float) for k in ("Open", "High", "Low", "Close", "Volume"))
     return {"idx": df.index, "o": o, "h": h, "l": lo, "c": c, "v": v, "atr": rma(true_range(h, lo, c), 14),
-            "turn": pd.Series(c * v).rolling(20).mean().to_numpy()}
+            # 4 saatlik mumlarda likidite günlük veriden gelir ('turn' sütunu); günlükte 20 günlük ortalama işlem hacmi
+            "turn": df["turn"].to_numpy(dtype=float) if "turn" in df.columns else pd.Series(c * v).rolling(20).mean().to_numpy()}
 
 
 def pattern_at(F, t) -> dict | None:
@@ -152,11 +155,12 @@ def candidate_at(F, b) -> dict | None:
     return {"trig": trig, "eff": eff, "dist": dist, "stop": stop, "risk": risk, "fvg": fvg}
 
 
-def simulate(F, t, entry, stop, mode=DEFAULT_V) -> dict:
+def simulate(F, t, entry, stop, mode=DEFAULT_V, hold=None) -> dict:
     """Girişi t kapanışında yapılmış işlemi yürütür. mode: 'trail' (takip eden stop) ya da hedef R'si (3, 5, '3', '5').
     status: 'stop' (başlangıç stopu) | 'trail' (takip stopu) | 'tp' | 'time' | 'open'.
     Açık işlemde 'stop_now' (güncel stop) ve 'armed' (takip başladı mı) da döner."""
     n = len(F["c"])
+    hold = hold or HOLD_MAX
     risk = entry - stop
     tp = None if mode == "trail" else entry + float(mode) * risk
     cost_r = COST * entry / risk
@@ -165,7 +169,7 @@ def simulate(F, t, entry, stop, mode=DEFAULT_V) -> dict:
     def res(status, px, i):
         return {"status": status, "r": (px - entry) / risk - cost_r, "pct": px / entry - 1 - COST, "exit_t": i, "exit": px}
 
-    for i in range(t + 1, min(n, t + 1 + HOLD_MAX)):
+    for i in range(t + 1, min(n, t + 1 + hold)):
         if F["l"][i] <= cur:
             px = min(cur, F["o"][i]) if i > t + 1 else cur
             return res("trail" if armed and cur > stop else "stop", px, i)
@@ -177,9 +181,9 @@ def simulate(F, t, entry, stop, mode=DEFAULT_V) -> dict:
                 armed = True
             if armed:
                 cur = max(cur, hi - TRAIL_DIST * risk)
-    if n - 1 < t + HOLD_MAX:
+    if n - 1 < t + hold:
         return {"status": "open", "r": (F["c"][-1] - entry) / risk, "pct": F["c"][-1] / entry - 1, "stop_now": cur, "armed": armed}
-    last = t + HOLD_MAX
+    last = t + hold
     return res("time", F["c"][last], last)
 
 
@@ -250,7 +254,11 @@ def _stats(lst: list[dict], rnd: list[float]) -> dict:
     }
 
 
-def run(prices: dict[str, pd.DataFrame], tiers: dict[str, str | None], recent_days: int = 60, years: int = 4) -> dict:
+TIMEFRAMES = {"1D": {"name": "Günlük", "hold": 60, "bars_per_day": 1, "fmt": "%Y-%m-%d"},
+              "4H": {"name": "4 saat", "hold": 120, "bars_per_day": 2, "fmt": "%Y-%m-%d %H:%M"}}
+
+
+def run(prices: dict[str, pd.DataFrame], tiers: dict[str, str | None], recent_days: int = 60, years: int = 4, tf: str = "1D") -> dict:
     """Tüm hisselerde sinyal üret ve test et. tiers: {KOD: '30' | '50' | '100' | 'TÜM' | None}.
     Döner: {"stats": {grup: {varyant: istatistik}}, "accounts": {grup: {varyant: hesap}}, "active", "recent"}."""
     trades = {v: [] for v in VARIANTS}
@@ -262,17 +270,19 @@ def run(prices: dict[str, pd.DataFrame], tiers: dict[str, str | None], recent_da
         if F is None or tier not in ("30", "50", "100", "TÜM"):
             continue
         n = len(F["c"])
-        start = max(22, n - years * 252)
+        bpd, fmt_ = TIMEFRAMES[tf]["bars_per_day"], TIMEFRAMES[tf]["fmt"]
+        hold = TIMEFRAMES[tf]["hold"]
+        start = max(22, n - years * 252 * bpd)
         busy = {v: -1 for v in VARIANTS}
         for t in range(start, n):
             sig = pattern_at(F, t)
             if not sig:
                 continue
-            date = F["idx"][t].strftime("%Y-%m-%d")
+            date = F["idx"][t].strftime(fmt_)
             for R in VARIANTS:
                 if t <= busy[R]:
                     continue
-                r = simulate(F, t, sig["entry"], sig["stop"], R)
+                r = simulate(F, t, sig["entry"], sig["stop"], R, hold)
                 rp = (sig["entry"] - sig["stop"]) / sig["entry"]
                 if r["status"] == "open":
                     busy[R] = n
@@ -283,19 +293,19 @@ def run(prices: dict[str, pd.DataFrame], tiers: dict[str, str | None], recent_da
                 if R != DEFAULT_V:
                     continue
                 risk = sig["entry"] - sig["stop"]
-                rec = {"t": sym, "idx": tier, "d": date, "e": round(sig["entry"], 4), "s0": round(sig["stop"], 4),
+                rec = {"t": sym, "tf": tf, "idx": tier, "d": date, "e": round(sig["entry"], 4), "s0": round(sig["stop"], 4),
                        "a": round(sig["entry"] + TRAIL_AFTER * risk, 4),
                        "volx": round(sig["volx"], 2) if sig["volx"] else None, "st": r["status"], "r": round(r["r"], 3)}
                 if r["status"] == "open":
                     rec.update(c=round(float(F["c"][-1]), 4), s=round(r["stop_now"], 4), armed=r["armed"])
                     active.append(rec)
-                elif t >= n - recent_days:
-                    rec.update(xd=F["idx"][r["exit_t"]].strftime("%Y-%m-%d"), x=round(r["exit"], 4))
+                elif t >= n - recent_days * bpd:
+                    rec.update(xd=F["idx"][r["exit_t"]].strftime(fmt_), x=round(r["exit"], 4))
                     recent.append(rec)
         # Hazırlanan formasyonlar: son gün itibarıyla ilk iki mumu hazır olanlar (yarın tamamlanabilir)
         cd = candidate_at(F, n - 1)
         if cd:
-            candidates.append({"t": sym, "idx": tier, "d1": F["idx"][n - 2].strftime("%Y-%m-%d"), "d2": F["idx"][n - 1].strftime("%Y-%m-%d"),
+            candidates.append({"t": sym, "tf": tf, "idx": tier, "d1": F["idx"][n - 2].strftime(fmt_), "d2": F["idx"][n - 1].strftime(fmt_),
                                "c": round(float(F["c"][-1]), 4), "trig": round(cd["trig"], 4), "eff": round(cd["eff"], 4),
                                "dist": round(cd["dist"], 4), "s": round(cd["stop"], 4), "risk": round(cd["risk"], 4),
                                "fvg": [round(cd["fvg"][0], 4), round(cd["fvg"][1], 4)] if cd["fvg"] else None})
@@ -309,7 +319,7 @@ def run(prices: dict[str, pd.DataFrame], tiers: dict[str, str | None], recent_da
                 if not (RISK_MIN <= (entry - stop) / entry <= RISK_MAX):
                     continue
                 for R in VARIANTS:
-                    r = simulate(F, t, entry, stop, R)
+                    r = simulate(F, t, entry, stop, R, hold)
                     if r["status"] != "open":
                         rnd[R].append((tier, r["r"]))
     stats, accounts = {}, {}

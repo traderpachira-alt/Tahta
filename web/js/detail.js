@@ -157,7 +157,7 @@ export async function renderDetail(t) {
     </section>
   </div>
 
-  ${(s.sig || []).map(g => `<p class="note-ok sigline">Aktif sinyal: <b>${esc(SIG_NAMES[g.k] || g.k)}</b> (${fmt.date(g.d)}) · giriş ${fmt.price(g.e)} · ${g.armed ? `takip stopu ${fmt.price(g.s)}` : `stop ${fmt.price(g.s)} · +1R'de (${fmt.price(g.a)}) takip başlar`}
+  ${(s.sig || []).map(g => `<p class="note-ok sigline">Aktif sinyal: <b>${esc(SIG_NAMES[g.k] || g.k)}</b> · ${g.tf === '4H' ? '4 saatlik' : 'günlük'} (${g.d.includes(' ') ? fmt.date(g.d.split(' ')[0]) + ' ' + g.d.split(' ')[1] : fmt.date(g.d)}) · giriş ${fmt.price(g.e)} · ${g.armed ? `takip stopu ${fmt.price(g.s)}` : `stop ${fmt.price(g.s)} · +1R'de (${fmt.price(g.a)}) takip başlar`}
     · giriş sinyal günü kapanışında, pozisyon açık · <a href="#/sinyal">Sinyaller</a></p>`).join('')}
   ${isIdx ? '' : srPanelHtml(s)}
   ${isIdx ? '' : '<section class="panel" id="divPanel"><h2>Temettü geçmişi</h2><p class="muted">Yükleniyor…</p></section>'}
@@ -255,8 +255,9 @@ export function drawCharts(h) {
   const sigT = decodeURIComponent(location.hash.slice(4)).toUpperCase();
   for (const g of BY.get(sigT)?.sig || []) {
     const line = (price, color, title) => candle.createPriceLine({ price, color, lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title });
-    line(g.e, css('--accent'), 'Giriş'); line(g.s, css('--down'), g.armed ? 'Takip stopu' : 'Stop');
-    if (!g.armed && g.a) line(g.a, css('--up'), '+1R takip başlar');
+    const tf = g.tf === '4H' ? ' (4S)' : '';
+    line(g.e, css('--accent'), 'Giriş' + tf); line(g.s, css('--down'), (g.armed ? 'Takip stopu' : 'Stop') + tf);
+    if (!g.armed && g.a) line(g.a, css('--up'), '+1R takip başlar' + tf);
   }
   if (C.vol !== false) {
     const vol = main.addHistogramSeries({ priceScaleId: 'vol', priceFormat: { type: 'volume' }, lastValueVisible: false, priceLineVisible: false });

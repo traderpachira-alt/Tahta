@@ -85,6 +85,12 @@ simülasyonu (işlem başına %0,5 risk, en fazla 20 pozisyon). "Hazırlanan for
 (sert kırmızı + doji) ve ertesi gün tamamlanabilecek hisseleri tetik fiyatı, tahmini stop ve FVG engeliyle gösterir (tetiğe
 uzaklık en fazla %6). Kurallar BIST'te seçildi; ABD ve Almanya'da etki bulunmadı.
 
+Aynı kurallar 4 saatlik mumlarda da çalışır (`scripts/intraday.py`, testleri `tests/test_intraday.py`): Yahoo'nun
+saatlik verisi (son ~2 yıl) günde iki muma çevrilir (açılış–13:30 ve 13:30–kapanış), bölünmelere göre günlük
+kapanışa ölçeklenir; yalnızca 20 mn ₺ hacim filtresini geçen hisseler indirilir. 4 saatlik işlemler en fazla 120 mum
+(~60 gün) tutulur. Açık sinyaller, hazırlananlar ve son sonuçlar tek tabloda, *Periyot* sütununda 1G / 4S olarak
+ayrılır; test sonuçları periyoda göre ayrı gösterilir. `--no-intraday` ile 4 saatlik kısım atlanır.
+
 Temettü: temettuhisseleri.com tutarları **net** ve bedelsizlere göre **düzeltilmemiş**tir; Yahoo'nun bölünme
 çarpanları ve o tarihteki stopajla (2022–2024 arası %10, öncesi ve sonrası %15, GYO/YO %0) brüt, düzeltilmiş
 tutara çevrilir (`scripts/temettu.py`). İki kaynak uyuşuyorsa Yahoo tutarı kullanılır; fiyatın %1'inden büyük bir

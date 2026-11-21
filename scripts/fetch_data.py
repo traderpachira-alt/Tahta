@@ -28,6 +28,7 @@ import pandas as pd
 from indicators import ema, sma, wilder_rsi, rma, true_range, rolling_mid, stoch_rsi, fisher, supertrend, ichimoku, vwma  # noqa: F401
 import isyatirim
 import dcf
+import intraday
 import scores
 import signals
 import temettu
@@ -738,29 +739,49 @@ def quality_scores(t: str, df: pd.DataFrame, m: dict, f: dict, fin: dict | None,
     return out
 
 
-def write_signals(out: Path, prices: dict[str, pd.DataFrame], stocks: list[dict], idx: pd.DataFrame | None = None):
-    """Morning star kurulumu: aktif sinyaller, son sonuçlar ve geriye dönük test (data/signals.json)."""
+def write_signals(out: Path, prices: dict[str, pd.DataFrame], stocks: list[dict], idx: pd.DataFrame | None = None, intraday_on: bool = True):
+    """Morning star kurulumu, günlük ve 4 saatlik mumlarda: açık sinyaller, hazırlanan formasyonlar, son sonuçlar ve
+    geriye dönük test (data/signals.json)."""
     t0 = time.time()
     by = {s["t"]: s for s in stocks}
-    R = signals.run(prices, {t: s.get("idx") for t, s in by.items()})
-    for a in R["active"]:
+    tiers = {t: s.get("idx") for t, s in by.items()}
+    runs = {"1D": signals.run(prices, tiers, tf="1D")}
+    if intraday_on:
+        # 4 saatlik: yalnızca evrendeki ve son gün likidite filtresini geçen hisseler (diğerlerinde sinyal oluşmaz)
+        liquid = [t for t, df in prices.items() if tiers.get(t) in ("30", "50", "100", "TÜM")
+                  and float((df["Close"] * df["Volume"]).tail(20).mean()) >= signals.MIN_TURNOVER]
+        try:
+            h4 = intraday.load_h4(liquid, prices, log=lambda m: print(m, flush=True))
+            if h4:
+                runs["4H"] = signals.run(h4, tiers, tf="4H")
+        except Exception as e:  # noqa: BLE001 — 4 saatlik hata günlük sinyalleri engellemesin
+            print(f"  4 saatlik sinyaller üretilemedi ({e}).", flush=True)
+    active = [a for R in runs.values() for a in R["active"]]
+    recent = [a for R in runs.values() for a in R["recent"]]
+    cands = [a for R in runs.values() for a in R["candidates"]]
+    active.sort(key=lambda a: (a["d"], a["t"]), reverse=True)
+    recent.sort(key=lambda a: (a.get("xd") or a["d"], a["t"]), reverse=True)
+    cands.sort(key=lambda a: (a["dist"], a["t"]))
+    for a in active:
         s = by.get(a["t"])
         if s is None:
             continue
         a.update(tedbir=bool(s.get("tedbir")), fScore=s.get("fScore"), dsScore=s.get("dsScore"))
-        s.setdefault("sig", []).append({"k": "morningstar", "d": a["d"], "e": a["e"], "s": a["s"], "s0": a["s0"], "a": a["a"],
-                                        "armed": a["armed"], "st": a["st"]})
+        s.setdefault("sig", []).append({"k": "morningstar", "tf": a["tf"], "d": a["d"], "e": a["e"], "s": a["s"], "s0": a["s0"],
+                                        "a": a["a"], "armed": a["armed"], "st": a["st"]})
     payload = {
         "updated": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
         "strategy": signals.STRATEGY, "variants": signals.VARIANTS, "defaultV": signals.DEFAULT_V,
+        "timeframes": {k: {"name": v["name"], "hold": v["hold"]} for k, v in signals.TIMEFRAMES.items() if k in runs},
         "tierSets": list(signals.TIER_SETS), "defaultSet": signals.DEFAULT_SET,
         "account": signals.ACCOUNT, "bench": signals.bench(idx),
         "params": {"hold": signals.HOLD_MAX, "cost": signals.COST, "minTurnover": signals.MIN_TURNOVER},
-        "stats": R["stats"], "accounts": R["accounts"], "active": R["active"], "recent": R["recent"],
-        "candidates": R["candidates"], "candMaxDist": signals.CAND_MAX_DIST,
+        "stats": {k: R["stats"] for k, R in runs.items()}, "accounts": {k: R["accounts"] for k, R in runs.items()},
+        "active": active, "recent": recent, "candidates": cands, "candMaxDist": signals.CAND_MAX_DIST,
     }
     (out / "data" / "signals.json").write_text(json.dumps(clean(payload), ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-    print(f"Sinyaller (morning star): {len(R['active'])} açık, {len(R['candidates'])} hazırlanan, son 60 günde {len(R['recent'])} sonuçlanmış ({time.time() - t0:.0f} sn).", flush=True)
+    print(f"Sinyaller (morning star; {', '.join(runs)}): {len(active)} açık, {len(cands)} hazırlanan, "
+          f"son 60 günde {len(recent)} sonuçlanmış ({time.time() - t0:.0f} sn).", flush=True)
 
 
 def download_prices(symbols: list[str]) -> dict[str, pd.DataFrame]:
@@ -875,6 +896,7 @@ def main():
     ap.add_argument("--fund-max-age-days", type=float, default=3, help="mali tablolar kaç günde bir yenilensin")
     ap.add_argument("--fund-max-per-run", type=int, default=60, help="bir çalışmada en fazla kaç şirketin mali tablosu çekilsin")
     ap.add_argument("--no-fundamentals", action="store_true")
+    ap.add_argument("--no-intraday", action="store_true", help="4 saatlik sinyalleri atla (saatlik veri indirilmez)")
     ap.add_argument("--div-max-per-run", type=int, default=120, help="bir çalışmada en fazla kaç hissenin temettü geçmişi (temettuhisseleri) çekilsin")
     ap.add_argument("--sample", action="store_true", help="internetsiz deneme için ÖRNEK veri üret")
     ap.add_argument("--limit", type=int, default=0, help="yalnızca ilk N hisse (deneme için)")
@@ -979,7 +1001,7 @@ def main():
 
     # Sinyaller: kurulumlar, geriye dönük test ve aktif sinyaller (data/signals.json); aktif sinyal hisse özetine de eklenir
     try:
-        write_signals(out, {t: prices[t] for t in ok}, stocks, prices.get(INDEX))
+        write_signals(out, {t: prices[t] for t in ok}, stocks, prices.get(INDEX), intraday_on=not args.sample and not args.no_intraday)
     except Exception as e:  # noqa: BLE001 — sinyal hatası yayını durdurmasın
         print(f"  Sinyaller üretilemedi ({e}).", flush=True)
 

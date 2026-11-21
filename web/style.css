@@ -499,3 +499,4 @@ table.dcfsens td.base { outline: 2px solid var(--accent); outline-offset: -2px; 
 
 table.sigstat tr.sel td { background: var(--sunk); }
 .sigcard h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 14px 0 8px; }
+.chip.tf4 { background: var(--accent); color: var(--accent-ink); }

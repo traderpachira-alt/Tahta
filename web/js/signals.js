@@ -6,7 +6,12 @@ import { F1, F2, cls, esc, fmt, ok } from './util.js';
    Sinyaller: morning star kurulumu (giriş / stop / hedef) ve geriye dönük test
    Veri: data/signals.json (scripts/signals.py, her güncellemede yeniden üretilir)
    ============================================================ */
-let SIG = null, tierSel = null;
+let SIG = null, tierSel = null, tfSel = '1D';
+// Tarih: günlük 'YYYY-MM-DD', 4 saatlik 'YYYY-MM-DD HH:MM'
+const dfmt = d => { if (!d) return '—'; const [day, time] = d.split(' '); return time ? `${fmt.date(day).slice(0, 5)} ${time}` : fmt.date(day); };
+const tfChip = tf => tf === '4H' ? '<span class="chip tf4" title="4 saatlik mumlar">4S</span>' : '<span class="chip" title="Günlük mumlar">1G</span>';
+const STATS = (S, tf) => S.timeframes ? S.stats?.[tf] : S.stats;           // eski veri biçimiyle uyumlu
+const ACCTS = (S, tf) => S.timeframes ? S.accounts?.[tf] : S.accounts;
 export async function loadSignals() {
   if (SIG) return SIG;
   const r = await fetch('data/signals.json', { cache: 'no-cache' });
@@ -36,7 +41,7 @@ function statsTable(S) {
     <th title="İşlem başına ortalama sonuç (komisyon ve kayma dahil)">Ort.</th><th title="Aynı hisselerde rastgele günlerde, aynı stop yapısı ve çıkış kuralıyla girişin ortalaması">Rastgele giriş</th>
     <th title="1R = 100 $ kabulüyle tüm işlemlerin toplamı">Kümülatif (1R=100 $)</th><th title="Art arda en uzun kayıp serisi">Art arda kayıp</th>
     <th title="1.000.000 ₺, işlem başına %0,5 risk, en fazla 20 pozisyon">Hesap: yıllık / düşüş</th></tr></thead><tbody>
-    ${S.tierSets.map(name => vs.map((v, i) => { const st = S.stats[name]?.[v] || {}, ac = S.accounts?.[name]?.[v]; return `<tr class="${name === tierSel ? 'sel' : ''}">
+    ${S.tierSets.map(name => vs.map((v, i) => { const st = STATS(S, tfSel)?.[name]?.[v] || {}, ac = ACCTS(S, tfSel)?.[name]?.[v]; return `<tr class="${name === tierSel ? 'sel' : ''}">
       ${i === 0 ? `<td class="tk" rowspan="${vs.length}">${esc(name)}</td>` : ''}<td class="txt">${esc(S.variants[v])}${v === S.defaultV ? ' <small class="muted">(varsayılan)</small>' : ''}</td>
       <td>${st.n ?? 0}</td><td>${ok(st.win) ? '%' + Math.round(st.win * 100) : '—'}</td><td>${v === 'trail' ? '—' : ok(st.tp) ? '%' + Math.round(st.tp * 100) : '—'}</td>
       <td class="${cls(st.avgR)}">${rFmt(st.avgR)}</td><td class="muted">${rFmt(st.randR)}</td>
@@ -46,7 +51,7 @@ function statsTable(S) {
 }
 
 function yearsTable(S) {
-  const st = S.stats[tierSel]?.[S.defaultV], st3 = S.stats[tierSel]?.['3'];
+  const st = STATS(S, tfSel)?.[tierSel]?.[S.defaultV], st3 = STATS(S, tfSel)?.[tierSel]?.['3'];
   const ys = Object.keys(st?.byYear || {});
   if (!ys.length) return '';
   const row = (lab, s, f) => `<tr><td class="tk">${lab}</td>${ys.map(y => { const d = s?.byYear?.[y]; return d ? f(d) : '<td>—</td>'; }).join('')}</tr>`;
@@ -60,9 +65,9 @@ function yearsTable(S) {
 }
 
 function accountHtml(S) {
-  const a = S.accounts?.[tierSel]?.[S.defaultV], A = S.account, b = S.bench;
+  const a = ACCTS(S, tfSel)?.[tierSel]?.[S.defaultV], A = S.account, b = S.bench;
   if (!a || !A) return '';
-  return `<div class="sigacct"><b>${fmt.big(A.capital)} ₺ hesapla ne olurdu?</b> ${esc(tierSel)}, takip eden stop, işlem başına sermayenin
+  return `<div class="sigacct"><b>${fmt.big(A.capital)} ₺ hesapla ne olurdu?</b> ${esc(tierSel)}, ${tfSel === '4H' ? '4 saatlik mumlar' : 'günlük mumlar'}, takip eden stop, işlem başına sermayenin
     %${F1.format(A.risk * 100)}'i risk, en fazla ${A.maxPos} pozisyon, kaldıraç yok: ${a.years} yılda ${a.taken} işlem, yıllık
     <b class="${cls(a.cagr)}">${fmt.pct(a.cagr)}</b>, en büyük düşüş <b class="down">−%${Math.round(a.mdd * 100)}</b>.
     <br><span class="muted">Boşta kalan nakde faiz eklenmedi; para piyasası fonunda değerlendirilen nakit toplam getiriyi belirgin artırır.
@@ -92,12 +97,12 @@ export async function renderSignals() {
   <section class="panel">
     <h2>Açık sinyaller <span class="muted" style="font-weight:400">· ${esc(tierSel)} · ${act.length}</span></h2>
     ${act.length ? `<div class="tablewrap flat"><table class="grid sigtable"><thead><tr>
-      <th class="tk">Hisse</th><th class="txt">Endeks</th><th>Sinyal</th><th title="3. mumun kapanışı">Giriş</th>
+      <th class="tk">Hisse</th><th class="txt" title="1G: günlük mum · 4S: 4 saatlik mum">Periyot</th><th class="txt">Endeks</th><th title="3. mumun kapanışı (4S'de mumun bitiş saati)">Sinyal</th><th title="3. mumun kapanışı">Giriş</th>
       <th title="Üç mumun en düşüğünün %0,1 altı (−1R)">Başlangıç stopu</th><th title="Bugünkü stop seviyesi: takip başladıysa en yüksek fiyatın 1R altı">Güncel stop</th>
       <th title="Fiyat bu seviyeye (+1R) ulaşınca stop takibe başlar">Takip başlar</th><th>Son fiyat</th><th title="Girişe göre güncel sonuç">Güncel</th>
       <th title="3. mumun hacmi / 20 günlük ortalama (bilgi amaçlı)">Hacim</th><th class="txt">Not</th></tr></thead><tbody>
-      ${act.map(a => `<tr data-t="${a.t}"><td class="tk"><a class="code" href="#/h/${a.t}">${a.t}</a></td><td class="txt">${IDX_LABEL[a.idx] || ''}</td>
-        <td>${fmt.date(a.d)}</td><td>${fmt.price(a.e)}</td>
+      ${act.map(a => `<tr data-t="${a.t}"><td class="tk"><a class="code" href="#/h/${a.t}">${a.t}</a></td><td class="txt">${tfChip(a.tf)}</td><td class="txt">${IDX_LABEL[a.idx] || ''}</td>
+        <td>${dfmt(a.d)}</td><td>${fmt.price(a.e)}</td>
         <td>${fmt.price(a.s0)} <small class="down">${fmt.pct(pctFrom(a.s0, a.e))}</small></td>
         <td>${a.armed ? `<b>${fmt.price(a.s)}</b> <small class="${cls(pctFrom(a.s, a.e))}">${fmt.pct(pctFrom(a.s, a.e))}</small>` : '<span class="muted">başlangıç stopu</span>'}</td>
         <td>${a.armed ? '<span class="chip up">başladı</span>' : `${fmt.price(a.a)} <small class="up">${fmt.pct(pctFrom(a.a, a.e))}</small>`}</td>
@@ -113,16 +118,16 @@ export async function renderSignals() {
 
   <section class="panel">
     <h2>Hazırlanan formasyonlar <span class="muted" style="font-weight:400">· ilk iki mum hazır · ${esc(tierSel)} · ${cand.length}</span></h2>
-    <p class="muted" style="font-size:13px;margin:0 0 8px">Bu liste sinyal değildir. Sert kırmızı mum ve ardından doji oluşmuş; bir sonraki seans
-      <b>yeşil kapanır ve kapanış tetiğin üstünde olursa</b> morning star tamamlanır. Geçmişte bu adayların yalnızca ~%3'ü sinyale dönüştü
+    <p class="muted" style="font-size:13px;margin:0 0 8px">Bu liste sinyal değildir. Sert kırmızı mum ve ardından doji oluşmuş; bir sonraki mum
+      (1G: ertesi seans, 4S: bir sonraki 4 saatlik mum) <b>yeşil kapanır ve kapanış tetiğin üstünde olursa</b> morning star tamamlanır. Geçmişte bu adayların yalnızca ~%3'ü sinyale dönüştü
       (tetiğe yakın olanlarda daha sık). Tetiğe uzaklığı %${Math.round((S.candMaxDist || 0.06) * 100)}'ya kadar olanlar, yakından uzağa sıralı.</p>
     ${cand.length ? `<div class="tablewrap flat"><table class="grid sigtable"><thead><tr>
-      <th class="tk">Hisse</th><th class="txt">Endeks</th><th title="1. mum (sert kırmızı) · 2. mum (doji)">Mumlar</th><th>Son kapanış</th>
+      <th class="tk">Hisse</th><th class="txt" title="1G: günlük mum · 4S: 4 saatlik mum">Periyot</th><th class="txt">Endeks</th><th title="1. mum (sert kırmızı) · 2. mum (doji)">Mumlar</th><th>Son kapanış</th>
       <th title="Yarın kapanış bu seviyenin üstünde ve gün yeşil olmalı">Tetik (kapanış &gt;)</th><th title="Son kapanışa göre gereken yükseliş">Gereken</th>
       <th title="İlk iki mumun en düşüğünün %0,1 altı; 3. mum daha aşağı inerse stop da iner">Tahmini stop</th><th title="Tetik fiyatından girişte stop mesafesi">Tahmini risk</th>
       <th class="txt">Not</th></tr></thead><tbody>
-      ${cand.map(a => `<tr data-t="${a.t}"><td class="tk"><a class="code" href="#/h/${a.t}">${a.t}</a></td><td class="txt">${IDX_LABEL[a.idx] || ''}</td>
-        <td>${fmt.date(a.d1).slice(0, 5)} · ${fmt.date(a.d2).slice(0, 5)}</td><td>${fmt.price(a.c)}</td>
+      ${cand.map(a => `<tr data-t="${a.t}"><td class="tk"><a class="code" href="#/h/${a.t}">${a.t}</a></td><td class="txt">${tfChip(a.tf)}</td><td class="txt">${IDX_LABEL[a.idx] || ''}</td>
+        <td>${a.tf === '4H' ? `${dfmt(a.d1)} · ${dfmt(a.d2).slice(-5)}` : `${fmt.date(a.d1).slice(0, 5)} · ${fmt.date(a.d2).slice(0, 5)}`}</td><td>${fmt.price(a.c)}</td>
         <td><b>${fmt.price(a.eff)}</b></td><td class="up">${fmt.pct(a.dist)}</td>
         <td>${fmt.price(a.s)}</td><td>%${F1.format(a.risk * 100)}</td>
         <td class="txt">${a.fvg ? `<span class="chip warn" title="Doldurulmamış düşüş FVG'si: ${fmt.price(a.fvg[0])}–${fmt.price(a.fvg[1])}. Kapanış bu boşluğun altında kalırsa sinyal oluşmaz.">FVG: tetik ${fmt.price(a.trig)} → ${fmt.price(a.eff)}</span>` : ''}</td></tr>`).join('')}
@@ -134,7 +139,10 @@ export async function renderSignals() {
   <section class="panel sigcard">
     <h2>${esc(u.name)} · kurallar ve test sonuçları</h2>
     <ul class="sigrules">${u.rules.map(r => `<li>${esc(r)}</li>`).join('')}</ul>
-    <h3>Geriye dönük test (son 4 yıl)</h3>
+    <h3>Geriye dönük test</h3>
+    ${S.timeframes ? `<div class="seg" role="group" aria-label="Zaman dilimi" style="margin-bottom:8px">${Object.entries(S.timeframes).map(([k, v]) =>
+      `<button type="button" data-sigtf="${k}" aria-pressed="${tfSel === k}">${esc(v.name)}</button>`).join('')}</div>
+      <p class="muted" style="font-size:12px;margin:0 0 8px">${tfSel === '4H' ? '4 saatlik mumlar: günde iki mum (13:30 ve kapanış); saatlik veri son ~2 yıl için mevcut. En fazla 120 mum (≈60 işlem günü).' : 'Günlük mumlar, son 4 yıl. En fazla 60 işlem günü.'}</p>` : ''}
     ${statsTable(S)}
     ${yearsTable(S)}
     ${accountHtml(S)}
@@ -144,12 +152,13 @@ export async function renderSignals() {
 
   <section class="panel">
     <h2>Son 60 günün sonuçlanan sinyalleri <span class="muted" style="font-weight:400">· ${esc(tierSel)} · ${rec.length}</span></h2>
-    ${rec.length ? `<div class="tablewrap flat"><table class="grid sigtable"><thead><tr><th class="tk">Hisse</th><th class="txt">Endeks</th><th>Sinyal</th>
+    ${rec.length ? `<div class="tablewrap flat"><table class="grid sigtable"><thead><tr><th class="tk">Hisse</th><th class="txt">Periyot</th><th class="txt">Endeks</th><th>Sinyal</th>
       <th>Giriş</th><th>Başlangıç stopu</th><th class="txt">Çıkış nedeni</th><th>Çıkış fiyatı</th><th>Çıkış</th><th>Sonuç (R)</th></tr></thead><tbody>
-      ${rec.map(a => `<tr data-t="${a.t}"><td class="tk"><a class="code" href="#/h/${a.t}">${a.t}</a></td><td class="txt">${IDX_LABEL[a.idx] || ''}</td><td>${fmt.date(a.d)}</td>
+      ${rec.map(a => `<tr data-t="${a.t}"><td class="tk"><a class="code" href="#/h/${a.t}">${a.t}</a></td><td class="txt">${tfChip(a.tf)}</td><td class="txt">${IDX_LABEL[a.idx] || ''}</td><td>${dfmt(a.d)}</td>
         <td>${fmt.price(a.e)}</td><td>${fmt.price(a.s0)}</td><td class="txt">${chip(a.st)}</td><td>${fmt.price(a.x)}</td>
-        <td>${a.xd ? fmt.date(a.xd) : '—'}</td><td class="${cls(a.r)}">${rFmt(a.r)}</td></tr>`).join('')}
+        <td>${dfmt(a.xd)}</td><td class="${cls(a.r)}">${rFmt(a.r)}</td></tr>`).join('')}
     </tbody></table></div>` : '<p class="muted">Bu evrende son 60 günde sonuçlanan sinyal yok.</p>'}
   </section>`;
   view.querySelectorAll('[data-sigt]').forEach(b => b.addEventListener('click', () => { tierSel = b.dataset.sigt; renderSignals(); }));
+  view.querySelectorAll('[data-sigtf]').forEach(b => b.addEventListener('click', () => { tfSel = b.dataset.sigtf; renderSignals(); }));
 }
