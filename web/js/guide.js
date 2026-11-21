@@ -15,7 +15,7 @@ const GUIDE = [
     fareyle ya da iki parmakla yakınlaştırıp kaydırabilir, ⤢ Tam ekran ile büyütebilirsiniz. Altta destek/direnç bölgeleri,
     temel oranlar, temettü geçmişi ve varsa tedbirler bulunur. ★ hisseyi izleme listesine ekler.`],
   ['Sinyaller', `Morning star kurulumu: sert kırmızı mum, ardından küçük gövdeli (doji benzeri) mum ve 1. mumun tepesinin üstünde kapanan yeşil mum.
-    Giriş 3. mumun kapanışında, stop üç mumun en düşüğünün altında, hedef 3R. Sayfada endekse göre açık sinyaller, son sonuçlar ve son 4 yılın test
+    Girişin üstünde doldurulmamış bir düşüş FVG'si (fiyat boşluğu) varsa sinyal üretilmez. Giriş 3. mumun kapanışında, stop üç mumun en düşüğünün altında, hedef 3R. Sayfada endekse göre açık sinyaller, son sonuçlar ve son 4 yılın test
     sonuçları (rastgele giriş kıyası, yıllara göre sonuç, hesap simülasyonu) görünür. Açık sinyali olan hissenin grafiğinde giriş, stop ve hedef çizgileri çizilir.`],
   ['Karşılaştır', `En fazla 5 hisseyi ve BIST 100'ü aynı başlangıçtan (%0) itibaren getiri olarak üst üste çizer.`],
   ['Portföy', `<b>+ Varlık ekle</b> ile hisse (Temettü ya da Trend/Momentum), emtia/döviz ya da kripto ekleyin. Her varlık bir işlem
@@ -112,6 +112,7 @@ const TERMS = [
 
   ['R (risk birimi)', 'Bir işlemde göze alınan kayıp: giriş fiyatı − stop. Sonuçlar R cinsinden verilir; +2R riske edilenin iki katı kazanç, −1R stop olmak demektir. Pozisyon büyüklüğü 1R kaybı göze alınabilecek tutara göre belirlenir.', 'Sinyaller'],
   ['Kurulum (setup)', 'Giriş koşulu, stop ve hedefi önceden tanımlı işlem kuralı.', 'Sinyaller'],
+  ['FVG (fair value gap, fiyat boşluğu)', 'Üç mumluk dizide 1. ve 3. mumun fiyat aralıklarının çakışmadığı, arada işlem görmemiş bölge. Düşüş FVG\'si: 3. mumun en yükseği 1. mumun en düşüğünün altında. Fiyat sonradan boşluğun üst sınırına ulaşmadıysa boşluk doldurulmamış sayılır ve çoğu zaman direnç gibi davranır.', 'Sinyaller'],
   ['Morning star (sabah yıldızı)', 'Üç mumluk dönüş formasyonu: sert bir kırmızı mum, ardından kararsızlığı gösteren küçük gövdeli bir mum (doji) ve satıcıların başladığı yerin üstüne çıkan güçlü bir yeşil mum. Düşüşün tükendiğine ve alıcıların kontrolü aldığına işaret eder.', 'Sinyaller'],
   ['Geriye dönük test', 'Kuralların geçmiş veride, yalnızca o güne kadar bilinen bilgiyle uygulanması. Burada giriş ertesi gün açılışta yapılır, aynı gün stop ve hedef görülürse stop sayılır, komisyon ve kayma düşülür.', 'Sinyaller'],
   ['Kâr faktörü', 'Kazanan işlemlerin toplam kazancı / kaybeden işlemlerin toplam kaybı. 1\'in üstü kârlı; 1,2–1,5 gerçekçi bir sistem için iyi sayılır.', 'Sinyaller'],

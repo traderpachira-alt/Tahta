@@ -61,6 +61,21 @@ class PatternTest(unittest.TestCase):
         # Likidite: hacim çok düşükse yok
         self.assertIsNone(S.pattern_at(S.frame(with_star(base(vol=100), 60)), 60))
 
+    def test_overhead_fvg_blocks(self):
+        df = with_star(base(), 60)
+        self.assertIsNotNone(S.pattern_at(S.frame(df), 60))
+        d = df.copy()
+        # 1. mumdan ~10 mum önce, girişin çok üstünde doldurulmamış bir düşüş boşluğu oluştur
+        for i in range(45, 49):
+            d.iloc[i, [0, 1, 2, 3]] = [130, 131, 129, 130]
+        d.iloc[49, [0, 1, 2, 3]] = [130, 130.5, 120, 121]   # sert düşüş
+        for i in range(50, 57):
+            d.iloc[i, [0, 1, 2, 3]] = [110, 110.5, 109.5, 110]
+        # i=50: en yüksek (110,5) < 48. mumun en düşüğü (129) → boşluk [110,5, 129]; girişin (~101) üstünde, doldurulmamış
+        F = S.frame(d)
+        self.assertIsNotNone(S.overhead_fvg(F, 60))
+        self.assertIsNone(S.pattern_at(F, 60))
+
     def test_no_lookahead(self):
         df = with_star(base(120), 60)
         full = S.frame(df)

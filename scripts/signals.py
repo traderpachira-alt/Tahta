@@ -4,6 +4,8 @@ Kurallar (yalnızca o güne kadarki veri; canlı sinyal ve test aynı kodu kulla
   1. mum: kırmızı ve sert (gövde ≥ 0,5 × ATR 14)
   2. mum: küçük gövde / doji (gövde ≤ 1. mum gövdesinin %30'u)                       — Ş2
   3. mum: yeşil ve 1. mumun EN YÜKSEĞİNİN üstünde kapanış                             — Ş5
+  FVG: 1. mumdan önceki 80 mumda oluşmuş, 1. mum anında doldurulmamış ve girişin ÜSTÜNDE kalan bir düşüş FVG'si
+       (fiyat boşluğu: 3. mumun en yükseği < 1. mumun en düşüğü) varsa işlem yok — boşluk hedefe giden yolda direnç olur.
   Likidite: 20 günlük ortalama işlem hacmi ≥ MIN_TURNOVER.
 İşlem:
   Giriş 3. mumun kapanışında. Stop = üç mumun en düşüğü × (1 − %0,1). Hedef = giriş + R × risk (varsayılan 3R; 5R de test
@@ -27,13 +29,14 @@ RISK_MIN, RISK_MAX = 0.005, 0.15      # stop mesafesi fiyatın %0,5–%15'i
 BODY_ATR = 0.5                        # 1. mum gövdesi ≥ 0,5 ATR
 DOJI_MAX = 0.30                       # 2. mum gövdesi ≤ 1. mum gövdesinin %30'u
 STOP_BUF = 0.001                      # stop, üç mumun en düşüğünün %0,1 altı
+FVG_LOOK = 80                         # üstteki düşüş FVG'si için geriye bakılan mum sayısı
 TARGETS = (3, 5)
 DEFAULT_R = 3
 RANDOM_PER_STOCK = 60
 ACCOUNT = {"capital": 1_000_000, "risk": 0.005, "maxPos": 20}
 TIER_SETS = {"BIST 30": ("30",), "BIST 50": ("30", "50"), "BIST 100": ("30", "50", "100"),
              "BIST TÜM": ("30", "50", "100", "TÜM")}
-DEFAULT_SET = "BIST 100"
+DEFAULT_SET = "BIST TÜM"
 
 STRATEGY = {
     "name": "Morning star",
@@ -42,12 +45,14 @@ STRATEGY = {
         "1. mum kırmızı ve sert: gövdesi en az 0,5 ATR",
         "2. mum küçük (doji benzeri): gövdesi 1. mumun gövdesinin en fazla %30'u",
         "3. mum yeşil ve 1. mumun en yükseğinin üstünde kapanıyor",
+        "Yol açık: 1. mumdan önceki 80 mumda oluşmuş, doldurulmamış ve girişin üstünde kalan bir düşüş FVG'si (fiyat boşluğu) yok",
         "Likidite: 20 günlük ortalama işlem hacmi en az 20 mn ₺",
         "Giriş: 3. mumun kapanışı · Stop: üç mumun en düşüğünün %0,1 altı",
         "Hedef: 3R (5R sonuçları karşılaştırma için) · En fazla 60 işlem günü",
     ],
     "notes": [
-        "Avantaj 2022–2024'te belirgindi; 2025–2026'da işlem başına ~0,1R'ye geriledi. Canlı sonuçları yıllık tablodan izleyin.",
+        "Avantaj 2022–2024'te belirgindi, 2025–2026'da zayıfladı. Canlı sonuçları yıllık tablodan izleyin.",
+        "Üstte doldurulmamış düşüş FVG'si olan formasyonlar test edilen her örneklemde (günlük BIST 100, BIST 100 dışı, 4 saatlik) belirgin şekilde zayıftı; bu yüzden elenir.",
         "Aynı kurallar ABD (S&P 100) ve Almanya (DAX 40) hisselerinde rastgele girişten iyi sonuç vermedi: etki BIST'e özgü görünüyor.",
         "En güçlü etki orta ölçekli hisselerde (BIST 100'ün 31–100. sıraları); BIST 30'da zayıf.",
         "Sermayenin çoğu zaman boşta kalır; tek başına strateji olarak değil, giriş zamanlaması aracı olarak kullanın.",
@@ -84,8 +89,25 @@ def pattern_at(F, t) -> dict | None:
     stop = min(lo[a], lo[b], lo[t]) * (1 - STOP_BUF)
     if not (RISK_MIN <= (entry - stop) / entry <= RISK_MAX):
         return None
+    if overhead_fvg(F, t) is not None:
+        return None
     vavg = np.mean(F["v"][t - 20:t])
     return {"entry": entry, "stop": stop, "volx": F["v"][t] / vavg if vavg > 0 else None}
+
+
+def overhead_fvg(F, t) -> tuple[float, float] | None:
+    """t'de tamamlanan formasyonun 1. mumundan (t-2) önceki FVG_LOOK mumda oluşan, 1. mum anında doldurulmamış ve girişin
+    üstünde kalan düşüş FVG'si: (alt, üst) ya da None. Düşüş FVG'si: i. mumun en yükseği < (i-2). mumun en düşüğü;
+    boşluk [h[i], l[i-2]]. Doldurulma: sonraki mumlardan birinin en yükseği boşluğun üst sınırına ulaşırsa."""
+    h, lo = F["h"], F["l"]
+    a = t - 2
+    entry = F["c"][t]
+    for i in range(max(2, a - FVG_LOOK), a):
+        if h[i] < lo[i - 2] and h[i] > entry:
+            top = lo[i - 2]
+            if h[i + 1:a + 1].max() < top:
+                return (h[i], top)
+    return None
 
 
 def simulate(F, t, entry, stop, R) -> dict:
