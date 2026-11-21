@@ -78,7 +78,8 @@ ortaklığı ve holdinglere ve serbest nakit akışı negatif şirketlere uygula
 
 Sinyaller (`scripts/signals.py`, testleri `tests/test_signals.py`): morning star kurulumu. 1. mum sert kırmızı
 (gövde ≥ 0,5 ATR), 2. mum küçük (gövde ≤ 1. mumun %30'u), 3. mum yeşil ve 1. mumun tepesinin üstünde kapanıyor; 1. mumdan önceki 80 mumda
-oluşmuş, doldurulmamış ve girişin üstünde kalan bir düşüş FVG'si varsa işlem yok; 20 mn ₺ hacim filtresi. Giriş 3. mumun kapanışında, stop üç mumun en düşüğünün %0,1 altında, hedef 3R (5R karşılaştırma). Her
+oluşmuş, doldurulmamış ve girişin üstünde kalan bir düşüş FVG'si varsa işlem yok; 20 mn ₺ hacim filtresi. Giriş 3. mumun kapanışında, başlangıç stopu üç mumun en düşüğünün %0,1 altında; fiyat +1R'ye ulaşınca stop en yüksek
+fiyatın 1R altından takip eder, sabit hedef yok (sabit 3R/5R karşılaştırma için test edilir). Her
 güncellemede son 4 yıl BIST 30/50/100/TÜM için yeniden test edilir: rastgele giriş kıyası, yıllara göre sonuç, hesap
 simülasyonu (işlem başına %0,5 risk, en fazla 20 pozisyon). Kurallar BIST'te seçildi; ABD ve Almanya'da etki bulunmadı.
 

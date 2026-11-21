@@ -8,8 +8,11 @@ Kurallar (yalnızca o güne kadarki veri; canlı sinyal ve test aynı kodu kulla
        (fiyat boşluğu: 3. mumun en yükseği < 1. mumun en düşüğü) varsa işlem yok — boşluk hedefe giden yolda direnç olur.
   Likidite: 20 günlük ortalama işlem hacmi ≥ MIN_TURNOVER.
 İşlem:
-  Giriş 3. mumun kapanışında. Stop = üç mumun en düşüğü × (1 − %0,1). Hedef = giriş + R × risk (varsayılan 3R; 5R de test
-  edilir). Aynı gün stop ve hedef görülürse stop (temkinli). En fazla HOLD_MAX işlem günü, sonra kapanıştan çıkış.
+  Giriş 3. mumun kapanışında. Başlangıç stopu = üç mumun en düşüğü × (1 − %0,1); 1R = giriş − başlangıç stopu.
+  Varsayılan çıkış (takip eden stop): fiyat +1R'ye ulaştıktan sonra stop, görülen en yüksek fiyatın 1R altına çekilir
+  (yalnızca yukarı); sabit hedef yok. Karşılaştırma için sabit 3R ve 5R hedefli varyantlar da test edilir.
+  Temkinli sıra: bir günün stopu önceki günlere kadarki en yüksek fiyatla belirlenir; önce stop, sonra hedef kontrol edilir;
+  stopun altında açılan günde açılıştan çıkılır. En fazla HOLD_MAX işlem günü, sonra kapanıştan çıkış.
   Gidiş-dönüş COST düşülür. Aynı hissede önceki işlem kapanmadan yeni işlem açılmaz.
 Kıyas: aynı hisselerde rastgele günlerde, aynı stop yapısıyla (son üç mumun en düşüğü) ve aynı hedefle giriş.
 """
@@ -30,8 +33,9 @@ BODY_ATR = 0.5                        # 1. mum gövdesi ≥ 0,5 ATR
 DOJI_MAX = 0.30                       # 2. mum gövdesi ≤ 1. mum gövdesinin %30'u
 STOP_BUF = 0.001                      # stop, üç mumun en düşüğünün %0,1 altı
 FVG_LOOK = 80                         # üstteki düşüş FVG'si için geriye bakılan mum sayısı
-TARGETS = (3, 5)
-DEFAULT_R = 3
+VARIANTS = {"trail": "Takip eden stop (+1R sonrası 1R)", "3": "Sabit hedef 3R", "5": "Sabit hedef 5R"}
+DEFAULT_V = "trail"
+TRAIL_AFTER, TRAIL_DIST = 1.0, 1.0     # +1R'den sonra, en yüksek fiyatın 1R altından takip
 RANDOM_PER_STOCK = 60
 ACCOUNT = {"capital": 1_000_000, "risk": 0.005, "maxPos": 20}
 TIER_SETS = {"BIST 30": ("30",), "BIST 50": ("30", "50"), "BIST 100": ("30", "50", "100"),
@@ -47,8 +51,8 @@ STRATEGY = {
         "3. mum yeşil ve 1. mumun en yükseğinin üstünde kapanıyor",
         "Yol açık: 1. mumdan önceki 80 mumda oluşmuş, doldurulmamış ve girişin üstünde kalan bir düşüş FVG'si (fiyat boşluğu) yok",
         "Likidite: 20 günlük ortalama işlem hacmi en az 20 mn ₺",
-        "Giriş: 3. mumun kapanışı · Stop: üç mumun en düşüğünün %0,1 altı",
-        "Hedef: 3R (5R sonuçları karşılaştırma için) · En fazla 60 işlem günü",
+        "Giriş: 3. mumun kapanışı · Başlangıç stopu: üç mumun en düşüğünün %0,1 altı (1R = giriş − stop)",
+        "Çıkış: fiyat +1R'ye ulaşınca stop, görülen en yüksek fiyatın 1R altından takip eder (yalnızca yukarı); sabit hedef yok · En fazla 60 işlem günü",
     ],
     "notes": [
         "Avantaj 2022–2024'te belirgindi, 2025–2026'da zayıfladı. Canlı sonuçları yıllık tablodan izleyin.",
@@ -56,7 +60,8 @@ STRATEGY = {
         "Aynı kurallar ABD (S&P 100) ve Almanya (DAX 40) hisselerinde rastgele girişten iyi sonuç vermedi: etki BIST'e özgü görünüyor.",
         "En güçlü etki orta ölçekli hisselerde (BIST 100'ün 31–100. sıraları); BIST 30'da zayıf.",
         "Sermayenin çoğu zaman boşta kalır; tek başına strateji olarak değil, giriş zamanlaması aracı olarak kullanın.",
-        "İşlem başına önerilen risk sermayenin %0,5'i: isabet oranı ~%30 olduğu için art arda 20+ kayıp yaşanabilir.",
+        "Takip eden stop, sabit 3R hedefe göre toplamda biraz daha az kazandırır; karşılığında işlemlerin yarısından fazlası kârla kapanır, kayıp serileri ve düşüşler kısalır. Karşılaştırma tabloda.",
+        "İşlem başına önerilen risk sermayenin %0,5'i: yine de art arda 10+ kayıp yaşanabilir.",
     ],
 }
 
@@ -110,23 +115,33 @@ def overhead_fvg(F, t) -> tuple[float, float] | None:
     return None
 
 
-def simulate(F, t, entry, stop, R) -> dict:
-    """Girişi t kapanışında yapılmış işlemi yürütür. status: 'tp' | 'stop' | 'time' | 'open'."""
+def simulate(F, t, entry, stop, mode=DEFAULT_V) -> dict:
+    """Girişi t kapanışında yapılmış işlemi yürütür. mode: 'trail' (takip eden stop) ya da hedef R'si (3, 5, '3', '5').
+    status: 'stop' (başlangıç stopu) | 'trail' (takip stopu) | 'tp' | 'time' | 'open'.
+    Açık işlemde 'stop_now' (güncel stop) ve 'armed' (takip başladı mı) da döner."""
     n = len(F["c"])
     risk = entry - stop
-    tp = entry + R * risk
+    tp = None if mode == "trail" else entry + float(mode) * risk
     cost_r = COST * entry / risk
+    cur, hi, armed = stop, entry, False
 
     def res(status, px, i):
         return {"status": status, "r": (px - entry) / risk - cost_r, "pct": px / entry - 1 - COST, "exit_t": i, "exit": px}
 
     for i in range(t + 1, min(n, t + 1 + HOLD_MAX)):
-        if F["l"][i] <= stop:
-            return res("stop", stop, i)
-        if F["h"][i] >= tp:
+        if F["l"][i] <= cur:
+            px = min(cur, F["o"][i]) if i > t + 1 else cur
+            return res("trail" if armed and cur > stop else "stop", px, i)
+        if tp is not None and F["h"][i] >= tp:
             return res("tp", tp, i)
+        hi = max(hi, F["h"][i])
+        if mode == "trail":
+            if hi >= entry + TRAIL_AFTER * risk:
+                armed = True
+            if armed:
+                cur = max(cur, hi - TRAIL_DIST * risk)
     if n - 1 < t + HOLD_MAX:
-        return {"status": "open", "r": (F["c"][-1] - entry) / risk, "pct": F["c"][-1] / entry - 1}
+        return {"status": "open", "r": (F["c"][-1] - entry) / risk, "pct": F["c"][-1] / entry - 1, "stop_now": cur, "armed": armed}
     last = t + HOLD_MAX
     return res("time", F["c"][last], last)
 
@@ -200,9 +215,9 @@ def _stats(lst: list[dict], rnd: list[float]) -> dict:
 
 def run(prices: dict[str, pd.DataFrame], tiers: dict[str, str | None], recent_days: int = 60, years: int = 4) -> dict:
     """Tüm hisselerde sinyal üret ve test et. tiers: {KOD: '30' | '50' | '100' | 'TÜM' | None}.
-    Döner: {"stats": {grup: {R: istatistik}}, "accounts": {grup: hesap (varsayılan R)}, "active", "recent"}."""
-    trades = {R: [] for R in TARGETS}
-    rnd = {R: [] for R in TARGETS}
+    Döner: {"stats": {grup: {varyant: istatistik}}, "accounts": {grup: {varyant: hesap}}, "active", "recent"}."""
+    trades = {v: [] for v in VARIANTS}
+    rnd = {v: [] for v in VARIANTS}
     active, recent = [], []
     for sym, df in prices.items():
         tier = tiers.get(sym)
@@ -211,13 +226,13 @@ def run(prices: dict[str, pd.DataFrame], tiers: dict[str, str | None], recent_da
             continue
         n = len(F["c"])
         start = max(22, n - years * 252)
-        busy = {R: -1 for R in TARGETS}
+        busy = {v: -1 for v in VARIANTS}
         for t in range(start, n):
             sig = pattern_at(F, t)
             if not sig:
                 continue
             date = F["idx"][t].strftime("%Y-%m-%d")
-            for R in TARGETS:
+            for R in VARIANTS:
                 if t <= busy[R]:
                     continue
                 r = simulate(F, t, sig["entry"], sig["stop"], R)
@@ -228,14 +243,14 @@ def run(prices: dict[str, pd.DataFrame], tiers: dict[str, str | None], recent_da
                     busy[R] = r["exit_t"]
                     trades[R].append({"r": r["r"], "pct": r["pct"], "bars": r["exit_t"] - t, "y": F["idx"][t].year, "st": r["status"],
                                       "d0": F["idx"][t], "d1": F["idx"][r["exit_t"]], "rp": rp, "sym": sym, "tier": tier})
-                if R != DEFAULT_R:
+                if R != DEFAULT_V:
                     continue
-                rec = {"t": sym, "idx": tier, "d": date, "e": round(sig["entry"], 4), "s": round(sig["stop"], 4),
-                       "tp": round(sig["entry"] + DEFAULT_R * (sig["entry"] - sig["stop"]), 4),
-                       "tp5": round(sig["entry"] + 5 * (sig["entry"] - sig["stop"]), 4),
+                risk = sig["entry"] - sig["stop"]
+                rec = {"t": sym, "idx": tier, "d": date, "e": round(sig["entry"], 4), "s0": round(sig["stop"], 4),
+                       "a": round(sig["entry"] + TRAIL_AFTER * risk, 4),
                        "volx": round(sig["volx"], 2) if sig["volx"] else None, "st": r["status"], "r": round(r["r"], 3)}
                 if r["status"] == "open":
-                    rec["c"] = round(float(F["c"][-1]), 4)
+                    rec.update(c=round(float(F["c"][-1]), 4), s=round(r["stop_now"], 4), armed=r["armed"])
                     active.append(rec)
                 elif t >= n - recent_days:
                     rec.update(xd=F["idx"][r["exit_t"]].strftime("%Y-%m-%d"), x=round(r["exit"], 4))
@@ -249,17 +264,17 @@ def run(prices: dict[str, pd.DataFrame], tiers: dict[str, str | None], recent_da
                 stop = min(F["l"][t - 2], F["l"][t - 1], F["l"][t]) * (1 - STOP_BUF)
                 if not (RISK_MIN <= (entry - stop) / entry <= RISK_MAX):
                     continue
-                for R in TARGETS:
+                for R in VARIANTS:
                     r = simulate(F, t, entry, stop, R)
                     if r["status"] != "open":
                         rnd[R].append((tier, r["r"]))
     stats, accounts = {}, {}
     for name, ts in TIER_SETS.items():
         stats[name] = {}
-        for R in TARGETS:
+        for R in VARIANTS:
             lst = [x for x in trades[R] if x["tier"] in ts]
-            stats[name][str(R)] = _stats(lst, [r for tier, r in rnd[R] if tier in ts])
-        accounts[name] = account([x for x in trades[DEFAULT_R] if x["tier"] in ts])
+            stats[name][R] = _stats(lst, [r for tier, r in rnd[R] if tier in ts])
+        accounts[name] = {v: account([x for x in trades[v] if x["tier"] in ts]) for v in VARIANTS}
     active.sort(key=lambda a: (a["d"], a["t"]), reverse=True)
     recent.sort(key=lambda a: (a["d"], a["t"]), reverse=True)
     return {"stats": stats, "accounts": accounts, "active": active, "recent": recent}

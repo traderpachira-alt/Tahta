@@ -748,10 +748,11 @@ def write_signals(out: Path, prices: dict[str, pd.DataFrame], stocks: list[dict]
         if s is None:
             continue
         a.update(tedbir=bool(s.get("tedbir")), fScore=s.get("fScore"), dsScore=s.get("dsScore"))
-        s.setdefault("sig", []).append({"k": "morningstar", "d": a["d"], "e": a["e"], "s": a["s"], "tp": a["tp"], "st": a["st"]})
+        s.setdefault("sig", []).append({"k": "morningstar", "d": a["d"], "e": a["e"], "s": a["s"], "s0": a["s0"], "a": a["a"],
+                                        "armed": a["armed"], "st": a["st"]})
     payload = {
         "updated": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
-        "strategy": signals.STRATEGY, "defaultR": signals.DEFAULT_R, "targets": list(signals.TARGETS),
+        "strategy": signals.STRATEGY, "variants": signals.VARIANTS, "defaultV": signals.DEFAULT_V,
         "tierSets": list(signals.TIER_SETS), "defaultSet": signals.DEFAULT_SET,
         "account": signals.ACCOUNT, "bench": signals.bench(idx),
         "params": {"hold": signals.HOLD_MAX, "cost": signals.COST, "minTurnover": signals.MIN_TURNOVER},

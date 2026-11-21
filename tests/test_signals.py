@@ -109,6 +109,28 @@ class SimulateTest(unittest.TestCase):
         self.assertEqual(self.r([(100, 116, 99, 112)], R=5)["status"], "open")
         self.assertEqual(self.r([(100, 126, 99, 120)], R=5)["status"], "tp")
 
+    def test_trailing_stop(self):
+        c = S.COST * 100 / 5
+        # +1R'ye ulaşmadan stop: başlangıç stopu
+        self.assertEqual(self.r([(100, 104, 94, 95)], R="trail")["status"], "stop")
+        # 106'yı gördü (+1,2R) → stop 106 − 5 = 101; ertesi gün 100,5'e indi → 101'den takip stopu
+        x = self.r([(100, 106, 99, 105), (104, 104, 100.5, 101)], R="trail")
+        self.assertEqual(x["status"], "trail")
+        self.assertAlmostEqual(x["r"], (101 - 100) / 5 - c)
+        # Gap: stopun altında açılırsa açılıştan çıkılır
+        x = self.r([(100, 106, 99, 105), (98, 99, 97, 98)], R="trail")
+        self.assertAlmostEqual(x["exit"], 98)
+        # Sabit hedef yok: 3R'nin çok üstüne çıkabilir
+        rows = [(100 + k, 101 + k, 99.5 + k, 100.5 + k) for k in range(0, 30, 2)] + [(129, 129, 120, 121)]
+        x = self.r(rows, R="trail")
+        self.assertEqual(x["status"], "trail")
+        self.assertGreater(x["r"], 4)
+        # Aynı gün içindeki zirve o günün stopunu yükseltmez (temkinli sıra)
+        x = self.r([(100, 112, 100.5, 101)], R="trail")
+        self.assertEqual(x["status"], "open")
+        self.assertTrue(x["armed"])
+        self.assertAlmostEqual(x["stop_now"], 107)
+
     def test_open_and_time(self):
         self.assertEqual(self.r([(100, 102, 99, 101)] * 5)["status"], "open")
         x = self.r([(100, 102, 99, 101)] * (S.HOLD_MAX + 3))
