@@ -90,6 +90,33 @@ class PatternTest(unittest.TestCase):
         self.assertGreater(sig["volx"], 2.5)
 
 
+class CandidateTest(unittest.TestCase):
+    def test_first_two_candles(self):
+        df = with_star(base(), 60).iloc[:60]          # 1. mum (58) ve doji (59) var, 3. mum yok
+        F = S.frame(df)
+        cd = S.candidate_at(F, 59)
+        self.assertIsNotNone(cd)
+        self.assertAlmostEqual(cd["trig"], df["High"].iloc[58])
+        self.assertAlmostEqual(cd["stop"], df["Low"].iloc[58:60].min() * (1 - S.STOP_BUF))
+        self.assertLessEqual(cd["dist"], S.CAND_MAX_DIST)
+        self.assertIsNone(cd["fvg"])
+        self.assertIsNone(S.candidate_at(F, 58))     # tek mum: aday değil
+
+    def test_fvg_raises_trigger(self):
+        df = with_star(base(), 60).iloc[:60].copy()
+        trig = df["High"].iloc[58]
+        # Tetiğin biraz üstünde doldurulmamış bir düşüş FVG'si: etkin tetik boşluğun alt sınırına çıkar
+        for i in range(45, 49):
+            df.iloc[i, [0, 1, 2, 3]] = [trig + 8, trig + 8.5, trig + 7.5, trig + 8]
+        df.iloc[49, [0, 1, 2, 3]] = [trig + 8, trig + 8, trig + 2, trig + 2.5]
+        for i in range(50, 57):
+            df.iloc[i, [0, 1, 2, 3]] = [trig + 0.5, trig + 1, trig, trig + 0.5]
+        cd = S.candidate_at(S.frame(df), 59)
+        self.assertIsNotNone(cd)                      # boşluk alt sınırı (tetik + 1) hâlâ %6 içinde
+        self.assertAlmostEqual(cd["eff"], trig + 1)
+        self.assertIsNotNone(cd["fvg"])
+
+
 class SimulateTest(unittest.TestCase):
     def r(self, rows, R=3):
         return S.simulate(bars([(100, 100, 100, 100)] + rows), 0, 100.0, 95.0, R)

@@ -33,6 +33,7 @@ BODY_ATR = 0.5                        # 1. mum gövdesi ≥ 0,5 ATR
 DOJI_MAX = 0.30                       # 2. mum gövdesi ≤ 1. mum gövdesinin %30'u
 STOP_BUF = 0.001                      # stop, üç mumun en düşüğünün %0,1 altı
 FVG_LOOK = 80                         # üstteki düşüş FVG'si için geriye bakılan mum sayısı
+CAND_MAX_DIST = 0.06                  # hazırlanan formasyonlar: tetiğe en fazla %6 uzaklık
 VARIANTS = {"trail": "Takip eden stop (+1R sonrası 1R)", "3": "Sabit hedef 3R", "5": "Sabit hedef 5R"}
 DEFAULT_V = "trail"
 TRAIL_AFTER, TRAIL_DIST = 1.0, 1.0     # +1R'den sonra, en yüksek fiyatın 1R altından takip
@@ -113,6 +114,42 @@ def overhead_fvg(F, t) -> tuple[float, float] | None:
             if h[i + 1:a + 1].max() < top:
                 return (h[i], top)
     return None
+
+
+def unfilled_bearish_fvgs(F, a) -> list[tuple[float, float]]:
+    """a. mumdan önceki FVG_LOOK mumda oluşmuş ve a anında doldurulmamış düşüş FVG'leri: [(alt, üst)]."""
+    h, lo = F["h"], F["l"]
+    out = []
+    for i in range(max(2, a - FVG_LOOK), a):
+        if h[i] < lo[i - 2] and h[i + 1:a + 1].max() < lo[i - 2]:
+            out.append((h[i], lo[i - 2]))
+    return out
+
+
+def candidate_at(F, b) -> dict | None:
+    """b günü kapanışında morning star'ın ilk iki mumu hazırsa (a = b-1 sert kırmızı, b doji) ertesi gün için tetik.
+    Tetik: ertesi gün kapanış 1. mumun en yükseğinin üstünde ve yeşil olmalı; girişin üstünde kalan doldurulmamış düşüş
+    FVG'si sinyali engellediği için kapanış bu boşlukların alt sınırını da geçmelidir (etkin tetik)."""
+    if b < 22:
+        return None
+    o, h, lo, c = F["o"], F["h"], F["l"], F["c"]
+    a = b - 1
+    body1 = o[a] - c[a]
+    atr = F["atr"][a]
+    if not (np.isfinite(atr) and F["turn"][b] >= MIN_TURNOVER):
+        return None
+    if not (c[a] < o[a] and body1 >= BODY_ATR * atr and abs(c[b] - o[b]) <= DOJI_MAX * body1):
+        return None
+    trig = h[a]
+    blocks = [g for g in unfilled_bearish_fvgs(F, a) if g[0] > trig]
+    eff = max([trig] + [g[0] for g in blocks])
+    dist = eff / c[b] - 1
+    stop = min(lo[a], lo[b]) * (1 - STOP_BUF)
+    risk = (eff - stop) / eff
+    if dist > CAND_MAX_DIST or risk > RISK_MAX:
+        return None
+    fvg = max(blocks, key=lambda g: g[0]) if blocks else None
+    return {"trig": trig, "eff": eff, "dist": dist, "stop": stop, "risk": risk, "fvg": fvg}
 
 
 def simulate(F, t, entry, stop, mode=DEFAULT_V) -> dict:
@@ -218,7 +255,7 @@ def run(prices: dict[str, pd.DataFrame], tiers: dict[str, str | None], recent_da
     Döner: {"stats": {grup: {varyant: istatistik}}, "accounts": {grup: {varyant: hesap}}, "active", "recent"}."""
     trades = {v: [] for v in VARIANTS}
     rnd = {v: [] for v in VARIANTS}
-    active, recent = [], []
+    active, recent, candidates = [], [], []
     for sym, df in prices.items():
         tier = tiers.get(sym)
         F = frame(df)
@@ -255,6 +292,13 @@ def run(prices: dict[str, pd.DataFrame], tiers: dict[str, str | None], recent_da
                 elif t >= n - recent_days:
                     rec.update(xd=F["idx"][r["exit_t"]].strftime("%Y-%m-%d"), x=round(r["exit"], 4))
                     recent.append(rec)
+        # Hazırlanan formasyonlar: son gün itibarıyla ilk iki mumu hazır olanlar (yarın tamamlanabilir)
+        cd = candidate_at(F, n - 1)
+        if cd:
+            candidates.append({"t": sym, "idx": tier, "d1": F["idx"][n - 2].strftime("%Y-%m-%d"), "d2": F["idx"][n - 1].strftime("%Y-%m-%d"),
+                               "c": round(float(F["c"][-1]), 4), "trig": round(cd["trig"], 4), "eff": round(cd["eff"], 4),
+                               "dist": round(cd["dist"], 4), "s": round(cd["stop"], 4), "risk": round(cd["risk"], 4),
+                               "fvg": [round(cd["fvg"][0], 4), round(cd["fvg"][1], 4)] if cd["fvg"] else None})
         # Kıyas: rastgele günler, aynı stop yapısı (son üç mumun en düşüğü), aynı hedef (tekrarlanabilir örneklem)
         cand = [t for t in range(max(start, 22), n - 1) if F["turn"][t] >= MIN_TURNOVER]
         if cand:
@@ -277,4 +321,5 @@ def run(prices: dict[str, pd.DataFrame], tiers: dict[str, str | None], recent_da
         accounts[name] = {v: account([x for x in trades[v] if x["tier"] in ts]) for v in VARIANTS}
     active.sort(key=lambda a: (a["d"], a["t"]), reverse=True)
     recent.sort(key=lambda a: (a["d"], a["t"]), reverse=True)
-    return {"stats": stats, "accounts": accounts, "active": active, "recent": recent}
+    candidates.sort(key=lambda x: (x["dist"], x["t"]))
+    return {"stats": stats, "accounts": accounts, "active": active, "recent": recent, "candidates": candidates}

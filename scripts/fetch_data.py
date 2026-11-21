@@ -757,9 +757,10 @@ def write_signals(out: Path, prices: dict[str, pd.DataFrame], stocks: list[dict]
         "account": signals.ACCOUNT, "bench": signals.bench(idx),
         "params": {"hold": signals.HOLD_MAX, "cost": signals.COST, "minTurnover": signals.MIN_TURNOVER},
         "stats": R["stats"], "accounts": R["accounts"], "active": R["active"], "recent": R["recent"],
+        "candidates": R["candidates"], "candMaxDist": signals.CAND_MAX_DIST,
     }
     (out / "data" / "signals.json").write_text(json.dumps(clean(payload), ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-    print(f"Sinyaller (morning star): {len(R['active'])} açık, son 60 günde {len(R['recent'])} sonuçlanmış ({time.time() - t0:.0f} sn).", flush=True)
+    print(f"Sinyaller (morning star): {len(R['active'])} açık, {len(R['candidates'])} hazırlanan, son 60 günde {len(R['recent'])} sonuçlanmış ({time.time() - t0:.0f} sn).", flush=True)
 
 
 def download_prices(symbols: list[str]) -> dict[str, pd.DataFrame]:

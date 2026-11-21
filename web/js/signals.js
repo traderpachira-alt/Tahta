@@ -79,7 +79,7 @@ export async function renderSignals() {
   if (!S.strategy) { view.innerHTML = '<p class="empty">Sinyal verisi yenileniyor; bir sonraki güncellemede gelecek.</p>'; return; }
   tierSel ??= S.defaultSet;
   const inSet = a => (TIER_OF[tierSel] || []).includes(a.idx);
-  const act = S.active.filter(inSet), rec = S.recent.filter(inSet), u = S.strategy, P = S.params;
+  const act = S.active.filter(inSet), rec = S.recent.filter(inSet), cand = (S.candidates || []).filter(inSet), u = S.strategy, P = S.params;
   view.innerHTML = `
   <section class="dhead"><div><h1>Sinyaller</h1>
     <p class="sub">${esc(u.name)}: ${esc(u.summary)}</p></div></section>
@@ -109,6 +109,26 @@ export async function renderSignals() {
       stop %5 aşağıdaysa pozisyon 100.000 ₺ olur. Giriş 3. mumun kapanışında yapılır. Fiyat +1R'ye ulaşınca stop, o güne kadar görülen en yüksek fiyatın 1R altına çekilir ve yalnızca yukarı taşınır; sabit hedef yoktur.
       Pozisyon en fazla ${P.hold} işlem günü tutulur; testte gidiş-dönüş %${F1.format(P.cost * 100)} maliyet düşülür; 20 günlük ortalama işlem hacmi
       ${fmt.big(P.minTurnover)} ₺ altındaki hisseler alınmaz.</p>
+  </section>
+
+  <section class="panel">
+    <h2>Hazırlanan formasyonlar <span class="muted" style="font-weight:400">· ilk iki mum hazır · ${esc(tierSel)} · ${cand.length}</span></h2>
+    <p class="muted" style="font-size:13px;margin:0 0 8px">Bu liste sinyal değildir. Sert kırmızı mum ve ardından doji oluşmuş; bir sonraki seans
+      <b>yeşil kapanır ve kapanış tetiğin üstünde olursa</b> morning star tamamlanır. Geçmişte bu adayların yalnızca ~%3'ü sinyale dönüştü
+      (tetiğe yakın olanlarda daha sık). Tetiğe uzaklığı %${Math.round((S.candMaxDist || 0.06) * 100)}'ya kadar olanlar, yakından uzağa sıralı.</p>
+    ${cand.length ? `<div class="tablewrap flat"><table class="grid sigtable"><thead><tr>
+      <th class="tk">Hisse</th><th class="txt">Endeks</th><th title="1. mum (sert kırmızı) · 2. mum (doji)">Mumlar</th><th>Son kapanış</th>
+      <th title="Yarın kapanış bu seviyenin üstünde ve gün yeşil olmalı">Tetik (kapanış &gt;)</th><th title="Son kapanışa göre gereken yükseliş">Gereken</th>
+      <th title="İlk iki mumun en düşüğünün %0,1 altı; 3. mum daha aşağı inerse stop da iner">Tahmini stop</th><th title="Tetik fiyatından girişte stop mesafesi">Tahmini risk</th>
+      <th class="txt">Not</th></tr></thead><tbody>
+      ${cand.map(a => `<tr data-t="${a.t}"><td class="tk"><a class="code" href="#/h/${a.t}">${a.t}</a></td><td class="txt">${IDX_LABEL[a.idx] || ''}</td>
+        <td>${fmt.date(a.d1).slice(0, 5)} · ${fmt.date(a.d2).slice(0, 5)}</td><td>${fmt.price(a.c)}</td>
+        <td><b>${fmt.price(a.eff)}</b></td><td class="up">${fmt.pct(a.dist)}</td>
+        <td>${fmt.price(a.s)}</td><td>%${F1.format(a.risk * 100)}</td>
+        <td class="txt">${a.fvg ? `<span class="chip warn" title="Doldurulmamış düşüş FVG'si: ${fmt.price(a.fvg[0])}–${fmt.price(a.fvg[1])}. Kapanış bu boşluğun altında kalırsa sinyal oluşmaz.">FVG: tetik ${fmt.price(a.trig)} → ${fmt.price(a.eff)}</span>` : ''}</td></tr>`).join('')}
+    </tbody></table></div>` : '<p class="muted">Bu evrende şu an hazırlanan formasyon yok.</p>'}
+    <p class="muted" style="font-size:12px;margin:8px 0 0">Kullanım: seansın son dakikalarında fiyat tetiğin üstünde ve gün yeşilse kapanışta girilir. Kesin stop, 3. mumun en düşüğü de hesaba
+      katılarak kapanıştan sonra belirlenir (açık sinyaller tablosunda görünür). Test sonuçları yalnızca tamamlanmış formasyonlar için geçerlidir.</p>
   </section>
 
   <section class="panel sigcard">

@@ -16,7 +16,7 @@ const GUIDE = [
     temel oranlar, temettü geçmişi ve varsa tedbirler bulunur. ★ hisseyi izleme listesine ekler.`],
   ['Sinyaller', `Morning star kurulumu: sert kırmızı mum, ardından küçük gövdeli (doji benzeri) mum ve 1. mumun tepesinin üstünde kapanan yeşil mum.
     Girişin üstünde doldurulmamış bir düşüş FVG'si (fiyat boşluğu) varsa sinyal üretilmez. Giriş 3. mumun kapanışında, başlangıç stopu üç mumun en düşüğünün altında; fiyat +1R'ye ulaşınca stop en yüksek fiyatın 1R altından takip eder (sabit hedef yok). Sayfada endekse göre açık sinyaller, son sonuçlar ve son 4 yılın test
-    sonuçları (rastgele giriş kıyası, yıllara göre sonuç, hesap simülasyonu) görünür. Açık sinyali olan hissenin grafiğinde giriş, stop ve hedef çizgileri çizilir.`],
+    sonuçları (rastgele giriş kıyası, yıllara göre sonuç, hesap simülasyonu) görünür. Açık sinyali olan hissenin grafiğinde giriş ve stop çizgileri çizilir. "Hazırlanan formasyonlar" listesi, ilk iki mumu oluşmuş ve ertesi gün tamamlanabilecek hisseleri tetik fiyatıyla gösterir.`],
   ['Karşılaştır', `En fazla 5 hisseyi ve BIST 100'ü aynı başlangıçtan (%0) itibaren getiri olarak üst üste çizer.`],
   ['Portföy', `<b>+ Varlık ekle</b> ile hisse (Temettü ya da Trend/Momentum), emtia/döviz ya da kripto ekleyin. Her varlık bir işlem
     listesidir: alım ve satımlar ortalama maliyet yöntemiyle hesaplanır. Alımı TL bakiyesinden ödeyebilir, satış gelirini TL bakiyesine

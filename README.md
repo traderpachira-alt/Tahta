@@ -81,7 +81,9 @@ Sinyaller (`scripts/signals.py`, testleri `tests/test_signals.py`): morning star
 oluşmuş, doldurulmamış ve girişin üstünde kalan bir düşüş FVG'si varsa işlem yok; 20 mn ₺ hacim filtresi. Giriş 3. mumun kapanışında, başlangıç stopu üç mumun en düşüğünün %0,1 altında; fiyat +1R'ye ulaşınca stop en yüksek
 fiyatın 1R altından takip eder, sabit hedef yok (sabit 3R/5R karşılaştırma için test edilir). Her
 güncellemede son 4 yıl BIST 30/50/100/TÜM için yeniden test edilir: rastgele giriş kıyası, yıllara göre sonuç, hesap
-simülasyonu (işlem başına %0,5 risk, en fazla 20 pozisyon). Kurallar BIST'te seçildi; ABD ve Almanya'da etki bulunmadı.
+simülasyonu (işlem başına %0,5 risk, en fazla 20 pozisyon). "Hazırlanan formasyonlar" listesi ilk iki mumu oluşmuş
+(sert kırmızı + doji) ve ertesi gün tamamlanabilecek hisseleri tetik fiyatı, tahmini stop ve FVG engeliyle gösterir (tetiğe
+uzaklık en fazla %6). Kurallar BIST'te seçildi; ABD ve Almanya'da etki bulunmadı.
 
 Temettü: temettuhisseleri.com tutarları **net** ve bedelsizlere göre **düzeltilmemiş**tir; Yahoo'nun bölünme
 çarpanları ve o tarihteki stopajla (2022–2024 arası %10, öncesi ve sonrası %15, GYO/YO %0) brüt, düzeltilmiş
