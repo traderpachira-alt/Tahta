@@ -149,8 +149,8 @@ export function refreshCols() {
 }
 export function colsPanel() {
   const v = state.view, shown = colsFor(v), cur = new Set(shown), open = ui.msOpen === 'cols', def = VIEWS[v].cols;
-  const others = Object.entries(VIEWS).filter(([id]) => id !== v).map(([, vw]) => [vw.label, vw.cols]);
-  const inViews = new Set(Object.values(VIEWS).flatMap(x => x.cols));
+  const others = Object.entries(VIEWS).filter(([id]) => id !== v).map(([, vw]) => [vw.label, [...vw.cols, ...(vw.extra || [])]]);
+  const inViews = new Set(Object.values(VIEWS).flatMap(x => [...x.cols, ...(x.extra || [])]));
   const loose = Object.keys(FIELDS).filter(k => !inViews.has(k));
   const seen = new Set(shown);
   const addRow = k => `<label><input type="checkbox" value="${k}"> <span>${esc(colLabel(k))}</span></label>`;
@@ -164,7 +164,7 @@ export function colsPanel() {
         <div class="ms-grp">Sütunlar · soldan sağa (${cur.size})</div>
         ${shown.map((k, i) => `<label class="colrow"><input type="checkbox" value="${k}" checked> <span>${esc(colLabel(k))}</span>
           <button type="button" class="ic" data-colmove="${k}|-1" aria-label="${esc(colLabel(k))} sola taşı"${i === 0 ? ' disabled' : ''}>↑</button><button type="button" class="ic" data-colmove="${k}|1" aria-label="${esc(colLabel(k))} sağa taşı"${i === shown.length - 1 ? ' disabled' : ''}>↓</button></label>`).join('')}
-        ${group(`${VIEWS[v].label} sekmesinden gizlenenler`, def)}
+        ${group(`${VIEWS[v].label} · eklenebilir`, [...def, ...(VIEWS[v].extra || [])])}
         ${others.map(([t, keys]) => group(`Ekle · ${t}`, keys)).join('')}
         ${group('Ekle · ek alanlar', loose)}
       </div>

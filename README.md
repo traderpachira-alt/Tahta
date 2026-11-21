@@ -23,7 +23,7 @@ Tarayıcıda çalışır, telefonda ana ekrana eklenince uygulama gibi açılır
   başlıkları altında gruplu. Hisse sayfasında grafik üstte, altında sekmeler (Genel, Destek / direnç, Temettü, Temel ve
   değerleme, Sektör); göstergeler tek menüde, açık olanlar etiket olarak; verisi olmayan kartlar gizlenir. Uzun
   açıklamalar "ⓘ" satırlarında katlı.
-- **Sütun seçimi ve sırası:** her sekmede "☰ Görünüm" ile sütun gizle/göster, diğer sekmelerden ya da ek alanlardan
+- **Sütun seçimi ve sırası:** her sekmede yalnızca temel sütunlar açık gelir (8–11 sütun); "☰ Görünüm" ile sütun gizle/göster, diğer sekmelerden ya da ek alanlardan
   sütun ekle, ↑ ↓ ile sırala; bilgisayarda başlıkları sürükleyerek de sıralanır. Sekme başına saklanır,
   "Varsayılana dön" ile sıfırlanır.
 - **Kayıtlı taramalar:** filtre + endeks + sektör + hazır tarama kombinasyonunu adıyla kaydet, tek dokunuşla aç.

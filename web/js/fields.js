@@ -73,12 +73,19 @@ export const FIELDS = {
   resDist:   { label: 'Direnç uzaklığı', f: x => !ok(x) ? '—' : x === 0 ? 'bölgede' : '+' + F1.format(x * 100) + '%', pct: 1, title: 'En yakın major direnç bölgesinin alt kenarına uzaklık (confluence)' },
   vsVwma20:  { label: 'VWMA20 farkı',     f: fmt.pct, pct: 1, color: 1, title: 'Fiyatın 20 günlük hacim ağırlıklı ortalamaya uzaklığı' },
 };
+// cols: varsayılan (temel) sütunlar · extra: bu sekmeye "☰ Görünüm" panelinden eklenebilecek ilgili sütunlar
 export const VIEWS = {
-  fiyat:    { label: 'Fiyat',    cols: ['_idx', 'last', 'chg1d', 'chg1w', 'chg1m', 'chg3m', 'chg1y', 'ytd', 'turnover', 'volRatio', 'mcap'] },
-  trend:    { label: 'Trend',    cols: ['_idx', 'last', 'chg1d', '_trend', '_st', '_ichi', '_cross', 'supDist', '_supStr', 'resDist', '_resStr', 'vsSma50', 'vsSma200', 'vsVwma20', 'stDist', 'distHi52', 'rs3m'] },
-  momentum: { label: 'Momentum', cols: ['_idx', 'last', 'chg1d', 'rsi', 'stochK', 'macdPct', 'fisher', '_cross', 'volRatio', 'atrPct', 'volat', 'beta'] },
-  temettu:  { label: 'Temettü',  cols: ['_idx', 'last', 'dsScore', 'yieldPct', 'ttmYield', 'divYield', 'divYieldAvg', 'divCur', 'divYieldPrev', 'divYieldAvgPrev', 'divPrev', 'divGrowth', 'divFreq', '_nextDiv', 'nextDivNet', 'lastDivDate', 'lastDivAmt', 'divYears5', 'divStreak', 'divAvg5', 'payout'] },
-  temel:    { label: 'Temel',    cols: ['_idx', 'last', 'fScore', 'dcfImpliedG', 'dcfUpside', 'mcap', 'pe', 'pb', 'evEbitda', 'netMargin', 'roe', 'de', 'revGrowth', 'epsGrowth', 'divYield', 'freeFloat', '_sector'] },
+  fiyat:    { label: 'Fiyat',    cols: ['_idx', 'last', 'chg1d', 'chg1w', 'chg1m', 'ytd', 'turnover', 'mcap'],
+              extra: ['chg3m', 'chg6m', 'chg1y', 'volRatio', 'distHi52', 'distLo52', 'rs3m', 'volat', 'beta', '_sector'] },
+  trend:    { label: 'Trend',    cols: ['_idx', 'last', 'chg1d', '_trend', '_st', '_cross', 'supDist', 'resDist', 'vsSma200', 'rs3m'],
+              extra: ['_ichi', '_supStr', '_resStr', 'vsSma20', 'vsSma50', 'vsVwma20', 'stDist', 'distHi52', 'distLo52'] },
+  momentum: { label: 'Momentum', cols: ['_idx', 'last', 'chg1d', 'rsi', 'stochK', 'macdPct', '_cross', 'volRatio', 'atrPct'],
+              extra: ['fisher', 'volat', 'beta', 'rs3m', 'chg1w', 'chg1m'] },
+  temettu:  { label: 'Temettü',  cols: ['_idx', 'last', 'dsScore', 'yieldPct', 'ttmYield', 'divYield', 'divYieldPrev', '_nextDiv', 'nextDivNet', 'divYears5', 'payout'],
+              extra: ['nextDivYield', 'divYieldAvg', 'divYieldAvgPrev', 'divCur', 'divPrev', 'divGrowth', 'divFreq', 'lastDivDate', 'lastDivAmt', 'lastDivYieldAvg',
+                      'divStreak', 'divAvg5', 'yieldRel', 'yieldMed', 'yieldPctAbs'] },
+  temel:    { label: 'Temel',    cols: ['_idx', 'last', 'mcap', 'pe', 'pb', 'evEbitda', 'roe', 'netMargin', 'fScore', 'dcfUpside'],
+              extra: ['dcfImpliedG', 'dcfFair', 'opMargin', 'de', 'revGrowth', 'epsGrowth', 'divYield', 'freeFloat', '_sector'] },
 };
 export const ST = { up: ['Al', 'up'], down: ['Sat', 'down'] };
 export const ICHI = { above: ['Bulut üstü', 'up'], below: ['Bulut altı', 'down'], in: ['Bulut içi', ''] };

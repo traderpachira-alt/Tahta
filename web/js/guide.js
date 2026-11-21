@@ -11,7 +11,7 @@ const GUIDE = [
     <b>Teknik</b>, <b>Temettü</b>, <b>Temel</b> başlıklarına dokununca altında o grubun taramaları açılır; seçili tarama başlıkta yazar.
     <b>Kayıtlı</b> başlığı kendi taramalarınızı ve "Bu taramayı kaydet" düğmesini gösterir. Alttaki sekmeler (Fiyat, Trend, Momentum, Temettü, Temel)
     tablonun sütun grubunu değiştirir. <b>+ Filtre</b> ile kendi koşulunuzu ekleyin (yüzde alanlara yüzde yazın: 5 = %5). Endeks, pazar ve sektörde birden
-    fazla seçim yapılabilir. <b>☰ Görünüm</b> panelinde sütun ekleyip çıkarın ve tedbirli hisseleri gizleyin; masaüstünde sütun başlığını sürükleyerek,
+    fazla seçim yapılabilir. Her sekmede yalnızca temel sütunlar açık gelir; <b>☰ Görünüm</b> panelinde sekmeye ait diğer sütunlar "eklenebilir" başlığı altındadır. Bu panelde sütun ekleyip çıkarın ve tedbirli hisseleri gizleyin; masaüstünde sütun başlığını sürükleyerek,
     telefonda paneldeki oklarla sırasını değiştirin. Başlığa dokununca sıralanır. Endeks sütununda 30 / 50 / 100 / TÜM yazar; pazar yalnızca Yıldız ve Ana
     dışındaysa görünür.`],
   ['Hisse sayfası', `Tablodaki satıra dokunun. Grafikte dönem ve ölçek (doğrusal / log / %) seçilir; <b>Göstergeler</b> menüsünden ortalamalar,
