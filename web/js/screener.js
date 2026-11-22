@@ -6,7 +6,7 @@ import { listOf, persist, state, ui } from './store.js';
 import { tedbirIcon } from './tedbir.js';
 import { pfRows } from './pfcore.js';
 import { loadSignals } from './signals.js';
-import { cls, esc, fmt, info, ok } from './util.js';
+import { F1, cls, esc, fmt, info, ok } from './util.js';
 
 /* ============================================================
    Tarama ekranı
@@ -200,15 +200,30 @@ export function presetBar(counts) {
     </div>${row}`;
 }
 /* Piyasa genişliği: SMA50 / SMA200 üstündeki hisse oranı, 4 yıllık grafik ve yorum (olumlu ve olumsuz notlar) */
+const pulseTone = x => x >= 60 ? 'pos' : x < 40 ? 'neg' : 'neu';
+function pulseHtml(P) {
+  const d = x => `<span class="${cls(x)}">${x > 0 ? '+' : ''}${F1.format(x)}</span>`;
+  return `<div class="pulse">
+      <div class="pulsehead"><b class="${pulseTone(P.score)}">${P.score}</b><span>/100 · <b>${esc(P.band)}</b></span>
+        <small class="muted">1 hafta önce ${P.w1} · 1 ay önce ${P.m1} · son 4 yılın %${Math.max(1, Math.round(P.pct * 100))}. dilimi</small></div>
+      <div class="pulsebar"><i style="left:${P.score}%"></i></div>
+      <div class="pulseaxis"><span>Kritik</span><span>Zayıf</span><span>Kararsız</span><span>Sağlıklı</span><span>Güçlü</span></div>
+      <table class="grid parts"><thead><tr><th class="tk">Bileşen</th><th>Puan</th><th></th><th title="Son 1 haftadaki değişim">1 hafta</th></tr></thead><tbody>
+        ${P.parts.map(x => `<tr title="${esc(x.why)}"><td class="tk">${esc(x.n)}</td><td>${F1.format(x.v)} / ${x.max}</td>
+          <td class="pbar"><span class="meter"><i style="width:${x.v / x.max * 100}%"></i></span></td><td>${d(x.dw)}</td></tr>`).join('')}
+      </tbody></table>
+    </div>`;
+}
 function breadthHtml(B) {
   const W = 600, H = 90, n = B.hist.length;
   const xy = k => B.hist.map((r, i) => `${(i / (n - 1) * W).toFixed(1)},${(H - r[k] * H).toFixed(1)}`).join(' ');
   const pc = x => `%${Math.round(x * 100)}`;
   const lvl = (x, med, p) => `<b>${pc(x)}</b> <span class="muted">4 yıl medyanı ${pc(med)} · 4 yılın %${Math.max(1, Math.round(p * 100))}. dilimi</span>`;
-  return `<h2>Piyasa genişliği <span class="muted" style="font-weight:400">· BIST TÜM, ${B.n} hisse · ${fmt.date(B.date)}</span></h2>
+  return `<h2>Piyasa Nabzı <span class="muted" style="font-weight:400">· BIST TÜM, ${B.n} hisse · ${fmt.date(B.date)}</span></h2>
     <div class="brdgrid">
       <div>
-        <p class="brdhead ${B.tone}">${esc(B.head)}</p>
+        ${B.pulse ? pulseHtml(B.pulse) : ''}
+        <p class="brdhead ${B.tone}">Genişlik: ${esc(B.head)}</p>
         <div class="brdrows">
           <div><span>Kısa vade · 50 günlük ortalama üstü</span>${lvl(B.a50, B.med50, B.p50)}</div>
           <div><span>Uzun vade · 200 günlük ortalama üstü</span>${lvl(B.a200, B.med200, B.p200)}</div>
@@ -225,10 +240,15 @@ function breadthHtml(B) {
           <line x1="0" x2="${W}" y1="${H / 2}" y2="${H / 2}" class="mid"/>
           <polyline points="${xy(2)}" class="l200"/><polyline points="${xy(1)}" class="l50"/>
         </svg>
+
         <div class="brdaxis"><span>${fmt.date(B.hist[0][0])}</span><span><i class="k50"></i>SMA50 üstü <i class="k200"></i>SMA200 üstü · orta çizgi %50</span><span>${fmt.date(B.hist[n - 1][0])}</span></div>
+        ${B.pulse ? `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" class="brdchart pulsechart" role="img" aria-label="Son 4 yılda Piyasa Nabzı">
+          <line x1="0" x2="${W}" y1="${H * 0.6}" y2="${H * 0.6}" class="mid"/><line x1="0" x2="${W}" y1="${H * 0.2}" y2="${H * 0.2}" class="mid"/><line x1="0" x2="${W}" y1="${H * 0.8}" y2="${H * 0.8}" class="mid"/>
+          <polyline points="${B.hist.map((r, i) => r[3] == null ? '' : `${(i / (n - 1) * W).toFixed(1)},${(H - r[3] / 100 * H).toFixed(1)}`).filter(Boolean).join(' ')}" class="lp"/>
+        </svg><div class="brdaxis"><span>Piyasa Nabzı, son 4 yıl</span><span>çizgiler: 20 · 40 · 80</span></div>` : ''}
       </div>
     </div>
-    ${info('Kısa vade (50 gün) piyasanın son haftalardaki yönünü, uzun vade (200 gün) ana trendin ne kadar geniş tabanlı olduğunu gösterir. %15 altı "çok zayıf" (panik), %15–35 zayıf, %35–65 dengeli, %65–85 güçlü, %85 üstü "çok güçlü" (aşırı ısınma). Yorumlar, seviyeye ek olarak yönü (son 10/20 gündeki değişim), kısa ve uzun vadenin ilişkisini ve endeksle uyumu dikkate alır; olumlu işaretler ▲, olumsuz işaretler ▼ ile gösterilir. Bu bir gösterge, al-sat sinyali değil.', 'Nasıl okunur?')}`;
+    ${info('<b>Piyasa Nabzı</b> beş bileşenin toplamıdır: kısa ve uzun vade genişliğinin son 4 yıldaki yeri (25+25), kısa ve uzun vadenin yönü (20+15) ve kısa vadenin uzun vadeye önderliği (15). Olumlu gelişmeler (genişliğin artması, dipten dönüş) puanı artırır, olumsuzlar düşürür; bileşen tablosu puanın neden değiştiğini gösterir. 0–20 Kritik, 20–40 Zayıf, 40–60 Kararsız, 60–80 Sağlıklı, 80–100 Güçlü. Bir durum göstergesidir, al-sat sinyali değil: son 4 yılda en iyi 40 günlük BIST 100 getirileri hem Kritik (dip, ort. +%7,6) hem Güçlü (yaygın yükseliş, ort. +%12,6) bölgelerinden sonra geldi; aradaki bölgelerde getiri daha düşüktü. ' + 'Kısa vade (50 gün) piyasanın son haftalardaki yönünü, uzun vade (200 gün) ana trendin ne kadar geniş tabanlı olduğunu gösterir. %15 altı "çok zayıf" (panik), %15–35 zayıf, %35–65 dengeli, %65–85 güçlü, %85 üstü "çok güçlü" (aşırı ısınma). Yorumlar, seviyeye ek olarak yönü (son 10/20 gündeki değişim), kısa ve uzun vadenin ilişkisini ve endeksle uyumu dikkate alır; olumlu işaretler ▲, olumsuz işaretler ▼ ile gösterilir. Bu bir gösterge, al-sat sinyali değil.', 'Nasıl okunur?')}`;
 }
 /* Bugün özeti: açık sinyaller, portföy, izleme listesi, yaklaşan temettüler (içeriği olan kartlar) */
 function todayHtml() {
@@ -249,8 +269,10 @@ function todayHtml() {
   const div = DATA.stocks.filter(s => s.nextDivDate && s.nextDivDate >= DATA.lastDate && s.nextDivDate <= lim).sort((a, b) => a.nextDivDate.localeCompare(b.nextDivDate));
   if (div.length) cards.push(`<button type="button" class="tcard" data-preset="divSoon"><span>Temettü · 14 gün</span><b>${div.length} hisse</b><small>${div.slice(0, 3).map(s => `${s.t} ${fmt.date(s.nextDivDate).slice(0, 5)}`).join(' · ')}</small></button>`);
   const B = DATA.breadth;
-  if (B) cards.push(`<button type="button" class="tcard brd ${B.tone}" id="brdBtn" aria-expanded="${!!ui.brdOpen}" title="BIST TÜM hisselerinin 50 ve 200 günlük ortalamasının üstündeki oranı; ayrıntı için dokunun">
-      <span>Piyasa genişliği</span><b>%${Math.round(B.a50 * 100)} · %${Math.round(B.a200 * 100)}</b><small>${esc(B.head)}</small></button>`);
+  const PZ = B?.pulse;
+  if (B) cards.push(`<button type="button" class="tcard brd ${PZ ? pulseTone(PZ.score) : B.tone}" id="brdBtn" aria-expanded="${!!ui.brdOpen}" title="Piyasa Nabzı: BIST TÜM hisselerinin genişliğinden 0–100 puan; ayrıntı için dokunun">
+      <span>Piyasa Nabzı</span>${PZ ? `<b>${PZ.score}<small class="of">/100</small> · ${esc(PZ.band)}</b><small>1 hafta önce ${PZ.w1} · 1 ay önce ${PZ.m1}</small>`
+        : `<b>%${Math.round(B.a50 * 100)} · %${Math.round(B.a200 * 100)}</b><small>${esc(B.head)}</small>`}</button>`);
   return `<section class="today" aria-label="Bugün özeti">${cards.join('')}</section>${B ? `<section class="panel brdpanel" id="brdPanel"${ui.brdOpen ? '' : ' hidden'}>${breadthHtml(B)}</section>` : ''}`;
 }
 export function renderScreener() {

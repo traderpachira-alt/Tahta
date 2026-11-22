@@ -54,3 +54,23 @@ class BreadthTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PulseTest(unittest.TestCase):
+    """Piyasa Nabzı: olumlu gelişme puanı artırır, olumsuz düşürür; 0–100 aralığında."""
+    def test_direction_moves_score(self):
+        n = 400
+        base50, base200 = np.full(n, 0.4), np.full(n, 0.5)
+        up = B.interpret(frame(np.r_[base50[:-10], np.linspace(0.4, 0.6, 10)], base200))["pulse"]
+        down = B.interpret(frame(np.r_[base50[:-10], np.linspace(0.4, 0.2, 10)], base200))["pulse"]
+        flat = B.interpret(frame(base50, base200))["pulse"]
+        self.assertGreater(up["score"], flat["score"])
+        self.assertLess(down["score"], flat["score"])
+        for p in (up, down, flat):
+            self.assertTrue(0 <= p["score"] <= 100)
+            self.assertAlmostEqual(sum(x["v"] for x in p["parts"]), p["score"], delta=1)
+
+    def test_bands(self):
+        self.assertEqual(B.band(10), "Kritik")
+        self.assertEqual(B.band(50), "Kararsız")
+        self.assertEqual(B.band(85), "Güçlü")

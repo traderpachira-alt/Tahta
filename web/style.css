@@ -626,3 +626,17 @@ details.sigcard[open] > summary { margin-bottom: 8px; }
 .brdrows > div { display: flex; flex-direction: column; padding: 6px 0; border-bottom: 1px solid var(--grid); }
 .brdrows > div > span:first-child { font-size: 12px; color: var(--muted); }
 .brdrows b { font-family: var(--mono); font-weight: 600; }
+/* Piyasa Nabzı */
+.tcard .of { display: inline; font-size: 11px; color: var(--muted); font-family: var(--mono); }
+.tcard.brd.neu b { color: var(--warn); }
+.pulse { margin-bottom: 14px; }
+.pulsehead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }
+.pulsehead > b { font: 600 34px var(--mono); line-height: 1; }
+.pulsehead > b.pos { color: var(--up); } .pulsehead > b.neg { color: var(--down); } .pulsehead > b.neu { color: var(--warn); }
+.pulsehead small { flex-basis: 100%; }
+.pulsebar { position: relative; height: 10px; border-radius: 99px; margin: 10px 0 4px;
+  background: linear-gradient(90deg, var(--down) 0 20%, var(--down-soft) 20% 40%, var(--sunk) 40% 60%, var(--up-soft) 60% 80%, var(--up) 80% 100%); }
+.pulsebar i { position: absolute; top: 50%; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; background: var(--ink); border: 2px solid var(--surface); }
+.pulseaxis { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); margin-bottom: 10px; }
+.pulsechart { height: 80px; margin-top: 12px; }
+.brdchart .lp { stroke: var(--ink); }

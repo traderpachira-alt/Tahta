@@ -30,6 +30,37 @@ def series(prices: dict[str, pd.DataFrame], tiers: dict[str, str | None]) -> pd.
     return out[out["n"] >= 100]
 
 
+# Piyasa Nabzı (0–100): beş bileşen; olumlu gelişmeler puanı artırır, olumsuzlar düşürür
+PULSE = [  # (anahtar, ad, en fazla puan, açıklama)
+    ("lvl50", "Kısa vade seviyesi", 25, "50 günlük ortalama üstündeki hisse oranının son 4 yıldaki dilimi"),
+    ("lvl200", "Uzun vade seviyesi", 25, "200 günlük ortalama üstündeki hisse oranının son 4 yıldaki dilimi"),
+    ("mom50", "Kısa vade yönü", 20, "Son 10 günde oranın değişimi (−20 … +20 puan aralığı; yatay = yarı puan)"),
+    ("mom200", "Uzun vade yönü", 15, "Son 20 günde uzun vade oranının değişimi (−10 … +10 puan aralığı)"),
+    ("lead", "Kısa vadenin önderliği", 15, "Kısa vade oranı uzun vadenin ne kadar üstünde (toparlanmalar önce kısa vadede görülür)"),
+]
+PULSE_BANDS = [(20, "Kritik"), (40, "Zayıf"), (60, "Kararsız"), (80, "Sağlıklı"), (101, "Güçlü")]
+
+
+def pulse_series(b: pd.DataFrame, ref: pd.DataFrame | None = None) -> pd.DataFrame:
+    """Her gün için bileşen puanları ve toplam. Seviye dilimleri ref (varsayılan: son 4 yıl) dağılımına göre."""
+    ref = b if ref is None else ref
+    s50, s200 = np.sort(ref["a50"].to_numpy()), np.sort(ref["a200"].to_numpy())
+    rank = lambda arr, x: np.searchsorted(arr, x, side="right") / len(arr)
+    clip = lambda x, lo, hi: np.clip((x - lo) / (hi - lo), 0, 1)
+    out = pd.DataFrame(index=b.index)
+    out["lvl50"] = 25 * rank(s50, b["a50"].to_numpy())
+    out["lvl200"] = 25 * rank(s200, b["a200"].to_numpy())
+    out["mom50"] = 20 * clip(b["a50"].diff(10).to_numpy(), -0.20, 0.20)
+    out["mom200"] = 15 * clip(b["a200"].diff(20).to_numpy(), -0.10, 0.10)
+    out["lead"] = 15 * clip((b["a50"] - b["a200"]).to_numpy(), -0.20, 0.20)
+    out["score"] = out[[k for k, *_ in PULSE]].sum(axis=1)
+    return out
+
+
+def band(x: float) -> str:
+    return next(lab for lim, lab in PULSE_BANDS if x < lim)
+
+
 def interpret(b: pd.DataFrame, idx: pd.Series | None = None) -> dict:
     """Son değerler, 4 yıllık dilimler, değişimler ve yorum (olumlu/olumsuz notlar, genel ton)."""
     last = b.index[-1]
@@ -94,16 +125,28 @@ def interpret(b: pd.DataFrame, idx: pd.Series | None = None) -> dict:
     tone = "pos" if score > 0 else "neg" if score < 0 else "neu"
     trend = "toparlanıyor" if d50_10 >= 0.05 else "zayıflıyor" if d50_10 <= -0.05 else "yatay"
     head = f"{level(a50).capitalize()} · {trend}"
+    ps = pulse_series(b[b.index >= h.index[0] - pd.DateOffset(days=40)], h).loc[h.index].dropna()
+    cur = ps.iloc[-1]
+    ago = lambda k: ps.iloc[-1 - k] if len(ps) > k else ps.iloc[0]
+    w1, m1 = ago(5), ago(21)
+    pulse = {"score": round(float(cur["score"])), "band": band(float(cur["score"])),
+             "w1": round(float(w1["score"])), "m1": round(float(m1["score"])),
+             "pct": round(float((ps["score"] <= cur["score"]).mean()), 3),
+             "parts": [{"k": k, "n": n, "max": mx, "why": why, "v": round(float(cur[k]), 1), "dw": round(float(cur[k] - w1[k]), 1)}
+                       for k, n, mx, why in PULSE]}
     hist = h.iloc[::5]
     if hist.index[-1] != h.index[-1]:
         hist = pd.concat([hist, h.iloc[[-1]]])
+    hs = ps["score"].reindex(hist.index)
     return {
         "date": last.strftime("%Y-%m-%d"), "n": int(b["n"].iloc[-1]),
         "a50": round(a50, 4), "a200": round(a200, 4), "p50": round(pct("a50", a50), 3), "p200": round(pct("a200", a200), 3),
         "d50_10": round(d50_10, 4), "d50_20": round(d50_20, 4), "d200_20": round(d200_20, 4),
         "med50": round(float(h["a50"].median()), 4), "med200": round(float(h["a200"].median()), 4),
         "lvl50": level(a50), "lvl200": level(a200), "head": head, "tone": tone, "pos": pos, "neg": neg,
-        "hist": [[d.strftime("%Y-%m-%d"), round(float(r.a50), 3), round(float(r.a200), 3)] for d, r in hist.iterrows()],
+        "pulse": pulse,
+        "hist": [[d.strftime("%Y-%m-%d"), round(float(r.a50), 3), round(float(r.a200), 3), None if pd.isna(hs.get(d)) else round(float(hs[d]))]
+                 for d, r in hist.iterrows()],
     }
 
 

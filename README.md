@@ -23,7 +23,7 @@ Tarayıcıda çalışır, telefonda ana ekrana eklenince uygulama gibi açılır
   başlıkları altında gruplu. Hisse sayfasında grafik üstte, altında sekmeler (Genel, Destek / direnç, Temettü, Temel ve
   değerleme, Sektör); göstergeler tek menüde, açık olanlar etiket olarak; verisi olmayan kartlar gizlenir. Uzun
   açıklamalar "ⓘ" satırlarında katlı.
-- **Piyasa genişliği** (`scripts/breadth.py`, testleri `tests/test_breadth.py`): BIST TÜM hisselerinin 50 ve 200 günlük
+- **Piyasa Nabzı** (0–100; kısa/uzun vade genişliğinin 4 yıllık dilimi 25+25, kısa/uzun vade yönü 20+15, kısa vadenin önderliği 15; Kritik · Zayıf · Kararsız · Sağlıklı · Güçlü) ve **piyasa genişliği** (`scripts/breadth.py`, testleri `tests/test_breadth.py`): BIST TÜM hisselerinin 50 ve 200 günlük
   ortalamasının üstündeki oranı, 4 yıllık dilimi, 10/20 günlük değişimi ve kurallı yorum (olumlu ve olumsuz işaretler: yön,
   dipten dönüş, yarıyı geçme, uzun vade, aşırı ısınma, endeksle uyumsuzluk). Taramanın Bugün kartlarında; dokununca grafik.
 - **Sütun seçimi ve sırası:** her sekmede yalnızca temel sütunlar açık gelir (8–11 sütun); "☰ Görünüm" ile sütun gizle/göster, diğer sekmelerden ya da ek alanlardan
