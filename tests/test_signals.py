@@ -302,7 +302,7 @@ class AccountRiskTest(unittest.TestCase):
 
 
 class DivRunTest(unittest.TestCase):
-    """Temettü öncesi koşu: hak kullanımdan 10 gün önce giriş, son gün çıkış, verim ≥ %5, hazırlanan 15–11 gün."""
+    """Temettü Rallisi: hak kullanımdan 10 gün önce giriş, son gün çıkış, verim ≥ %5, hazırlanan 15–11 gün."""
     from strategies import divrun as DR
 
     def setUp(self):

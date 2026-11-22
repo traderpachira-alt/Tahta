@@ -110,19 +110,28 @@ function stratBar(S, nAct) {
 }
 
 /* Tüm stratejiler: karşılaştırma tablosu (günlük test, seçili endeks grubu, her stratejinin varsayılan çıkışı) */
-function overviewHtml(S, nAct) {
-  const tier = curTier(S);
+function overviewHtml(S) {
+  const tier = curTier(S), A = S.account;
+  const tfName = tf => tf === '4H' ? '4 saat' : 'Günlük';
+  // Her strateji × periyot ayrı satır: veriler (test, hesap, açık sinyal) periyoda göre ayrışır
+  const rows = S.strategies.flatMap(u => u.tfs.map(tf => ({ u, tf })));
   return `<section class="panel"><h2>Stratejiler <span class="muted" style="font-weight:400">· ${S.strategies.length} · test: ${esc(tier)}, varsayılan çıkış</span></h2>
-    <div class="tablewrap flat"><table class="grid sigtable"><thead><tr><th class="tk">Strateji</th><th class="txt">Grup</th><th class="txt">Periyot</th><th>Açık</th>
-      <th title="Günlük testte işlem sayısı">İşlem</th><th title="Kârla kapanan işlemlerin oranı">Kârlı</th><th title="İşlem başına ortalama sonuç">Ort.</th>
-      <th title="Aynı hisselerde rastgele girişin ortalaması (aynı stop ve çıkış)">Rastgele</th><th title="${fmt.big(S.account.capital)} ₺ bakiye, her stratejinin kendi risk oranıyla, en fazla ${S.account.maxPos} pozisyon">Hesap: yıllık / düşüş</th></tr></thead><tbody>
-      ${S.strategies.map(u => { const tf = u.tfs.includes('1D') ? '1D' : u.tfs[0], st = u.stats?.[tf]?.[tier]?.[u.defaultV] || {}, ac = u.accounts?.[tf]?.[tier]?.[u.defaultV];
-        return `<tr data-sigs="${u.id}"><td class="tk"><b>${esc(u.name)}</b>${testChip(u)}<small class="sub2">${esc(u.short || '')}</small></td><td class="txt">${esc(u.groupName || S.groups?.[u.group] || u.group)}</td>
-          <td class="txt">${u.tfs.map(tfChip).join(' ')}</td><td>${nAct(u.id)}</td><td>${st.n ?? 0}</td><td>${ok(st.win) ? '%' + Math.round(st.win * 100) : '—'}</td>
+    <div class="tablewrap flat"><table class="grid sigtable"><thead><tr><th class="tk">Strateji</th><th class="txt">Grup</th><th class="txt">Periyot</th><th title="Bu periyotta şu an açık sinyal">Açık</th>
+      <th title="Testteki işlem sayısı">İşlem</th><th title="Kârla kapanan işlemlerin oranı">Kârlı</th><th title="İşlem başına ortalama sonuç">Ort.</th>
+      <th title="Aynı hisselerde rastgele girişin ortalaması (aynı stop ve çıkış)">Rastgele</th><th title="${fmt.big(A.capital)} ₺ bakiye, her stratejinin kendi risk oranıyla, en fazla ${A.maxPos} pozisyon">Hesap: yıllık / düşüş</th>
+      <th title="Testin başında ${fmt.big(A.capital)} ₺ ile başlanıp bu stratejinin bütün sinyalleri hesap kurallarıyla izlenseydi bugünkü bakiye (açık pozisyonlar maliyetle)">${fmt.big(A.capital)} ₺ → bugün</th></tr></thead><tbody>
+      ${rows.map(({ u, tf }) => { const st = u.stats?.[tf]?.[tier]?.[u.defaultV] || {}, ac = u.accounts?.[tf]?.[tier]?.[u.defaultV];
+        const nOpen = S.active.filter(a => (TIER_OF[tier] || []).includes(a.idx) && a.k === u.id && (a.tf || '1D') === tf).length;
+        return `<tr data-sigs="${u.id}" data-sigrowtf="${tf}"><td class="tk"><b>${esc(u.name)}</b>${u.tfs.length > 1 ? ` <span class="muted">· ${tfName(tf)}</span>` : ''}${testChip(u)}<small class="sub2">${esc(u.short || '')}</small></td>
+          <td class="txt">${esc(u.groupName || S.groups?.[u.group] || u.group)}</td>
+          <td class="txt">${tfChip(tf)}</td><td>${nOpen}</td><td>${st.n ?? 0}</td><td>${ok(st.win) ? '%' + Math.round(st.win * 100) : '—'}</td>
           <td class="${cls(st.avgR)}">${rFmt(st.avgR)}</td><td class="muted">${rFmt(st.randR)}</td>
-          <td>${ac ? `<span class="${cls(ac.cagr)}">${fmt.pct(ac.cagr)}</span> / <span class="down">−%${Math.round(ac.mdd * 100)}</span><small class="sub2">%${F1.format((u.risk ?? S.account.risk) * 100)} risk</small>` : '—'}</td></tr>`; }).join('')}
+          <td>${ac ? `<span class="${cls(ac.cagr)}">${fmt.pct(ac.cagr)}</span> / <span class="down">−%${Math.round(ac.mdd * 100)}</span><small class="sub2">%${F1.format((u.risk ?? A.risk) * 100)} risk</small>` : '—'}</td>
+          <td>${ac ? `<b class="${cls(ac.final - A.capital)}">${fmt.price(ac.final).replace(/,00$/, '')} ₺</b><small class="sub2">${F1.format(ac.years)} yılda · ${ac.taken} işlem</small>` : '—'}</td></tr>`; }).join('')}
     </tbody></table></div>
-    ${info('Her strateji aynı motorla test edilir: 20 mn ₺ hacim filtresi, stop mesafesi %0,5–%15, gidiş-dönüş %0,2 maliyet, aynı hissede önceki işlem kapanmadan yeni işlem yok, rastgele giriş kıyası ve hesap simülasyonu. Satıra dokununca stratejinin sinyalleri, kuralları ve ayrıntılı test sonuçları açılır.', 'Nasıl karşılaştırılır?')}
+    ${info(`Her strateji aynı motorla test edilir: 20 mn ₺ hacim filtresi, stop mesafesi %0,5–%15, gidiş-dönüş %0,2 maliyet, aynı hissede önceki işlem kapanmadan yeni işlem yok, rastgele giriş kıyası ve hesap simülasyonu.
+      Bakiye sütunu: testin başında ${fmt.big(A.capital)} ₺ ile başlanıp her işlemde bakiyenin stratejiye ait risk oranı kadar riske edilseydi bugünkü bakiye (bileşik; en fazla ${A.maxPos} pozisyon, kaldıraç yok, boştaki nakde faiz yok).
+      4 saatlik test, verinin izin verdiği son ~2,8 yılı kapsar; günlükle süre farkına dikkat edin. Satıra dokununca stratejinin sinyalleri, kuralları ve ayrıntılı test sonuçları açılır.`, 'Nasıl karşılaştırılır?')}
   </section>`;
 }
 
@@ -224,7 +233,7 @@ export async function renderSignals() {
     </tbody></table></div>` : '<p class="muted">Bu seçimde son 60 günde sonuçlanan sinyal yok.</p>'}
   </section>
 
-  ${u ? strategyCard(S, u) : overviewHtml(S, nAct)}`;
+  ${u ? strategyCard(S, u) : overviewHtml(S)}`;
   view.querySelector('.sigcard')?.addEventListener('toggle', e => { cardOpen = e.target.open; });
   view.querySelectorAll('[data-sigt]').forEach(b => b.addEventListener('click', () => { state.sigTier = b.dataset.sigt; persist(); renderSignals(); }));
   view.querySelectorAll('[data-sigtf]').forEach(b => b.addEventListener('click', () => { tfSel = b.dataset.sigtf; renderSignals(); }));
@@ -232,6 +241,7 @@ export async function renderSignals() {
   view.querySelectorAll('[data-sigs]').forEach(b => b.addEventListener('click', e => {
     e.stopPropagation();
     state.sigStrat = b.dataset.sigs || null; persist();
+    if (b.dataset.sigrowtf) { tfSel = b.dataset.sigrowtf; cardOpen = true; }
     const nu = curStrat(S); if (!nu) openGroup = null; else openGroup = nu.group;
     renderSignals(); window.scrollTo(0, 0);
   }));

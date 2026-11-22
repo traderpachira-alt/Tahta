@@ -1,4 +1,4 @@
-"""Temettü öncesi koşu: yüksek verimli temettünün hak kullanım tarihine doğru fiyatın yükselmesi (takvim / olay).
+"""Temettü Rallisi (temettü öncesi koşu): yüksek verimli temettünün hak kullanım tarihine doğru fiyatın yükselmesi (takvim / olay).
 
 Kurallar:
   Olay: hak kullanım tarihi belli bir temettü; brüt verim (hisse başı brüt temettü / giriş günü kapanışı) ≥ %5
@@ -35,7 +35,7 @@ COST = 0.002             # motorla aynı (signals.COST)
 EVENTS: dict[str, list[tuple[pd.Timestamp, float]]] = {}
 
 META = {
-    "name": "Temettü öncesi koşu",
+    "name": "Temettü Rallisi",
     "short": "Verimi ≥ %5 temettünün hak kullanımından 10 gün önce gir, son gün çık",
     "group": "olay",
     "status": "test",
