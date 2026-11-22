@@ -739,13 +739,22 @@ def quality_scores(t: str, df: pd.DataFrame, m: dict, f: dict, fin: dict | None,
     return out
 
 
-def write_signals(out: Path, prices: dict[str, pd.DataFrame], stocks: list[dict], idx: pd.DataFrame | None = None, intraday_on: bool = True):
+def write_signals(out: Path, prices: dict[str, pd.DataFrame], stocks: list[dict], idx: pd.DataFrame | None = None, intraday_on: bool = True,
+                  div_events: dict | None = None):
     """Tüm stratejiler (scripts/strategies/), desteklediği periyotlarda (günlük, 4 saatlik): açık sinyaller, hazırlanan
     kurulumlar, son sonuçlar ve geriye dönük test (data/signals.json)."""
     t0 = time.time()
     by = {s["t"]: s for s in stocks}
     tiers = {t: s.get("idx") for t, s in by.items()}
     strats = list(signals.REGISTRY.values())
+    # Temettü takvimi (temettü öncesi koşu stratejisi): geçmiş hak kullanımları + açıklanmış yaklaşan temettüler (net → brüt)
+    from strategies import divrun
+    ev = {t: list(v) for t, v in (div_events or {}).items()}
+    for s in stocks:
+        for u in s.get("divUpcoming") or []:
+            if u.get("date") and u.get("net"):
+                ev.setdefault(s["t"], []).append((pd.Timestamp(u["date"]), u["net"] / (1 - (s.get("divTax") or 0.0))))
+    divrun.EVENTS = ev
     data = {"1D": prices}
     if intraday_on and any("4H" in st.TIMEFRAMES for st in strats):
         # 4 saatlik: yalnızca evrendeki ve son gün likidite filtresini geçen hisseler (diğerlerinde sinyal oluşmaz)
@@ -784,7 +793,7 @@ def write_signals(out: Path, prices: dict[str, pd.DataFrame], stocks: list[dict]
             continue
         a.update(tedbir=bool(s.get("tedbir")), fScore=s.get("fScore"), dsScore=s.get("dsScore"))
         s.setdefault("sig", []).append({"k": a["k"], "n": names.get(a["k"], a["k"]), "tf": a["tf"], "d": a["d"], "e": a["e"], "s": a["s"],
-                                        "s0": a["s0"], "a": a["a"], "xl": a.get("xl"), "armed": a["armed"], "st": a["st"]})
+                                        "s0": a["s0"], "a": a["a"], "xl": a.get("xl"), "info": a.get("info"), "armed": a["armed"], "st": a["st"]})
     payload = {
         "version": 2,
         "updated": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
@@ -977,7 +986,7 @@ def main():
             print(f"DCF: ABD 10Y %{mk['rf'] * 100:.2f}, USD/TRY {float(mk['fx'].iloc[-1]):.2f}." if mk else "DCF: piyasa verisi alınamadı.", flush=True)
         except Exception as e:  # noqa: BLE001
             print(f"  DCF piyasa verisi alınamadı ({e}).", flush=True)
-    stocks = []
+    stocks, div_events = [], {}
     for t in ok:
         df = prices[t]
         name = (is_summ.get(t) or {}).get("name") or bist_names.get(t) or ""
@@ -990,6 +999,8 @@ def main():
             div_fix["added"] += st["added"]
             div_notes += [f"{t} {n}" for n in st["notes"]]
         write_hist(hist_dir / f"{t}.json", df)
+        dv = df["Dividends"] if "Dividends" in df.columns else pd.Series(dtype=float)
+        div_events[t] = [(d.tz_localize(None) if d.tzinfo else d, float(x)) for d, x in dv[dv > 0].items()]
         m = metrics(df, idx)
         m.update(div_metrics(df))
         m["divTax"] = 0.0 if gyo else 0.15  # portföyde net temettü tahmini için stopaj (GYO/YO muaf)
@@ -1018,7 +1029,8 @@ def main():
 
     # Sinyaller: kurulumlar, geriye dönük test ve aktif sinyaller (data/signals.json); aktif sinyal hisse özetine de eklenir
     try:
-        write_signals(out, {t: prices[t] for t in ok}, stocks, prices.get(INDEX), intraday_on=not args.sample and not args.no_intraday)
+        write_signals(out, {t: prices[t] for t in ok}, stocks, prices.get(INDEX), intraday_on=not args.sample and not args.no_intraday,
+                      div_events=div_events)
     except Exception as e:  # noqa: BLE001 — sinyal hatası yayını durdurmasın
         print(f"  Sinyaller üretilemedi ({e}).", flush=True)
 

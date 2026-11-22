@@ -299,3 +299,51 @@ class AccountRiskTest(unittest.TestCase):
         self.assertEqual(S.acct_risk(morningstar), 0.01)
         self.assertEqual(S.acct_risk(donchian), 0.005)
         self.assertEqual(S.meta(donchian)["risk"], 0.005)
+
+
+class DivRunTest(unittest.TestCase):
+    """Temettü öncesi koşu: hak kullanımdan 10 gün önce giriş, son gün çıkış, verim ≥ %5, hazırlanan 15–11 gün."""
+    from strategies import divrun as DR
+
+    def setUp(self):
+        self.df = base(120)
+        self.ex = self.df.index[100]                 # hak kullanım günü (çubuk 100) → son gün 99, giriş 89
+        self.DR.EVENTS = {"AAA": [(self.ex, 6.0)]}   # fiyat ~100 → brüt verim ~%6
+
+    def tearDown(self):
+        self.DR.EVENTS = {}
+
+    def F(self, df=None):
+        F = S.frame(self.df if df is None else df)
+        F["sym"] = "AAA"
+        return F
+
+    def test_signal_day_and_exit(self):
+        F = self.F()
+        self.assertIsNone(S.signal_at(self.DR, F, 88))
+        sig = S.signal_at(self.DR, F, 89)
+        self.assertIsNotNone(sig)
+        self.assertAlmostEqual(sig["stop"], F["c"][89] - 3 * F["atr"][89])
+        self.assertEqual(sig["info"]["exd"], self.ex.strftime("%Y-%m-%d"))
+        x = self.DR.simulate(F, 89, sig["entry"], sig["entry"] * 0.5, "cum", 60)
+        self.assertEqual((x["status"], x["exit_t"]), ("cum", 99))
+
+    def test_low_yield_no_signal(self):
+        self.DR.EVENTS = {"AAA": [(self.ex, 2.0)]}
+        self.assertIsNone(S.signal_at(self.DR, self.F(), 89))
+
+    def test_future_event_candidate_and_signal(self):
+        df = self.df.iloc[:86]                       # son gün 85; hak kullanım iş günüyle 15 gün sonra
+        ex = pd.Timestamp(np.busday_offset(df.index[-1].date(), 15))
+        self.DR.EVENTS = {"AAA": [(ex, 6.0)]}
+        cd = S.candidate_at(self.DR, self.F(df), 85)
+        self.assertIsNotNone(cd)
+        self.assertEqual(cd["info"]["in"], 4)         # girişe 4 iş günü
+        ex = pd.Timestamp(np.busday_offset(df.index[-1].date(), 11))
+        self.DR.EVENTS = {"AAA": [(ex, 6.0)]}
+        self.assertIsNotNone(S.signal_at(self.DR, self.F(df), 85))   # bugün giriş günü
+        self.assertIsNone(S.candidate_at(self.DR, self.F(df), 85))
+
+    def test_engine_run(self):
+        R = S.run({"AAA": self.df}, {"AAA": "30"}, self.DR)
+        self.assertEqual(R["stats"]["BIST 30"]["cum"]["n"], 1)

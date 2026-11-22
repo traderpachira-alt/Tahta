@@ -91,6 +91,12 @@ karşılaştırma tablosunda görünür, bir strateji seçilince yalnızca onun 
 `strategies/__init__.py` içinde), `REGISTRY`'ye ekleyin, testini `tests/test_signals.py`'ye yazın; arayüz kendiliğinden
 gösterir. Testler `tests/test_signals.py`.
 
+Temettü öncesi koşu (`scripts/strategies/divrun.py`, deneme, "Takvim / olay" grubu): brüt verimi ≥ %5 olan temettüde
+hak kullanımdan önceki son günden 10 iş günü önce kapanışta giriş, son gün kapanışta çıkış, 3 ATR stop. Olay verisi: geçmiş
+hak kullanımları (sitede doğrulanmış, bedelsize göre düzeltilmiş brüt temettü) + açıklanmış yaklaşan temettüler (net → brüt).
+Motor her hissede `F["sym"]` verir; strateji takvimi modül düzeyinde (`EVENTS`) tutar. Girişe 1–5 gün kalanlar hazırlanan
+kurulumlarda görünür. Elenen: trend içi geri çekilme (RSI2 / 3 gün düşüş) BIST'te rastgele girişten iyi değildi.
+
 Strateji ilkesi: her strateji farklı bir piyasa davranışını yakalamalı ve çıkışı o davranışın süresine uymalı (ör. kanal
 çıkışı Donchian'da avantajı 3 kat artırdı, morning star'da sıfırladı). Strateji haritası `scripts/strategies/__init__.py`
 içinde tutulur: morning star = sert düşüş sonrası kısa dönüş (~9 gün, takip stopu); Donchian = trend içinde kırılım

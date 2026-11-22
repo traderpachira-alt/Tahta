@@ -10,6 +10,8 @@ sinyale uzun tutan çıkış vermek, onu sıradan bir piyasa bahsine çevirir.
 Strateji haritası (ne yakalıyor · süre · ortam · çıkış):
   morningstar  sert düşüş sonrası kısa vadeli dönüş (aşırı satışın tükenmesi) · ~9 gün · her ortam · +1R sonrası takip stopu
   donchian     yükseliş trendinde devam eden kırılım (momentum) · ~3–4 hafta · yükseliş trendi · kanal çıkışı (10 günlük dip)
+  divrun       yüksek verimli temettü öncesi koşu (olay / takvim) · 10 gün · temettü sezonu · tarihte çıkış (hak kullanım öncesi)
+  (denenip elenen: trend içi geri çekilme — RSI2 / 3 gün düşüş, fiyat SMA200 üstü: BIST'te rastgele girişten iyi değil)
 
 Yeni strateji eklemek:
   1. Bu klasöre `yeni.py` yazın (aşağıdaki arayüz; örnek: morningstar.py).
@@ -35,11 +37,13 @@ Arayüz (modül düzeyinde):
   simulate(F, t, entry, stop, mode, hold)  bu varyantlar için işlem yürütme; signals.simulate ile aynı biçimde sonuç döner
                       (açık işlemde "stop_now", "armed" ve isteğe bağlı "exit_level": kapanışla çıkış seviyesi)
   ACCOUNT_RISK        hesap simülasyonunda işlem başına risk (bakiyenin oranı); yoksa signals.ACCOUNT["risk"]
+  F["sym"]            motorun verdiği hisse kodu: fiyat dışı veri (ör. temettü takvimi) modül düzeyinde tutulup bununla okunur
+  candidate(...)["info"] / signal(...)["info"]  kayıtlara aynen eklenen ek bilgi (sayfada gösterilir)
   baseline_ok(F, t)   rastgele giriş kıyasında hangi mumların kullanılacağı (ör. yalnızca yükseliş trendindekiler)
 """
-from . import donchian, morningstar
+from . import divrun, donchian, morningstar
 
 # Gruplar: sinyal sayfasında stratejiler bu başlıklar altında toplanır (tarama sayfasındaki hazır taramalar gibi)
-GROUPS = {"formasyon": "Mum formasyonları", "trend": "Trend takip", "kirilim": "Kırılım", "donus": "Ortalamaya dönüş"}
+GROUPS = {"formasyon": "Mum formasyonları", "trend": "Trend takip", "kirilim": "Kırılım", "donus": "Ortalamaya dönüş", "olay": "Takvim / olay"}
 
-REGISTRY = {m.ID: m for m in (morningstar, donchian)}
+REGISTRY = {m.ID: m for m in (morningstar, donchian, divrun)}

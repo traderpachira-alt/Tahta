@@ -192,6 +192,7 @@ def run(prices: dict[str, pd.DataFrame], tiers: dict[str, str | None], strat=Non
         F = frame(df)
         if F is None or tier not in ("30", "50", "100", "TÜM"):
             continue
+        F["sym"] = sym          # fiyat dışı veri kullanan stratejiler için (ör. temettü takvimi)
         n = len(F["c"])
         start = max(strat.WARMUP, n - years * 252 * bpd)
         busy = {v: -1 for v in V}
@@ -234,7 +235,8 @@ def run(prices: dict[str, pd.DataFrame], tiers: dict[str, str | None], strat=Non
                                "d2": F["idx"][cd["d2"]].strftime(fmt_), "c": round(float(F["c"][-1]), 4),
                                "trig": round(cd["trig"], 4), "eff": round(cd["eff"], 4), "dist": round(cd["dist"], 4),
                                "s": round(cd["stop"], 4), "risk": round(cd["risk"], 4),
-                               "fvg": [round(cd["fvg"][0], 4), round(cd["fvg"][1], 4)] if cd.get("fvg") else None})
+                               "fvg": [round(cd["fvg"][0], 4), round(cd["fvg"][1], 4)] if cd.get("fvg") else None,
+                               **({"info": cd["info"]} if cd.get("info") else {})})
         # Kıyas: rastgele mumlar, stratejinin stop yapısı, aynı çıkış (tekrarlanabilir örneklem)
         cand = [t for t in range(max(start, strat.WARMUP), n - 1) if F["turn"][t] >= MIN_TURNOVER and (base_ok is None or base_ok(F, t))]
         if cand:
