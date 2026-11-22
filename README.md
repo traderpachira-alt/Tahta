@@ -92,7 +92,7 @@ karşılaştırma tablosunda görünür, bir strateji seçilince yalnızca onun 
 gösterir. Testler `tests/test_signals.py`.
 
 Temettü öncesi koşu (`scripts/strategies/divrun.py`, deneme, "Takvim / olay" grubu): brüt verimi ≥ %5 olan temettüde
-hak kullanımdan önceki son günden 10 iş günü önce kapanışta giriş, son gün kapanışta çıkış, 3 ATR stop. Olay verisi: geçmiş
+hak kullanımdan önceki son günden 10 iş günü önce kapanışta giriş, son gün kapanışta çıkış, stop yok (pozisyon büyüklüğü için 1R = 3 ATR, en fazla fiyatın %15'i). Olay verisi: geçmiş
 hak kullanımları (sitede doğrulanmış, bedelsize göre düzeltilmiş brüt temettü) + açıklanmış yaklaşan temettüler (net → brüt).
 Motor her hissede `F["sym"]` verir; strateji takvimi modül düzeyinde (`EVENTS`) tutar. Girişe 1–5 gün kalanlar hazırlanan
 kurulumlarda görünür. Elenen: trend içi geri çekilme (RSI2 / 3 gün düşüş) BIST'te rastgele girişten iyi değildi.

@@ -323,9 +323,10 @@ class DivRunTest(unittest.TestCase):
         self.assertIsNone(S.signal_at(self.DR, F, 88))
         sig = S.signal_at(self.DR, F, 89)
         self.assertIsNotNone(sig)
-        self.assertAlmostEqual(sig["stop"], F["c"][89] - 3 * F["atr"][89])
+        self.assertAlmostEqual(sig["stop"], F["c"][89] - min(3 * F["atr"][89], 0.149 * F["c"][89]))
+        self.assertEqual(sig["info"]["ns"], 1)
         self.assertEqual(sig["info"]["exd"], self.ex.strftime("%Y-%m-%d"))
-        x = self.DR.simulate(F, 89, sig["entry"], sig["entry"] * 0.5, "cum", 60)
+        x = self.DR.simulate(F, 89, sig["entry"], sig["entry"] * 0.99, "cum", 60)   # stop yok: fiyat "stop"un altına inse de son gün çıkılır
         self.assertEqual((x["status"], x["exit_t"]), ("cum", 99))
 
     def test_low_yield_no_signal(self):

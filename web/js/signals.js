@@ -180,7 +180,7 @@ export async function renderSignals() {
       <th title="Takip başlamadıysa başlangıç stopu ve altında takibin başlayacağı seviye; başladıysa güncel takip stopu">Stop</th>
       <th>Son fiyat</th><th title="Girişe göre güncel sonuç, R cinsinden">Güncel</th><th class="txt">Not</th></tr></thead><tbody>
       ${act.map(a => `<tr data-t="${a.t}">${tk(a)}${stratCol(a)}<td>${dfmt(a.d)}</td><td>${fmt.price(a.e)}</td>
-        <td>${a.armed ? `<b>${fmt.price(a.s)}</b> <span class="chip up">takipte</span>`
+        <td>${a.info?.ns ? `<span class="muted" title="Bu stratejide stop yok; işlem son gün kapanışında kapanır. 1R (pozisyon büyüklüğü için) = ${fmt.price(a.e - a.s0)} ₺">stop yok</span><small class="sub2">çıkış: ${dm(prevBday(a.info.exd))} kapanış</small>` : a.armed ? `<b>${fmt.price(a.s)}</b> <span class="chip up">takipte</span>`
           : `${fmt.price(a.s0)} <small class="down">${fmt.pct(pctFrom(a.s0, a.e))}</small>${a.info?.exd ? `<small class="sub2" title="Temettü hakkı olan son günün kapanışında çıkılır (hak kullanım ${fmt.date(a.info.exd)})">çıkış: ${dm(prevBday(a.info.exd))} kapanış</small>` : a.xl > a.s ? `<small class="sub2" title="Kanal çıkışı: kapanış bu seviyenin (son 10 günün en düşüğü) altına inerse çıkılır">çıkış: kapanış &lt; ${fmt.price(a.xl)}</small>` : a.xl ? '<small class="sub2" title="Kanal çıkış seviyesi (son 10 günün en düşüğü) şu an stopun altında; önce stop geçerli">kanal çıkışı stopun altında</small>' : a.a ? `<small class="sub2">+1R: ${fmt.price(a.a)} <span class="up">${fmt.pct(pctFrom(a.a, a.e))}</span></small>` : ''}`}</td>
         <td>${fmt.price(a.c)}</td><td class="${cls(a.r)}">${rFmt(a.r)}</td>
         <td class="txt">${a.tedbir ? '<span class="chip warn">⚠ Tedbir</span> ' : ''}${a.info?.y ? `<span class="chip up" title="Brüt temettü / giriş fiyatı · hak kullanım ${fmt.date(a.info.exd)}">temettü %${F1.format(a.info.y * 100)}</span> ` : ''}<span class="muted" title="Sinyal mumunun hacmi / 20 mumluk ortalama (bilgi amaçlı)">${IDX_LABEL[a.idx] || ''}${ok(a.volx) ? ` · hacim ${F1.format(a.volx)}x` : ''}</span></td></tr>`).join('')}
@@ -201,7 +201,7 @@ export async function renderSignals() {
       ${cand.map(a => a.info?.exd ? `<tr data-t="${a.t}">${tk(a)}${stratCol(a)}
         <td title="Hak kullanım (temettü düşülen) günü">hak kullanım ${dm(a.info.exd)}</td><td>${fmt.price(a.c)}</td>
         <td title="Tahmini giriş günü (kapanışta)"><b>giriş ${dm(a.info.entry)}</b></td><td>${a.info.in} gün</td>
-        <td>${fmt.price(a.s)} <small class="muted">(%${F1.format(a.risk * 100)})</small></td>
+        <td>${a.info.ns ? `<span class="muted" title="Stop yok; pozisyon büyüklüğü için 1R = %${F1.format(a.risk * 100)}">stop yok · 1R %${F1.format(a.risk * 100)}</span>` : `${fmt.price(a.s)} <small class="muted">(%${F1.format(a.risk * 100)})</small>`}</td>
         <td class="txt"><span class="chip up" title="Brüt temettü / son kapanış">temettü %${F1.format(a.info.y * 100)}</span> <span class="muted">${IDX_LABEL[a.idx] || ''}</span></td></tr>`
       : `<tr data-t="${a.t}">${tk(a)}${stratCol(a)}
         <td>${a.tf === '4H' ? `${dfmt(a.d1)} · ${dfmt(a.d2).slice(-5)}` : `${fmt.date(a.d1).slice(0, 5)} · ${fmt.date(a.d2).slice(0, 5)}`}</td><td>${fmt.price(a.c)}</td>

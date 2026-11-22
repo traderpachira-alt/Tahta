@@ -4,7 +4,8 @@ Kurallar:
   Olay: hak kullanım tarihi belli bir temettü; brüt verim (hisse başı brüt temettü / giriş günü kapanışı) ≥ %5
   Giriş: hak kullanımdan önceki son günden (temettü hakkı olan son gün) 10 işlem günü önce, kapanışta
   Çıkış: hak kullanımdan önceki son günün kapanışında (temettü alınmaz; temettü öncesi yükseliş alınır)
-  Stop: giriş − 3 ATR 14
+  Stop yok: işlem yalnızca son günün kapanışında kapanır. Pozisyon büyüklüğü ve R hesabı için nominal 1R = 3 ATR 14, en fazla
+  fiyatın %14,9'u (motorun risk aralığı içinde kalsın, oynak dönemlerdeki işlemler elenmesin). Zarar 1R'yi aşabilir.
   Hazırlanan: hak kullanıma 11–15 işlem günü kalan (girişe 1–5 gün kalan) yüksek verimli açıklanmış temettüler
 Olay verisi: EVENTS = {KOD: [(hak kullanım tarihi, hisse başı brüt temettü), ...]}; geçmiş hak kullanımları (bedelsize göre
 düzeltilmiş, sitede doğrulanmış temettü verisi) + açıklanmış yaklaşan temettüler. fetch_data çalıştırmadan önce doldurur.
@@ -27,7 +28,8 @@ ACCOUNT_RISK = 0.01
 N_BEFORE = 10            # giriş: temettü hakkı olan son günden 10 işlem günü önce
 CAND_FROM = 15           # hazırlanan: girişe kadar (son güne 15 … 11 işlem günü kala)
 MIN_YIELD = 0.05
-ATR_STOP = 3.0
+ATR_STOP = 3.0           # nominal 1R = 3 ATR …
+R_CAP = 0.149            # … en fazla fiyatın %14,9'u (yalnızca pozisyon büyüklüğü ve R hesabı; gerçek stop yok)
 CAND_MAX_DIST = None
 COST = 0.002             # motorla aynı (signals.COST)
 EVENTS: dict[str, list[tuple[pd.Timestamp, float]]] = {}
@@ -37,19 +39,19 @@ META = {
     "short": "Verimi ≥ %5 temettünün hak kullanımından 10 gün önce gir, son gün çık",
     "group": "olay",
     "status": "test",
-    "candNote": "Açıklanmış, brüt verimi en az %5 olan ve girişe 1–5 iş günü kalan temettüler. Giriş, temettü hakkı olan son günden 10 iş günü önce kapanışta; resmî tatil varsa bir gün kayabilir. Stop giriş günü 3 ATR ile kesinleşir.",
+    "candNote": "Açıklanmış, brüt verimi en az %5 olan ve girişe 1–5 iş günü kalan temettüler. Giriş, temettü hakkı olan son günden 10 iş günü önce kapanışta; resmî tatil varsa bir gün kayabilir. Stop yoktur; pozisyon büyüklüğü için 1R = 3 ATR (en fazla fiyatın %15'i).",
     "summary": "Yüksek verimli temettüsü açıklanmış hisseler hak kullanım tarihine doğru yükselir; temettü öncesi koşu alınır, temettü alınmadan çıkılır",
     "rules": [
         "Olay: hak kullanım tarihi açıklanmış temettü; brüt verim (hisse başı brüt temettü / giriş kapanışı) en az %5",
         "Giriş: temettü hakkı olan son günden 10 işlem günü önce, kapanışta",
         "Çıkış: temettü hakkı olan son günün (hak kullanımdan önceki gün) kapanışında; temettü alınmaz",
-        "Stop: giriş − 3 ATR (1R = giriş − stop)",
+        "Stop yok: işlem yalnızca son gün kapanışında kapanır · Pozisyon büyüklüğü için 1R = 3 ATR (en fazla fiyatın %15'i); zarar 1R'yi aşabilir",
         "Likidite: 20 günlük ortalama işlem hacmi en az 20 mn ₺ · yalnızca günlük mumlar",
         "Hazırlanan kurulumlar: girişe 1–5 işlem günü kalan (son güne 15–11 gün kalan) yüksek verimli temettüler",
     ],
     "notes": [
-        "Deneme aşamasında. Stopsuz araştırmada etki verimle birlikte büyüdü: %5 üstü temettülerde 10 günlük getiri BIST 100'ü ortalama ~%5,6 geçti ve her yıl pozitifti (2023–2026). Stoplu testte 2025 başa baş kaldı; yıllık tabloyu izleyin.",
-        "Stop mesafesi fiyatın %15'ini aşan işlemler (oynak dönemlerde 3 ATR) motorun ortak kuralıyla açılmaz; 2023'teki bazı güçlü işlemler bu yüzden testte yok.",
+        "Deneme aşamasında. Etki verimle birlikte büyüdü: %5 üstü temettülerde 10 günlük getiri BIST 100'ü ortalama ~%5,6 geçti ve her yıl pozitifti (2023–2026).",
+        "Stop kullanılmaz: 10 günlük kısa tutuşta stop, güçlü işlemlerin bir kısmını gürültüyle kapatıyordu. Bunun bedeli: tek işlemde zarar 1R'yi aşabilir (temettü kesilirse ya da piyasa sert düşerse). Pozisyon büyüklüğü 1R = 3 ATR'ye göre ayarlandığı için oynak hisselerde pozisyon küçüktür.",
         "Hak kullanım günü alıp tutmak işe yaramadı: temettü düşüşünden sonra fiyat toparlanmadı; etki tamamen öncesinde.",
         "Yılda 13–30 işlem, çoğu Mart–Nisan temettü sezonunda: sermaye yılın büyük bölümünde boştadır. Değeri diğer stratejilerle birlikte: aylık sonuçları morning star ve Donchian ile neredeyse ilişkisiz.",
         "Geçmiş testte temettünün giriş gününde açıklanmış olduğu varsayıldı (duyuru tarihleri veride yok). Canlı sinyaller yalnızca açıklanmış temettülerden üretilir.",
@@ -95,16 +97,21 @@ def signal(F, t) -> dict | None:
     y = amt / entry
     if y < MIN_YIELD:
         return None
-    return {"entry": entry, "stop": entry - ATR_STOP * F["atr"][t],
-            "info": {"exd": d.strftime("%Y-%m-%d"), "y": round(y, 4)}}
+    return {"entry": entry, "stop": entry - _unit(F, t),
+            "info": {"exd": d.strftime("%Y-%m-%d"), "y": round(y, 4), "ns": 1}}
+
+
+def _unit(F, t) -> float:
+    """Nominal 1R: 3 ATR, en fazla fiyatın %14,9'u (gerçek stop değil)."""
+    return min(ATR_STOP * F["atr"][t], R_CAP * F["c"][t])
 
 
 def baseline_stop(F, t) -> float:
-    return F["c"][t] - ATR_STOP * F["atr"][t]
+    return F["c"][t] - _unit(F, t)
 
 
 def simulate(F, t, entry, stop, mode, hold) -> dict:
-    """Temettü hakkı olan son günün kapanışında çık (rastgele kıyasta: 10 gün sonra); başlangıç stopu geçerli."""
+    """Temettü hakkı olan son günün kapanışında çık (rastgele kıyasta: 10 gün sonra). Stop yok; 'stop' yalnızca 1R birimi."""
     n = len(F["c"])
     x = t + N_BEFORE
     risk = entry - stop
@@ -113,9 +120,6 @@ def simulate(F, t, entry, stop, mode, hold) -> dict:
     def res(status, px, i):
         return {"status": status, "r": (px - entry) / risk - cost_r, "pct": px / entry - 1 - COST, "exit_t": i, "exit": px}
 
-    for i in range(t + 1, min(n, x + 1)):
-        if F["l"][i] <= stop:
-            return res("stop", min(stop, F["o"][i]) if i > t + 1 else stop, i)
     if x > n - 1:
         return {"status": "open", "r": (F["c"][-1] - entry) / risk, "pct": F["c"][-1] / entry - 1, "stop_now": stop, "armed": False}
     return res("cum", F["c"][x], x)
@@ -134,9 +138,9 @@ def candidate(F, b) -> dict | None:
         y = amt / c
         if y < MIN_YIELD:
             return None
-        stop = c - ATR_STOP * F["atr"][b]
+        stop = c - _unit(F, b)
         idx = pd.DatetimeIndex(F["idx"])
         entry_day = pd.Timestamp(np.busday_offset(idx[b].date(), k - N_BEFORE, roll="forward"))
         return {"trig": c, "eff": c, "dist": 0.0, "stop": stop, "risk": (c - stop) / c, "fvg": None, "d1": b, "d2": b,
-                "info": {"exd": d.strftime("%Y-%m-%d"), "y": round(y, 4), "in": k - N_BEFORE, "entry": entry_day.strftime("%Y-%m-%d")}}
+                "info": {"exd": d.strftime("%Y-%m-%d"), "y": round(y, 4), "in": k - N_BEFORE, "entry": entry_day.strftime("%Y-%m-%d"), "ns": 1}}
     return None
