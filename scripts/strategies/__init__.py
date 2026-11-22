@@ -11,7 +11,13 @@ Strateji haritası (ne yakalıyor · süre · ortam · çıkış):
   morningstar  sert düşüş sonrası kısa vadeli dönüş (aşırı satışın tükenmesi) · ~9 gün · her ortam · +1R sonrası takip stopu
   donchian     yükseliş trendinde devam eden kırılım (momentum) · ~3–4 hafta · yükseliş trendi · kanal çıkışı (10 günlük dip)
   divrun       yüksek verimli temettü öncesi koşu (olay / takvim) · 10 gün · temettü sezonu · tarihte çıkış (hak kullanım öncesi)
-  (denenip elenen: trend içi geri çekilme — RSI2 / 3 gün düşüş, fiyat SMA200 üstü: BIST'te rastgele girişten iyi değil)
+  Araştırılanlar (henüz strateji değil):
+  - trend içi geri çekilme (RSI2 / 3 gün düşüş, fiyat SMA200 üstü): ilk parametrelerle rastgele girişten iyi değil; haritadaki
+    boşluğu doldurduğu için parametreleri (ör. teyitli dönüş, farklı çıkış) yeniden çalışılacak
+  - göreli güç rotasyonu (portföy stratejisi, aylık): BIST 100'de oynaklığa göre ayarlı ve aşırı yükselmişleri (+%200) dışlayan
+    sürüm endeksi geçti; BIST TÜM'de balon hisseleri seçip 2026 çöküşünde ağır kaybetti. Portföy stratejisi türü gerekir
+  - piyasa geneli dip (SMA50 üstündeki hisse oranı): 4 yılda 3–17 sinyal, rastgeleden belirgin iyi değil; strateji değil,
+    piyasa durumu göstergesi olarak kullanılabilir
 
 Yeni strateji eklemek:
   1. Bu klasöre `yeni.py` yazın (aşağıdaki arayüz; örnek: morningstar.py).
