@@ -748,6 +748,7 @@ def write_signals(out: Path, prices: dict[str, pd.DataFrame], stocks: list[dict]
     by = {s["t"]: s for s in stocks}
     tiers = {t: s.get("idx") for t, s in by.items()}
     strats = list(signals.REGISTRY.values())
+    info = {"h4": None, "h4Req": None}
     # Temettü takvimi (temettü öncesi koşu stratejisi): geçmiş hak kullanımları + açıklanmış yaklaşan temettüler (net → brüt)
     from strategies import divrun
     ev = {t: list(v) for t, v in (div_events or {}).items()}
@@ -761,8 +762,10 @@ def write_signals(out: Path, prices: dict[str, pd.DataFrame], stocks: list[dict]
         # 4 saatlik: yalnızca evrendeki ve son gün likidite filtresini geçen hisseler (diğerlerinde sinyal oluşmaz)
         liquid = [t for t, df in prices.items() if tiers.get(t) in ("30", "50", "100", "TÜM")
                   and float((df["Close"] * df["Volume"]).tail(20).mean()) >= signals.MIN_TURNOVER]
+        info["h4Req"] = len(liquid)
         try:
             h4 = intraday.load_h4(liquid, prices, log=lambda m: print(m, flush=True))
+            info["h4"] = len(h4)
             if h4:
                 data["4H"] = h4
         except Exception as e:  # noqa: BLE001 — 4 saatlik hata günlük sinyalleri engellemesin
@@ -819,8 +822,44 @@ def write_signals(out: Path, prices: dict[str, pd.DataFrame], stocks: list[dict]
     }
     (out / "data" / "signals.json").write_text(json.dumps(clean(payload), ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     desc = ", ".join(m["name"] + " " + "/".join(m["tfs"]) for m in metas)
+    info.update(strategies=len(metas), active=len(active))
     print(f"Sinyaller ({desc}): {len(active)} açık, {len(cands)} hazırlanan, "
           f"son 60 günde {len(recent)} sonuçlanmış ({time.time() - t0:.0f} sn).", flush=True)
+    return info
+
+
+def data_health(n_ok, n_all, index_date, measures_at, upcoming_at, n_div, is_summ, is_fin, ok, sig_info, brd, assets, sample) -> list[dict]:
+    """Veri sağlığı: her kaynağın bu çalışmadaki durumu (sitede veri rozetinde ve iş akışı özetinde gösterilir).
+    ok: True (sorunsuz), False (sorun var), None (bilgi)."""
+    if sample:
+        return []
+    newest = "{}/{}".format(*isyatirim.recent_periods()[0])
+    have_fin = sum(1 for t in ok if newest in ((is_fin.get(t) or {}).get("periods") or {}))
+    h = [
+        {"k": "prices", "n": "Fiyatlar (Yahoo)", "ok": n_ok >= 0.95 * n_all, "note": f"{n_ok}/{n_all} hisse"},
+        {"k": "h4", "n": "4 saatlik mumlar", "ok": bool(sig_info and sig_info.get("h4") and sig_info["h4"] >= 0.8 * (sig_info.get("h4Req") or 1)),
+         "note": f"{sig_info.get('h4')}/{sig_info.get('h4Req')} hisse" if sig_info and sig_info.get("h4Req") else "alınamadı"},
+        {"k": "signals", "n": "Sinyaller", "ok": bool(sig_info), "note": f"{sig_info['strategies']} strateji, {sig_info['active']} açık sinyal" if sig_info else "üretilemedi"},
+        {"k": "index", "n": "Endeks üyelikleri (Borsa İstanbul)", "ok": None, "note": f"liste tarihi {index_date}" if index_date else "yedek liste"},
+        {"k": "tedbir", "n": "Tedbirler", "ok": bool(measures_at), "note": measures_at or "alınamadı"},
+        {"k": "divcal", "n": "Temettü takvimi (temettuhisseleri)", "ok": bool(upcoming_at), "note": upcoming_at or "alınamadı"},
+        {"k": "divhist", "n": "Temettü geçmişi", "ok": n_div >= 0.8 * len(ok), "note": f"{n_div}/{len(ok)} hisse önbellekte"},
+        {"k": "isy", "n": "Temel oranlar (İş Yatırım)", "ok": len(is_summ) >= 100, "note": f"{len(is_summ)} hisse"},
+        {"k": "fin", "n": "Mali tablolar", "ok": None, "note": f"{newest} dönemi {have_fin}/{len(ok)} şirkette"},
+        {"k": "breadth", "n": "Piyasa Nabzı", "ok": bool(brd), "note": f"{brd['pulse']['score']}/100" if brd and brd.get("pulse") else "hesaplanamadı"},
+        {"k": "fx", "n": "Döviz, altın, kripto", "ok": len(assets) >= 8, "note": f"{len(assets)} varlık"},
+    ]
+    # GitHub iş akışı özetine de yaz (Actions sayfasında görünür)
+    import os
+    path = os.environ.get("GITHUB_STEP_SUMMARY")
+    if path:
+        mark = {True: "✅", False: "⚠️", None: "ℹ️"}
+        with open(path, "a", encoding="utf-8") as f:
+            f.write("### Veri sağlığı\n\n| | Kaynak | Durum |\n|---|---|---|\n")
+            f.writelines(f"| {mark[x['ok']]} | {x['n']} | {x['note']} |\n" for x in h)
+    bad = [x["n"] for x in h if x["ok"] is False]
+    print("Veri sağlığı: " + ("sorun yok." if not bad else "sorunlu → " + ", ".join(bad)), flush=True)
+    return h
 
 
 def download_prices(symbols: list[str]) -> dict[str, pd.DataFrame]:
@@ -1041,9 +1080,10 @@ def main():
         index_summary = {"t": INDEX, "name": "BIST 100", **metrics(idx, None)}
 
     # Sinyaller: kurulumlar, geriye dönük test ve aktif sinyaller (data/signals.json); aktif sinyal hisse özetine de eklenir
+    sig_info = None
     try:
-        write_signals(out, {t: prices[t] for t in ok}, stocks, prices.get(INDEX), intraday_on=not args.sample and not args.no_intraday,
-                      div_events=div_events)
+        sig_info = write_signals(out, {t: prices[t] for t in ok}, stocks, prices.get(INDEX), intraday_on=not args.sample and not args.no_intraday,
+                                 div_events=div_events)
     except Exception as e:  # noqa: BLE001 — sinyal hatası yayını durdurmasın
         print(f"  Sinyaller üretilemedi ({e}).", flush=True)
 
@@ -1054,6 +1094,9 @@ def main():
     except Exception as e:  # noqa: BLE001
         brd = None
         print(f"  Piyasa genişliği hesaplanamadı ({e}).", flush=True)
+    assets = {"TRY": {"last": 1.0, "chg1d": 0.0}} if args.sample else fetch_assets()
+    health = data_health(len(ok), len(tickers), index_date, measures_at, upcoming_at, len(site_div), is_summ, is_fin, ok,
+                         sig_info, brd, assets, args.sample)
     summary = {
         "updated": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
         "lastDate": max(s["date"] for s in stocks),
@@ -1064,7 +1107,8 @@ def main():
         # Piyasa son 12 ay temettü verimi (medyan) ve son 4 yıldaki yüzdelik dilimi
         "mktYield": round(float(mkt_yield.iloc[-1]), 5) if mkt_yield is not None else None,
         "mktYieldPct": round(float((mkt_yield < mkt_yield.iloc[-1]).mean()), 4) if mkt_yield is not None else None,
-        "assets": {"TRY": {"last": 1.0, "chg1d": 0.0}} if args.sample else fetch_assets(),
+        "assets": assets,
+        "health": health,
         "sample": bool(args.sample),
         "source": "ÖRNEK VERİ" if args.sample else "Fiyat: Yahoo Finance (gecikmeli) · Mali tablolar: İş Yatırım",
         "index": index_summary,

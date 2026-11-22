@@ -640,3 +640,6 @@ details.sigcard[open] > summary { margin-bottom: 8px; }
 .pulseaxis { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); margin-bottom: 10px; }
 .pulsechart { height: 80px; margin-top: 12px; }
 .brdchart .lp { stroke: var(--ink); }
+/* Veri sağlığı */
+.banner.ok { background: var(--sunk); color: var(--ink); font-weight: 400; }
+.banner ul.health { list-style: none; margin: 8px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 4px 16px; font-weight: 400; font-size: 13px; color: var(--ink); }

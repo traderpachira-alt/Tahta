@@ -23,6 +23,10 @@ Tarayıcıda çalışır, telefonda ana ekrana eklenince uygulama gibi açılır
   başlıkları altında gruplu. Hisse sayfasında grafik üstte, altında sekmeler (Genel, Destek / direnç, Temettü, Temel ve
   değerleme, Sektör); göstergeler tek menüde, açık olanlar etiket olarak; verisi olmayan kartlar gizlenir. Uzun
   açıklamalar "ⓘ" satırlarında katlı.
+- **Veri sağlığı:** her güncellemede kaynakların durumu (fiyatlar, 4 saatlik mumlar, sinyaller, tedbirler, temettü takvimi ve
+  geçmişi, İş Yatırım, mali tablolar, Piyasa Nabzı, döviz) `summary.json` → `health` ve GitHub iş akışı özetine yazılır;
+  sitede veri rozetine dokununca görünür. Rozet; veri 4 günden eskiyse, hafta içi son güncellemeden 26 saat (hafta sonu 74)
+  geçtiyse ya da bir kaynak sorunluysa sarıya döner.
 - **Piyasa Nabzı** (0–100; kısa/uzun vade genişliğinin 4 yıllık dilimi 25+25, kısa/uzun vade yönü 20+15, kısa vadenin önderliği 15; Kritik · Zayıf · Kararsız · Sağlıklı · Güçlü) ve **piyasa genişliği** (`scripts/breadth.py`, testleri `tests/test_breadth.py`): BIST TÜM hisselerinin 50 ve 200 günlük
   ortalamasının üstündeki oranı, 4 yıllık dilimi, 10/20 günlük değişimi ve kurallı yorum (olumlu ve olumsuz işaretler: yön,
   dipten dönüş, yarıyı geçme, uzun vade, aşırı ısınma, endeksle uyumsuzluk). Taramanın Bugün kartlarında; dokununca grafik.

@@ -36,13 +36,29 @@ export async function loadSummary() {
   $('#stamp').textContent = `Son veri: ${fmt.date(DATA.lastDate)} · güncellendi ${upd.toLocaleString('tr-TR', { dateStyle: 'short', timeStyle: 'short' })}`;
   const banner = $('#banner'), badge = $('#dataBadge');
   const ageDays = (Date.now() - new Date(DATA.lastDate + 'T18:00:00+03:00')) / 864e5;
-  const stale = !DATA.sample && ageDays > 4;
+  // Güncelleme gecikmesi: hafta içi son güncellemeden 26 saatten fazla geçtiyse (hafta sonu 74 saat)
+  const ageH = (Date.now() - upd) / 36e5, wd = new Date().getDay();
+  const late = !DATA.sample && (ageH > ([0, 1].includes(wd) ? 74 : 26));
+  const bad = (DATA.health || []).filter(x => x.ok === false);
+  const stale = !DATA.sample && (ageDays > 4 || late || bad.length > 0);
   badge.hidden = false;
   badge.classList.toggle('warn', stale);
   badge.textContent = `Veri ${fmt.date(DATA.lastDate).slice(0, 5)}${stale ? ' ⚠' : ''}`;
   badge.title = `Son kapanış ${fmt.date(DATA.lastDate)} · güncellendi ${upd.toLocaleString('tr-TR', { dateStyle: 'short', timeStyle: 'short' })}`;
-  const staleMsg = `Veri ${fmt.date(DATA.lastDate)} tarihli. Otomatik güncelleme aksamış olabilir (GitHub Actions'ı kontrol edin).`;
-  badge.onclick = () => { if (!DATA.sample) { banner.textContent = stale ? staleMsg : badge.title + '. Fiyatlar gecikmelidir; site gün içinde saatlik güncellenir.'; banner.hidden = !banner.hidden; } };
+  // ISO zaman damgalarını yerel saate çevir (ör. 2026-11-22T21:37+00:00 → 23.11.2026 00:37)
+  const when = t => String(t).replace(/\d{4}-\d\d-\d\dT\d\d:\d\d(:\d\d)?(\+00:00|Z)/, m => new Date(m).toLocaleString('tr-TR', { dateStyle: 'short', timeStyle: 'short' }));
+  const mark = { true: '<span class="up">✓</span>', false: '<span class="down">⚠</span>', null: '<span class="muted">ⓘ</span>' };
+  const msgs = [];
+  if (ageDays > 4) msgs.push(`Son kapanış ${fmt.date(DATA.lastDate)}: veri ${Math.floor(ageDays)} gündür güncellenmedi.`);
+  else if (late) msgs.push(`Son güncellemeden bu yana ${Math.round(ageH)} saat geçti; otomatik güncelleme aksamış olabilir (GitHub Actions'ı kontrol edin).`);
+  if (bad.length) msgs.push(`Son güncellemede sorunlu kaynak: ${bad.map(x => x.n).join(', ')}. Bu kaynaklardan gelen bilgiler eski olabilir.`);
+  badge.onclick = () => {
+    if (DATA.sample) return;
+    banner.classList.toggle('ok', !stale);
+    banner.innerHTML = `<b>${stale ? msgs.join(' ') : 'Veri güncel.'}</b> <span class="muted">Son güncelleme ${upd.toLocaleString('tr-TR', { dateStyle: 'short', timeStyle: 'short' })}; fiyatlar ~15 dk gecikmelidir.</span>
+      ${(DATA.health || []).length ? `<ul class="health">${DATA.health.map(x => `<li>${mark[x.ok]} ${esc(x.n)} <span class="muted">· ${esc(when(x.note))}</span></li>`).join('')}</ul>` : ''}`;
+    banner.hidden = !banner.hidden;
+  };
   if (DATA.sample) { banner.textContent = 'ÖRNEK VERİ: Bu sayılar rastgele üretildi, gerçek piyasa verisi değildir. Yalnızca arayüzü denemek içindir.'; banner.hidden = false; }
 }
 export async function loadHist(t) {

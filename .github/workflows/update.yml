@@ -47,8 +47,9 @@ jobs:
       - name: Skor testleri
         run: python -m unittest discover -s tests
 
-      # Temel veriler (F/K, PD/DD…) günde bir kez çekilir; arada önbellekten okunur.
-      - uses: actions/cache@v4
+      # Önbellek (mali tablolar, temettü geçmişi, takvim…): en son kaydedilen geri yüklenir.
+      - name: Önbelleği geri yükle
+        uses: actions/cache/restore@v4
         with:
           path: .cache
           key: fundamentals-${{ github.run_id }}
@@ -56,6 +57,14 @@ jobs:
 
       - name: Veriyi çek
         run: python scripts/fetch_data.py --out site
+
+      # Önbellek veri çekiminden hemen sonra kaydedilir: sonraki adımlar (yayın) başarısız olsa da çekilen veriler kaybolmaz.
+      - name: Önbelleği kaydet
+        if: always() && hashFiles('.cache/**') != ''
+        uses: actions/cache/save@v4
+        with:
+          path: .cache
+          key: fundamentals-${{ github.run_id }}
 
       - name: Arayüzü ekle
         run: cp -r web/. site/
