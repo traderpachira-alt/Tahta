@@ -91,6 +91,11 @@ karşılaştırma tablosunda görünür, bir strateji seçilince yalnızca onun 
 `strategies/__init__.py` içinde), `REGISTRY`'ye ekleyin, testini `tests/test_signals.py`'ye yazın; arayüz kendiliğinden
 gösterir. Testler `tests/test_signals.py`.
 
+Strateji ilkesi: her strateji farklı bir piyasa davranışını yakalamalı ve çıkışı o davranışın süresine uymalı (ör. kanal
+çıkışı Donchian'da avantajı 3 kat artırdı, morning star'da sıfırladı). Strateji haritası `scripts/strategies/__init__.py`
+içinde tutulur: morning star = sert düşüş sonrası kısa dönüş (~9 gün, takip stopu); Donchian = trend içinde kırılım
+(~3–4 hafta, kanal çıkışı).
+
 Donchian kırılımı (`scripts/strategies/donchian.py`, deneme, yalnızca günlük): kapanış önceki 20 günün en yükseğinin üstünde
 (ilk kırılım günü), kapanış SMA200 üstünde ve SMA50 > SMA200, önceki 1 yılın tepesi girişin 0–2R üstünde değil, üstte
 doldurulmamış düşüş FVG'si yok. Stop giriş − 2 ATR; varsayılan çıkış kanal çıkışı (kapanış önceki 10 günün en düşüğünün altına

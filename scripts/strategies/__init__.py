@@ -1,6 +1,16 @@
 """Sinyal stratejileri. Her strateji bu klasörde bir modüldür ve REGISTRY'ye eklenir; motor (signals.py) hepsini aynı
 kurallarla (likidite, risk aralığı, çıkış varyantları, rastgele giriş kıyası, hesap simülasyonu) çalıştırır.
 
+İlke: her strateji farklı bir piyasa davranışını yakalamalı ve çıkışı o davranışın süresine uymalı. Yeni strateji eklemeden
+önce şunlar yazılır: ne yakalıyor (hangi davranış), ne kadar sürüyor, hangi piyasa ortamında çalışıyor, mevcut
+stratejilerden farkı ne. Test, rastgele girişe göre fark (aynı stop ve çıkışla) ve mevcut stratejilerle örtüşmeye bakar.
+Örnek ders: kanal çıkışı Donchian'da avantajı 3 kat artırdı ama morning star'da avantajı sıfırladı; kısa bir dönüşü yakalayan
+sinyale uzun tutan çıkış vermek, onu sıradan bir piyasa bahsine çevirir.
+
+Strateji haritası (ne yakalıyor · süre · ortam · çıkış):
+  morningstar  sert düşüş sonrası kısa vadeli dönüş (aşırı satışın tükenmesi) · ~9 gün · her ortam · +1R sonrası takip stopu
+  donchian     yükseliş trendinde devam eden kırılım (momentum) · ~3–4 hafta · yükseliş trendi · kanal çıkışı (10 günlük dip)
+
 Yeni strateji eklemek:
   1. Bu klasöre `yeni.py` yazın (aşağıdaki arayüz; örnek: morningstar.py).
   2. Aşağıdaki REGISTRY'ye ekleyin. Sıra, sinyal sayfasındaki sıradır.
