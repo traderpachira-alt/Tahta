@@ -19,6 +19,7 @@ VARIANTS = {"trail": "Takip eden stop (+1R sonrası 1R)", "3": "Sabit hedef 3R",
 DEFAULT_V = "trail"
 TRAIL = (1.0, 1.0)
 WARMUP = 22
+ACCOUNT_RISK = 0.01                   # hesap simülasyonu: işlem başına bakiyenin %1'i (sinyal seyrek, nakit nadiren dolar)
 BODY_ATR = 0.5                        # 1. mum gövdesi ≥ 0,5 ATR
 DOJI_MAX = 0.30                       # 2. mum gövdesi ≤ 1. mum gövdesinin %30'u
 STOP_BUF = 0.001                      # stop, üç mumun en düşüğünün %0,1 altı
@@ -48,7 +49,7 @@ META = {
         "En güçlü etki orta ölçekli hisselerde (BIST 100'ün 31–100. sıraları); BIST 30'da zayıf.",
         "Sermayenin çoğu zaman boşta kalır; tek başına strateji olarak değil, giriş zamanlaması aracı olarak kullanın.",
         "Takip eden stop, sabit 3R hedefe göre toplamda biraz daha az kazandırır; karşılığında işlemlerin yarısından fazlası kârla kapanır, kayıp serileri ve düşüşler kısalır. Karşılaştırma tabloda.",
-        "İşlem başına önerilen risk sermayenin %0,5'i: yine de art arda 10+ kayıp yaşanabilir.",
+        "Hesap simülasyonu işlem başına bakiyenin %1'ini riske eder: sinyaller seyrek olduğu için nakit nadiren dolar; %0,5 risk getiriyi belirgin düşürür. Yine de art arda 10+ kayıp yaşanabilir.",
         "4 saatlik test yalnızca son ~2 yılı (Yahoo saatlik veri sınırı) kapsar; günlük testten kısa olduğu için daha az güvenilirdir.",
         "4 saatlik mumlar 13:30 ve kapanışta biter. Veri gecikmeli gelir ve site saatlik güncellenir: 13:30 sinyali sayfada birkaç saat sonra görünebilir, giriş fiyatı o zamana kadar değişmiş olabilir.",
     ],

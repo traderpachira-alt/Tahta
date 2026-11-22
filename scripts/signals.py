@@ -25,7 +25,7 @@ COST = 0.002
 MIN_TURNOVER = 20e6
 RISK_MIN, RISK_MAX = 0.005, 0.15      # stop mesafesi fiyatın %0,5–%15'i
 RANDOM_PER_STOCK = 60
-ACCOUNT = {"capital": 1_000_000, "risk": 0.005, "maxPos": 20}
+ACCOUNT = {"capital": 100_000, "risk": 0.01, "maxPos": 20}   # risk: varsayılan; strateji ACCOUNT_RISK ile kendi oranını verebilir
 TIER_SETS = {"BIST 30": ("30",), "BIST 50": ("30", "50"), "BIST 100": ("30", "50", "100"),
              "BIST TÜM": ("30", "50", "100", "TÜM")}
 DEFAULT_SET = "BIST TÜM"
@@ -254,15 +254,20 @@ def run(prices: dict[str, pd.DataFrame], tiers: dict[str, str | None], strat=Non
         for R in V:
             lst = [x for x in trades[R] if x["tier"] in ts]
             stats[name][R] = _stats(lst, [r for tier, r in rnd[R] if tier in ts])
-        accounts[name] = {v: account([x for x in trades[v] if x["tier"] in ts]) for v in V}
+        accounts[name] = {v: account([x for x in trades[v] if x["tier"] in ts], ACCOUNT["capital"], acct_risk(strat)) for v in V}
     active.sort(key=lambda a: (a["d"], a["t"]), reverse=True)
     recent.sort(key=lambda a: (a["d"], a["t"]), reverse=True)
     candidates.sort(key=lambda x: (x["dist"], x["t"]))
     return {"stats": stats, "accounts": accounts, "active": active, "recent": recent, "candidates": candidates}
 
 
+def acct_risk(strat) -> float:
+    """Hesap simülasyonunda işlem başına risk (bakiyenin oranı): stratejinin ACCOUNT_RISK'i, yoksa ACCOUNT["risk"]."""
+    return getattr(strat, "ACCOUNT_RISK", ACCOUNT["risk"])
+
+
 def meta(strat) -> dict:
     """Sinyal sayfası için strateji tanımı."""
     return {"id": strat.ID, **strat.META, "groupName": GROUPS.get(strat.META.get("group"), strat.META.get("group")),
             "variants": strat.VARIANTS, "defaultV": strat.DEFAULT_V, "candidates": hasattr(strat, "candidate"),
-            "candMaxDist": getattr(strat, "CAND_MAX_DIST", None)}
+            "candMaxDist": getattr(strat, "CAND_MAX_DIST", None), "risk": acct_risk(strat)}

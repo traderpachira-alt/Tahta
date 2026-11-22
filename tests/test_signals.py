@@ -289,3 +289,13 @@ class DonchianTest(unittest.TestCase):
             self.assertEqual(a["k"], "donchian")
             self.assertIsNone(a["a"])
             self.assertIn("xl", a)
+
+
+class AccountRiskTest(unittest.TestCase):
+    """Hesap simülasyonu: 100.000 ₺ bakiye, strateji bazında risk oranı."""
+    def test_strategy_risk(self):
+        from strategies import donchian, morningstar
+        self.assertEqual(S.ACCOUNT["capital"], 100_000)
+        self.assertEqual(S.acct_risk(morningstar), 0.01)
+        self.assertEqual(S.acct_risk(donchian), 0.005)
+        self.assertEqual(S.meta(donchian)["risk"], 0.005)

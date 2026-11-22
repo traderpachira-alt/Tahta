@@ -29,6 +29,7 @@ ATR_STOP = 2.0          # başlangıç stopu: 2 ATR
 PEAK_LOOK = 250         # yakın direnç için geriye bakılan gün
 PEAK_R = 2.0            # tepe girişin bu kadar R'si içinde üstteyse işlem yok
 WARMUP = 200
+ACCOUNT_RISK = 0.005   # hesap simülasyonu: işlem başına bakiyenin %0,5'i (sinyaller yığılır; küçük pozisyonla daha çoğuna yer açılır)
 CAND_MAX_DIST = 0.03    # hazırlanan kurulumlar: kanal tepesine en fazla %3 uzaklık
 COST = 0.002            # motorla aynı (signals.COST); kanal çıkışı burada yürütüldüğü için tekrar tanımlı
 
@@ -54,6 +55,7 @@ META = {
         "Son iki yılda (2025–2026) avantaj BIST 100 dışındaki hisselerden geldi; BIST 100'de sonuç sıfıra yakındı. Endeks gruplarını tabloda karşılaştırın.",
         "Rastgele giriş kıyası yalnızca yükseliş trendindeki günlerden seçilir: fark, trend filtresinin ötesindeki katkıyı gösterir.",
         "Test bugünkü endeks bileşenleriyle yapıldı: bugün endekste olan hisseler geçmişte zaten yükselmiş olabilir; bu, kırılım stratejilerinde sonucu olduğundan iyi gösterebilir.",
+        "Hesap simülasyonu işlem başına bakiyenin %0,5'ini riske eder: sinyaller aynı dönemlerde yığılır ve stop uzak (2 ATR) olduğu için %1 riskte nakit 8 civarı pozisyonda dolar; %0,5 ile daha çok sinyale yer kalır, kayıp serileri daha az aşındırır.",
         "4 saatlik mumlarda belirgin şekilde zayıf çıktı (gün içi sahte kırılımlar); bu yüzden yalnızca günlük.",
     ],
 }

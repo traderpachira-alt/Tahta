@@ -24,6 +24,7 @@ Arayüz (modül düzeyinde):
   CUSTOM_EXITS        stratejinin kendi yürüttüğü çıkış varyantları, ör. ("chan",)
   simulate(F, t, entry, stop, mode, hold)  bu varyantlar için işlem yürütme; signals.simulate ile aynı biçimde sonuç döner
                       (açık işlemde "stop_now", "armed" ve isteğe bağlı "exit_level": kapanışla çıkış seviyesi)
+  ACCOUNT_RISK        hesap simülasyonunda işlem başına risk (bakiyenin oranı); yoksa signals.ACCOUNT["risk"]
   baseline_ok(F, t)   rastgele giriş kıyasında hangi mumların kullanılacağı (ör. yalnızca yükseliş trendindekiler)
 """
 from . import donchian, morningstar

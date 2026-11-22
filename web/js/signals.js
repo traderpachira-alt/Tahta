@@ -52,7 +52,7 @@ function statsTable(S, u) {
     <th title="Kârla kapanan işlemlerin oranı">Kârlı</th><th title="Sabit hedefe ulaşan işlemlerin oranı">Hedefe ulaşan</th>
     <th title="İşlem başına ortalama sonuç (komisyon ve kayma dahil)">Ort.</th><th title="Aynı hisselerde rastgele günlerde, aynı stop yapısı ve çıkış kuralıyla girişin ortalaması">Rastgele giriş</th>
     <th title="Her işlemde sabit 1.000 ₺ riske edilseydi (1R = 1.000 ₺) tüm işlemlerin toplam sonucu; bileşik değildir, pozisyon sınırı yoktur">Kümülatif (1R = 1.000 ₺)</th><th title="Art arda en uzun kayıp serisi">Art arda kayıp</th>
-    <th title="1.000.000 ₺, işlem başına %0,5 risk, en fazla 20 pozisyon">Hesap: yıllık / düşüş</th></tr></thead><tbody>
+    <th title="${fmt.big(S.account.capital)} ₺ bakiye, işlem başına bakiyenin %${F1.format((u.risk ?? S.account.risk) * 100)}'i risk, en fazla ${S.account.maxPos} pozisyon">Hesap: yıllık / düşüş</th></tr></thead><tbody>
     ${S.tierSets.map(name => vs.map((v, i) => { const st = u.stats?.[tfSel]?.[name]?.[v] || {}, ac = u.accounts?.[tfSel]?.[name]?.[v]; return `<tr class="${name === tierSel ? 'sel' : ''}">
       ${i === 0 ? `<td class="tk" rowspan="${vs.length}">${esc(name)}</td>` : ''}<td class="txt">${esc(u.variants[v])}${v === u.defaultV ? ' <small class="muted">(varsayılan)</small>' : ''}</td>
       <td>${st.n ?? 0}</td><td>${ok(st.win) ? '%' + Math.round(st.win * 100) : '—'}</td><td>${isNaN(+v) ? '—' : ok(st.tp) ? '%' + Math.round(st.tp * 100) : '—'}</td>
@@ -79,8 +79,8 @@ function yearsTable(S, u) {
 function accountHtml(S, u) {
   const tierSel = curTier(S), a = u.accounts?.[tfSel]?.[tierSel]?.[u.defaultV], A = S.account, b = S.bench;
   if (!a || !A) return '';
-  return `<div class="sigacct"><b>${fmt.big(A.capital)} ₺ hesapla ne olurdu?</b> ${esc(tierSel)}, ${tfSel === '4H' ? '4 saatlik mumlar' : 'günlük mumlar'}, ${esc(u.variants[u.defaultV]).toLocaleLowerCase('tr')}, işlem başına sermayenin
-    %${F1.format(A.risk * 100)}'i risk, en fazla ${A.maxPos} pozisyon, kaldıraç yok: ${a.years} yılda ${a.taken} işlem, yıllık
+  return `<div class="sigacct"><b>${fmt.big(A.capital)} ₺ bakiyeyle ne olurdu?</b> ${esc(tierSel)}, ${tfSel === '4H' ? '4 saatlik mumlar' : 'günlük mumlar'}, ${esc(u.variants[u.defaultV]).toLocaleLowerCase('tr')}, işlem başına sermayenin
+    %${F1.format((u.risk ?? A.risk) * 100)}'i risk (bakiye büyüdükçe 1R de büyür), en fazla ${A.maxPos} pozisyon, kaldıraç yok: ${a.years} yılda ${a.taken} işlem, yıllık
     <b class="${cls(a.cagr)}">${fmt.pct(a.cagr)}</b>, en büyük düşüş <b class="down">−%${Math.round(a.mdd * 100)}</b>.
     <br><span class="muted">Boşta kalan nakde faiz eklenmedi; para piyasası fonunda değerlendirilen nakit toplam getiriyi belirgin artırır.
     ${b ? `Aynı dönemde BIST 100 al-tut: yıllık ${fmt.pct(b.cagr)}, en büyük düşüş −%${Math.round(b.mdd * 100)}.` : ''}</span></div>`;
@@ -111,12 +111,12 @@ function overviewHtml(S, nAct) {
   return `<section class="panel"><h2>Stratejiler <span class="muted" style="font-weight:400">· ${S.strategies.length} · test: ${esc(tier)}, varsayılan çıkış</span></h2>
     <div class="tablewrap flat"><table class="grid sigtable"><thead><tr><th class="tk">Strateji</th><th class="txt">Grup</th><th class="txt">Periyot</th><th>Açık</th>
       <th title="Günlük testte işlem sayısı">İşlem</th><th title="Kârla kapanan işlemlerin oranı">Kârlı</th><th title="İşlem başına ortalama sonuç">Ort.</th>
-      <th title="Aynı hisselerde rastgele girişin ortalaması (aynı stop ve çıkış)">Rastgele</th><th title="1.000.000 ₺, işlem başına %0,5 risk, en fazla 20 pozisyon">Hesap: yıllık / düşüş</th></tr></thead><tbody>
+      <th title="Aynı hisselerde rastgele girişin ortalaması (aynı stop ve çıkış)">Rastgele</th><th title="${fmt.big(S.account.capital)} ₺ bakiye, her stratejinin kendi risk oranıyla, en fazla ${S.account.maxPos} pozisyon">Hesap: yıllık / düşüş</th></tr></thead><tbody>
       ${S.strategies.map(u => { const tf = u.tfs.includes('1D') ? '1D' : u.tfs[0], st = u.stats?.[tf]?.[tier]?.[u.defaultV] || {}, ac = u.accounts?.[tf]?.[tier]?.[u.defaultV];
         return `<tr data-sigs="${u.id}"><td class="tk"><b>${esc(u.name)}</b>${testChip(u)}<small class="sub2">${esc(u.short || '')}</small></td><td class="txt">${esc(u.groupName || S.groups?.[u.group] || u.group)}</td>
           <td class="txt">${u.tfs.map(tfChip).join(' ')}</td><td>${nAct(u.id)}</td><td>${st.n ?? 0}</td><td>${ok(st.win) ? '%' + Math.round(st.win * 100) : '—'}</td>
           <td class="${cls(st.avgR)}">${rFmt(st.avgR)}</td><td class="muted">${rFmt(st.randR)}</td>
-          <td>${ac ? `<span class="${cls(ac.cagr)}">${fmt.pct(ac.cagr)}</span> / <span class="down">−%${Math.round(ac.mdd * 100)}</span>` : '—'}</td></tr>`; }).join('')}
+          <td>${ac ? `<span class="${cls(ac.cagr)}">${fmt.pct(ac.cagr)}</span> / <span class="down">−%${Math.round(ac.mdd * 100)}</span><small class="sub2">%${F1.format((u.risk ?? S.account.risk) * 100)} risk</small>` : '—'}</td></tr>`; }).join('')}
     </tbody></table></div>
     ${info('Her strateji aynı motorla test edilir: 20 mn ₺ hacim filtresi, stop mesafesi %0,5–%15, gidiş-dönüş %0,2 maliyet, aynı hissede önceki işlem kapanmadan yeni işlem yok, rastgele giriş kıyası ve hesap simülasyonu. Satıra dokununca stratejinin sinyalleri, kuralları ve ayrıntılı test sonuçları açılır.', 'Nasıl karşılaştırılır?')}
   </section>`;
@@ -140,7 +140,7 @@ function strategyCard(S, u) {
     ${accountHtml(S, u)}
     ${u.notes?.length ? `<h3>Bilmeniz gerekenler</h3><ul class="sigrules">${u.notes.map(n => `<li>${esc(n)}</li>`).join('')}</ul>` : ''}
     <p class="note-fx">Kurallar son 4 yılda aynı kodla geriye dönük test edildi. Geçmiş başarı geleceği garanti etmez (test bugünkü endeks bileşenleriyle yapıldı).
-      Yatırım tavsiyesi değildir; işlem başına sermayenin en fazla %${F1.format(S.account.risk * 100)}'ini riske etmeniz önerilir.</p>
+      Yatırım tavsiyesi değildir; testteki hesap işlem başına bakiyenin %${F1.format((u.risk ?? S.account.risk) * 100)}'ini riske eder.</p>
   </details>`;
 }
 
@@ -181,8 +181,7 @@ export async function renderSignals() {
         <td>${fmt.price(a.c)}</td><td class="${cls(a.r)}">${rFmt(a.r)}</td>
         <td class="txt">${a.tedbir ? '<span class="chip warn">⚠ Tedbir</span> ' : ''}<span class="muted" title="Sinyal mumunun hacmi / 20 mumluk ortalama (bilgi amaçlı)">${IDX_LABEL[a.idx] || ''}${ok(a.volx) ? ` · hacim ${F1.format(a.volx)}x` : ''}</span></td></tr>`).join('')}
     </tbody></table></div>` : '<p class="muted">Bu seçimde şu an açık sinyal yok.</p>'}
-    ${info(`<b>R</b> = giriş − stop (risk birimi). Örnek: sermaye 1.000.000 ₺, işlem başına %0,5 risk = 5.000 ₺;
-      stop %5 aşağıdaysa pozisyon 100.000 ₺ olur. Giriş sinyal mumunun kapanışında yapılır. Takip eden stopta fiyat +1R'ye ulaşınca stop, o güne kadar görülen en yüksek fiyatın 1R altına çekilir ve yalnızca yukarı taşınır.
+    ${info(`<b>R</b> = giriş − stop (risk birimi). Örnek: bakiye 100.000 ₺, işlem başına %1 risk = 1R = 1.000 ₺; stop %5 aşağıdaysa pozisyon 20.000 ₺ olur. Testteki hesap morning star'da bakiyenin %1'ini, Donchian'da %0,5'ini riske eder. Giriş sinyal mumunun kapanışında yapılır. Takip eden stopta fiyat +1R'ye ulaşınca stop, o güne kadar görülen en yüksek fiyatın 1R altına çekilir ve yalnızca yukarı taşınır.
       Pozisyon en fazla ${P.hold} işlem günü (4S'de 120 mum) tutulur; testte gidiş-dönüş %${F1.format(P.cost * 100)} maliyet düşülür; 20 günlük ortalama işlem hacmi
       ${fmt.big(P.minTurnover)} ₺ altındaki hisseler alınmaz. <b>1G</b>: günlük mum, <b>4S</b>: 4 saatlik mum (13:30 ve kapanışta biter).`, 'R ve stop nasıl işler?')}
   </section>
