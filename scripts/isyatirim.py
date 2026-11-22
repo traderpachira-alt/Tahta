@@ -166,8 +166,40 @@ def fetch_financials(code: str, group_hint: str | None, periods: list[tuple[int,
     return None, {}
 
 
-def load(codes: list[str], cache_path, max_age_days: float = 3, max_per_run: int = 150, log=print):
-    """Önbellekli yükleme. Döner: (summary, financials) — financials[KOD] = {"group", "periods"}."""
+FULL_EVERY_DAYS = 120     # son çeyreği tamam olan şirkette güvenlik için tam yenileme aralığı (geriye dönük düzeltmeler)
+
+
+def plan(fin: dict, codes: list[str], periods: list[tuple[int, int]], now: float, today: dt.date | None = None) -> list[tuple[str, str]]:
+    """Hangi şirket için ne yapılacak: [(KOD, "full" | "probe")], öncelik sırasıyla.
+    - full : önbellekte yok ya da eski şemada (12 çeyrek, 3 istek); ya da son çeyrek tamam ama son tam çekim çok eski
+    - probe: en yeni çeyrek önbellekte yok → yalnızca son 4 çeyrek (1 istek); yeni bilanço geldiyse eklenir
+    Son çeyreği önbellekte olan şirketler atlanır: bilanço üç ayda bir gelir, arada veri değişmez.
+    Probe sıklığı: çeyrek bitiminden sonraki ilk 30 gün haftada bir (bilançolar henüz gelmez), sonra günde bir;
+    hiç mali tablo verisi olmayan şirketlerde (fon, yeni halka arz…) haftada bir."""
+    today = today or dt.date.today()
+    newest = f"{periods[0][0]}/{periods[0][1]}"
+    qend = dt.date(periods[0][0], periods[0][1], 28)
+    probe_gap = (7 if (today - qend).days < 30 else 0.8) * 86400
+    prio = {c: i for i, c in enumerate(codes)}
+    full, probe, refresh = [], [], []
+    for c in codes:
+        e = fin.get(c) or {}
+        if e.get("v") != SCHEMA or not e.get("_ts"):
+            full.append(c)
+        elif newest in (e.get("periods") or {}):
+            if now - e.get("_full", e["_ts"]) > FULL_EVERY_DAYS * 86400:
+                refresh.append(c)
+        elif now - e.get("_chk", e["_ts"]) > (probe_gap if e.get("group") else 7 * 86400):   # hiç verisi olmayan: haftada bir
+            probe.append(c)
+    old = lambda c: (fin.get(c, {}).get("_ts", 0), prio[c])
+    return ([(c, "full") for c in sorted(full, key=lambda c: prio[c])] + [(c, "probe") for c in sorted(probe, key=old)]
+            + [(c, "full") for c in sorted(refresh, key=lambda c: (fin[c].get("_full", fin[c]["_ts"]), prio[c]))])
+
+
+def load(codes: list[str], cache_path, max_age_days: float = 3, max_per_run: int = 200, log=print):
+    """Önbellekli yükleme. Döner: (summary, financials) — financials[KOD] = {"group", "periods"}.
+    max_per_run: bu çalışmada mali tablo için en fazla istek sayısı (tam çekim 3, kontrol 1 istek).
+    max_age_days artık kullanılmıyor (geriye uyum için duruyor): yenileme son çeyreğin gelip gelmediğine göre yapılır."""
     try:
         cache = json.loads(cache_path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
@@ -184,32 +216,46 @@ def load(codes: list[str], cache_path, max_age_days: float = 3, max_per_run: int
 
     fin = cache.setdefault("fin", {})
     periods = recent_periods()
-    # codes öncelik sırasıyla gelir (BIST 30 önce); en eski güncellenenler önce, eşitse öncelik sırası
-    prio = {c: i for i, c in enumerate(codes)}
-    def fresh(c):
-        e = fin.get(c, {})
-        return e.get("v") == SCHEMA and now - e.get("_ts", 0) <= max_age_days * 86400
-
-    stale = [c for c in codes if not fresh(c)]
-    # Önce eski şemadakiler (yeni kalemler eksik), sonra en eski güncellenenler, eşitse öncelik sırası
-    stale.sort(key=lambda c: (fin.get(c, {}).get("v") == SCHEMA, fin.get(c, {}).get("_ts", 0), prio[c]))
-    done = failed = 0
-    for c in stale[:max_per_run]:
+    newest = f"{periods[0][0]}/{periods[0][1]}"
+    todo = plan(fin, codes, periods, now)
+    keep = {f"{y}/{m}" for y, m in periods}
+    budget, n_full, n_probe, n_new, failed, left = max_per_run, 0, 0, [], 0, 0
+    for c, kind in todo:
+        cost = 3 if kind == "full" else 1
+        if budget < cost:
+            left += 1
+            continue
+        e = fin.get(c) or {}
         try:
-            group, data = fetch_financials(c, fin.get(c, {}).get("group"), periods)
-            old = fin.get(c, {}).get("periods", {}) if fin.get(c, {}).get("v") == SCHEMA else {}
-            keep = {f"{y}/{m}" for y, m in periods}
-            fin[c] = {"_ts": now, "v": SCHEMA, "group": group,
-                      "periods": {k: v for k, v in {**old, **data}.items() if k in keep}}
-            done += 1
-        except Exception as e:
+            if kind == "full":
+                group, data = fetch_financials(c, e.get("group"), periods)
+                old = e.get("periods", {}) if e.get("v") == SCHEMA else {}
+                fin[c] = {"_ts": now, "_full": now, "_chk": now, "v": SCHEMA, "group": group,
+                          "periods": {k: v for k, v in {**old, **data}.items() if k in keep}}
+                n_full += 1
+            else:
+                group = e.get("group")
+                data = _fetch_group(c, group, periods[:4]) if group else fetch_financials(c, None, periods[:4])[1]
+                e["_chk"] = now
+                if data:
+                    if newest in data and newest not in e.get("periods", {}):
+                        n_new.append(c)
+                    e["periods"] = {k: v for k, v in {**e.get("periods", {}), **data}.items() if k in keep}
+                    e["_ts"] = now
+                fin[c] = e
+                n_probe += 1
+            budget -= cost
+        except Exception as ex:
             failed += 1
-            log(f"  mali tablo alınamadı {c}: {e}")
+            budget -= cost
+            log(f"  mali tablo alınamadı {c}: {ex}")
             time.sleep(2)
     cache_path.parent.mkdir(parents=True, exist_ok=True)
     cache_path.write_text(json.dumps(cache, ensure_ascii=False), encoding="utf-8")
-    log(f"İş Yatırım mali tablolar: {done} güncellendi, {failed} başarısız, "
-        f"{max(0, len(stale) - done - failed)} sonraki çalışmaya kaldı.")
+    have = sum(1 for c in codes if newest in (fin.get(c, {}).get("periods") or {}))
+    log(f"İş Yatırım mali tablolar ({newest} dönemi {have}/{len(codes)} şirkette): {n_full} tam çekim, {n_probe} kontrol"
+        f"{f' ({len(n_new)} yeni bilanço: ' + ', '.join(n_new[:12]) + ('…' if len(n_new) > 12 else '') + ')' if n_new else ''}"
+        f", {failed} başarısız, {left} sonraki çalışmaya kaldı; diğerleri güncel (atlandı).")
     return summ.get("data") or {}, fin
 
 

@@ -18,7 +18,7 @@ import numpy as np
 import pandas as pd
 
 from indicators import rma, true_range
-from strategies import GROUPS, REGISTRY
+from strategies import GROUPS, PORTFOLIOS, REGISTRY  # noqa: F401 (PORTFOLIOS fetch_data için)
 
 HOLD_MAX = 60
 COST = 0.002

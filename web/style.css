@@ -604,3 +604,25 @@ details.sigcard[open] > summary { margin-bottom: 8px; }
 .presets.tiers .lbl { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin-right: 2px; }
 .presets.tiers button { padding: 3px 10px; font-size: 12px; }
 #view > .presets + .presets.sub { margin-top: 8px; }
+
+/* Piyasa genişliği */
+.tcard.brd.pos b { color: var(--up); }
+.tcard.brd.neg b { color: var(--down); }
+.tcard.brd[aria-expanded="true"] { border-color: var(--muted); background: var(--sunk); }
+.brdpanel { margin-top: -4px; }
+.brdgrid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 20px; align-items: start; }
+.brdhead { font-size: 16px; font-weight: 600; margin: 0 0 6px; }
+.brdhead.pos { color: var(--up); } .brdhead.neg { color: var(--down); }
+.brdnotes { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 13px; line-height: 1.45; }
+.brdchart { width: 100%; height: 120px; background: var(--sunk); border-radius: 8px; }
+.brdchart polyline { fill: none; stroke-width: 1.6; vector-effect: non-scaling-stroke; }
+.brdchart .l50 { stroke: var(--accent); } .brdchart .l200 { stroke: var(--c-sma200); }
+.brdchart .mid { stroke: var(--muted); stroke-dasharray: 4 4; stroke-width: 1; vector-effect: non-scaling-stroke; opacity: .6; }
+.brdaxis { display: flex; justify-content: space-between; gap: 8px; font-size: 11px; color: var(--muted); margin-top: 4px; flex-wrap: wrap; }
+.brdaxis i { display: inline-block; width: 10px; height: 3px; border-radius: 2px; margin: 0 4px 2px 8px; vertical-align: middle; }
+.brdaxis i.k50 { background: var(--accent); } .brdaxis i.k200 { background: var(--c-sma200); }
+@media (max-width: 760px) { .brdgrid { grid-template-columns: 1fr; } }
+.brdrows { display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
+.brdrows > div { display: flex; flex-direction: column; padding: 6px 0; border-bottom: 1px solid var(--grid); }
+.brdrows > div > span:first-child { font-size: 12px; color: var(--muted); }
+.brdrows b { font-family: var(--mono); font-weight: 600; }

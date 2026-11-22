@@ -14,6 +14,75 @@ const dfmt = d => { if (!d) return '—'; const [day, time] = d.split(' '); retu
 const prevBday = d => { const x = new Date(d + 'T12:00:00Z'); do x.setUTCDate(x.getUTCDate() - 1); while ([0, 6].includes(x.getUTCDay())); return x.toISOString().slice(0, 10); };
 const dm = d => fmt.date(d).slice(0, 5);
 const tk = a => `<td class="tk"><a class="code" href="#/h/${a.t}">${a.t}</a> ${tfChip(a.tf)}</td>`;
+/* Portföy stratejisi (ör. göreli güç rotasyonu): tablo satırı ve kendi sayfası */
+const pct1 = x => !ok(x) ? '—' : (x > 0 ? '+' : '') + F1.format(x * 100) + '%';
+function pfRow(u, A) {
+  const p = u.pf, st = p.stats, ac = p.account;
+  return `<tr data-sigs="${u.id}"><td class="tk"><b>${esc(u.name)}</b>${testChip(u)}<small class="sub2">${esc(u.short || '')}</small></td>
+    <td class="txt">${esc(u.groupName || u.group)}</td><td class="txt"><span class="chip" title="Aylık yenilenen portföy">Aylık</span></td>
+    <td title="Portföydeki hisse sayısı">${p.holdings.length || '<span class="muted">nakit</span>'}</td>
+    <td title="Test edilen ay sayısı">${st.months} ay</td><td title="Endeksi geçen ayların oranı">%${Math.round(st.beat * 100)}</td>
+    <td title="Aylık ortalama getiri">${pct1(st.avgM)}/ay</td><td class="muted" title="BIST 100'ün aylık ortalaması">${pct1(st.avgXu)}/ay</td>
+    <td><span class="${cls(ac.cagr)}">${fmt.pct(ac.cagr)}</span> / <span class="down">−%${Math.round(ac.mdd * 100)}</span><small class="sub2">10 hisse</small></td>
+    <td><b class="${cls(ac.final - A.capital)}">${fmt.price(ac.final).replace(/,00$/, '')} ₺</b><small class="sub2">${F1.format(ac.years)} yılda · aylık</small></td></tr>`;
+}
+function portfolioView(S, u) {
+  const p = u.pf, ac = p.account, b = p.bench, A = S.account;
+  const off = !p.regime.on;
+  return `
+  <section class="panel">
+    <h2>Güncel portföy <span class="muted" style="font-weight:400">· son dengeleme ${fmt.date(p.rebalanced)} · sonraki ${fmt.date(p.next)}</span></h2>
+    ${p.holdings.length ? `<div class="tablewrap flat"><table class="grid sigtable"><thead><tr><th class="tk">Hisse</th><th>Sıra</th><th>Ağırlık</th>
+      <th title="Portföye giriş (dengeleme) tarihi">Portföyde</th><th title="Portföye girdiğinden bu yana getiri">Girişten beri</th><th title="Bu ayki dengelemeden bu yana">Bu ay</th>
+      <th title="Bugün sıralansa kaçıncı olurdu">Bugünkü sıra</th><th>Son fiyat</th></tr></thead><tbody>
+      ${p.holdings.map(h => `<tr data-t="${h.t}"><td class="tk"><a class="code" href="#/h/${h.t}">${h.t}</a></td><td>${h.rank}</td><td>%${F1.format(100 / p.holdings.length)}</td>
+        <td>${fmt.date(h.since)}</td><td class="${cls(h.ret)}">${pct1(h.ret)}</td><td class="${cls(h.retM)}">${pct1(h.retM)}</td>
+        <td>${h.nowRank ? (h.nowRank > 10 ? `<span class="down">${h.nowRank}</span>` : h.nowRank) : '<span class="muted">listede yok</span>'}</td><td>${fmt.price(h.c)}</td></tr>`).join('')}
+    </tbody></table></div>`
+    : `<p class="note-fx" style="margin:0">Portföy şu an <b>nakitte</b>: ${fmt.date(p.rebalanced)} dengelemesinde BIST 100, 200 günlük ortalamasının altındaydı (piyasa filtresi).
+       ${off ? 'Filtre bugün de kapalı; ' : 'Filtre bugün açık: '}bir sonraki dengeleme ${fmt.date(p.next)}.</p>`}
+  </section>
+
+  <section class="panel">
+    <h2>Bugün sıralansa <span class="muted" style="font-weight:400">· en güçlü 15 · ${off ? 'piyasa filtresi kapalı (nakitte kalınır)' : 'ilk 10 alınır'}</span></h2>
+    <div class="tablewrap flat"><table class="grid sigtable"><thead><tr><th class="tk">Hisse</th><th>Sıra</th>
+      <th title="Son 6 ay, son ay hariç">6 ay getiri</th><th title="Yıllıklandırılmış günlük oynaklık">Oynaklık</th><th title="Getiri / oynaklık">Güç skoru</th><th class="txt">Durum</th></tr></thead><tbody>
+      ${p.preview.map(x => `<tr data-t="${x.t}"><td class="tk"><a class="code" href="#/h/${x.t}">${x.t}</a></td><td>${x.rank}</td><td class="${cls(x.mom)}">${pct1(x.mom)}</td>
+        <td>%${Math.round(x.vol * 100)}</td><td>${F2.format(x.score)}</td>
+        <td class="txt">${x.held ? (x.rank <= 10 ? '<span class="chip">portföyde</span>' : '<span class="chip down">çıkabilir</span>') : x.rank <= 10 ? `<span class="chip up">${off ? 'filtre açılınca' : 'girebilir'}</span>` : ''}</td></tr>`).join('')}
+    </tbody></table></div>
+    ${info('Sıralama, bir sonraki dengelemenin önizlemesidir; asıl karar ayın ilk işlem günü, bir önceki kapanışa göre verilir. Güç skoru = son 6 ayın getirisi (son ay hariç) / günlük getiri oynaklığı. Son 6 ayda +%200 üstü yükselenler ve 20 günlük ortalama işlem hacmi 20 mn ₺ altındakiler listede yer almaz.', 'Sıralama nasıl yapılır?')}
+  </section>
+
+  <section class="panel">
+    <h2>Son dengelemeler</h2>
+    <div class="tablewrap flat"><table class="grid sigtable"><thead><tr><th class="tk">Tarih</th><th>Portföy</th><th>BIST 100</th><th class="txt">Girenler</th><th class="txt">Çıkanlar</th></tr></thead><tbody>
+      ${p.history.map(h => `<tr><td class="tk">${fmt.date(h.d)}</td><td class="${cls(h.r)}">${h.on ? pct1(h.r) : '<span class="muted">nakit</span>'}</td><td class="${cls(h.xu)}">${pct1(h.xu)}</td>
+        <td class="txt">${h.in.join(', ') || '—'}</td><td class="txt">${h.out.join(', ') || '—'}</td></tr>`).join('')}
+    </tbody></table></div>
+    ${info('Her satır, o tarihte yapılan dengelemeden bir sonrakine kadarki getiridir (son satır devam ediyor). "Nakit": piyasa filtresi kapalıydı.', 'Nasıl okunur?')}
+  </section>
+
+  <details class="panel sigcard"${cardOpen ? ' open' : ''}>
+    <summary><h2>${esc(u.name)} · kurallar ve test sonuçları</h2><span class="muted">Son ${F1.format(ac.years)} yıl: yıllık ${fmt.pct(ac.cagr)} (BIST 100 ${fmt.pct(b.cagr)}) · düşüş −%${Math.round(ac.mdd * 100)}</span></summary>
+    <p class="muted" style="margin:0 0 8px">${esc(u.summary || '')}</p>
+    <ul class="sigrules">${(u.rules || []).map(r => `<li>${esc(r)}</li>`).join('')}</ul>
+    <h3>Geriye dönük test · ${fmt.big(A.capital)} ₺ ile</h3>
+    <div class="tablewrap flat"><table class="grid sigtable"><thead><tr><th class="tk"></th><th>Bugünkü bakiye</th><th>Yıllık</th><th>En büyük düşüş</th></tr></thead><tbody>
+      <tr><td class="tk"><b>${esc(u.name)}</b></td><td><b>${fmt.price(ac.final).replace(/,00$/, '')} ₺</b></td><td class="${cls(ac.cagr)}">${fmt.pct(ac.cagr)}</td><td class="down">−%${Math.round(ac.mdd * 100)}</td></tr>
+      <tr><td class="tk">BIST 100 al-tut</td><td>${fmt.price(b.final).replace(/,00$/, '')} ₺</td><td class="${cls(b.cagr)}">${fmt.pct(b.cagr)}</td><td class="down">−%${Math.round(b.mdd * 100)}</td></tr>
+    </tbody></table></div>
+    <h3>Yıllara göre</h3>
+    <div class="sigyearwrap"><table class="grid sigyears"><thead><tr><th class="tk"></th>${Object.keys(p.years).map(y => `<th>${y}</th>`).join('')}</tr></thead><tbody>
+      <tr><td class="tk">Portföy</td>${Object.values(p.years).map(v => `<td class="${cls(v.r)}">${pct1(v.r)}</td>`).join('')}</tr>
+      <tr><td class="tk">BIST 100</td>${Object.values(p.years).map(v => `<td class="${cls(v.xu)}">${pct1(v.xu)}</td>`).join('')}</tr>
+      <tr><td class="tk">Ay sayısı</td>${Object.values(p.years).map(v => `<td>${v.n}</td>`).join('')}</tr>
+    </tbody></table></div>
+    <p class="muted" style="font-size:12px;margin:8px 0 0">${p.stats.months} tamamlanmış ayın %${Math.round(p.stats.beat * 100)}'inde endeksi geçti; ${p.stats.cash} ay piyasa filtresiyle nakitte kalındı. İlk ve son yıl kısmi.</p>
+    <h3>Bilmeniz gerekenler</h3>
+    <ul class="sigrules">${(u.notes || []).map(n => `<li>${esc(n)}</li>`).join('')}</ul>
+  </details>`;
+}
 const tfChip = tf => tf === '4H' ? '<span class="chip tf4" title="4 saatlik mumlar">4S</span>' : '<span class="chip" title="Günlük mumlar">1G</span>';
 /* Eski (tek stratejili) veri biçimini yeni biçime çevir */
 function normalize(S) {
@@ -100,7 +169,7 @@ function stratBar(S, nAct) {
   const cur = curStrat(S);
   if (openGroup === undefined) openGroup = cur?.group ?? null;
   const groups = [...new Set(S.strategies.map(u => u.group))];
-  const btn = (u) => `<button type="button" data-sigs="${u.id}" aria-pressed="${cur?.id === u.id}" title="${esc(u.short || u.summary || '')}">${esc(u.name)}${u.status === 'test' ? ' <small>deneme</small>' : ''}<span class="n">${nAct(u.id)}</span></button>`;
+  const btn = (u) => `<button type="button" data-sigs="${u.id}" aria-pressed="${cur?.id === u.id}" title="${esc(u.short || u.summary || '')}">${esc(u.name)}${u.status === 'test' ? ' <small>deneme</small>' : ''}<span class="n">${u.kind === 'portfolio' ? u.pf.holdings.length : nAct(u.id)}</span></button>`;
   return `<div class="presets" role="group" aria-label="Stratejiler">
       <button type="button" data-sigs="" aria-pressed="${!cur}">Tüm stratejiler<span class="n">${nAct(null)}</span></button>
       ${groups.map(g => { const sel = cur?.group === g, name = S.groups?.[g] || g;
@@ -120,7 +189,8 @@ function overviewHtml(S) {
       <th title="Testteki işlem sayısı">İşlem</th><th title="Kârla kapanan işlemlerin oranı">Kârlı</th><th title="İşlem başına ortalama sonuç">Ort.</th>
       <th title="Aynı hisselerde rastgele girişin ortalaması (aynı stop ve çıkış)">Rastgele</th><th title="${fmt.big(A.capital)} ₺ bakiye, her stratejinin kendi risk oranıyla, en fazla ${A.maxPos} pozisyon">Hesap: yıllık / düşüş</th>
       <th title="Testin başında ${fmt.big(A.capital)} ₺ ile başlanıp bu stratejinin bütün sinyalleri hesap kurallarıyla izlenseydi bugünkü bakiye (açık pozisyonlar maliyetle)">${fmt.big(A.capital)} ₺ → bugün</th></tr></thead><tbody>
-      ${rows.map(({ u, tf }) => { const st = u.stats?.[tf]?.[tier]?.[u.defaultV] || {}, ac = u.accounts?.[tf]?.[tier]?.[u.defaultV];
+      ${rows.map(({ u, tf }) => { if (u.kind === 'portfolio') return pfRow(u, A);
+        const st = u.stats?.[tf]?.[tier]?.[u.defaultV] || {}, ac = u.accounts?.[tf]?.[tier]?.[u.defaultV];
         const nOpen = S.active.filter(a => (TIER_OF[tier] || []).includes(a.idx) && a.k === u.id && (a.tf || '1D') === tf).length;
         return `<tr data-sigs="${u.id}" data-sigrowtf="${tf}"><td class="tk"><b>${esc(u.name)}</b>${u.tfs.length > 1 ? ` <span class="muted">· ${tfName(tf)}</span>` : ''}${testChip(u)}<small class="sub2">${esc(u.short || '')}</small></td>
           <td class="txt">${esc(u.groupName || S.groups?.[u.group] || u.group)}</td>
@@ -157,6 +227,21 @@ function strategyCard(S, u) {
   </details>`;
 }
 
+
+function bindCommon(S) {
+  view.querySelector('.sigcard')?.addEventListener('toggle', e => { cardOpen = e.target.open; });
+  view.querySelectorAll('[data-sigt]').forEach(b => b.addEventListener('click', () => { state.sigTier = b.dataset.sigt; persist(); renderSignals(); }));
+  view.querySelectorAll('[data-sigtf]').forEach(b => b.addEventListener('click', () => { tfSel = b.dataset.sigtf; renderSignals(); }));
+  view.querySelectorAll('[data-siggrp]').forEach(b => b.addEventListener('click', () => { openGroup = openGroup === b.dataset.siggrp ? null : b.dataset.siggrp; renderSignals(); }));
+  view.querySelectorAll('[data-sigs]').forEach(b => b.addEventListener('click', e => {
+    e.stopPropagation();
+    state.sigStrat = b.dataset.sigs || null; persist();
+    if (b.dataset.sigrowtf) { tfSel = b.dataset.sigrowtf; cardOpen = true; }
+    const nu = curStrat(S); if (!nu) openGroup = null; else openGroup = nu.group;
+    renderSignals(); window.scrollTo(0, 0);
+  }));
+}
+
 export async function renderSignals() {
   destroyCharts();
   document.title = 'Sinyaller · Tahta';
@@ -166,14 +251,21 @@ export async function renderSignals() {
   if (!location.hash.startsWith('#/sinyal')) return;
   if (!S.strategies?.length) { view.innerHTML = '<p class="empty">Sinyal verisi yenileniyor; bir sonraki güncellemede gelecek.</p>'; return; }
   const tierSel = curTier(S), u = curStrat(S), P = S.params;
+  const sigStrats = S.strategies.filter(x => x.kind !== 'portfolio');
   const inSet = a => (TIER_OF[tierSel] || []).includes(a.idx) && (!u || a.k === u.id);
   const nAct = id => S.active.filter(a => (TIER_OF[tierSel] || []).includes(a.idx) && (!id || a.k === id)).length;
   const act = S.active.filter(inSet), rec = S.recent.filter(inSet), cand = (S.candidates || []).filter(inSet);
   const name = id => S.strategies.find(x => x.id === id)?.name || id;
-  const many = !u && S.strategies.length > 1;
+  const many = !u && sigStrats.length > 1;
   const stratCol = a => many ? `<td class="txt">${esc(name(a.k))}</td>` : '';
   const stratTh = many ? '<th class="txt">Strateji</th>' : '';
-  const hasCand = u ? u.candidates : S.strategies.some(x => x.candidates);
+  const hasCand = u ? u.candidates : sigStrats.some(x => x.candidates);
+  if (u?.kind === 'portfolio') {
+    view.innerHTML = `<section class="dhead"><div><h1>Sinyaller</h1><p class="sub">${esc(u.name)}${testChip(u)}: ${esc(u.summary || '')}</p></div></section>
+      ${stratBar(S, nAct)}${portfolioView(S, u)}`;
+    bindCommon(S);
+    return;
+  }
   view.innerHTML = `
   <section class="dhead"><div><h1>Sinyaller</h1>
     <p class="sub">${u ? `${esc(u.name)}${testChip(u)}: ${esc(u.summary || '')}` : `${S.strategies.length} strateji · aynı motorla test edilir; bir stratejiyi seçerek yalnızca onun sinyallerini görün`}</p></div></section>
@@ -234,15 +326,5 @@ export async function renderSignals() {
   </section>
 
   ${u ? strategyCard(S, u) : overviewHtml(S)}`;
-  view.querySelector('.sigcard')?.addEventListener('toggle', e => { cardOpen = e.target.open; });
-  view.querySelectorAll('[data-sigt]').forEach(b => b.addEventListener('click', () => { state.sigTier = b.dataset.sigt; persist(); renderSignals(); }));
-  view.querySelectorAll('[data-sigtf]').forEach(b => b.addEventListener('click', () => { tfSel = b.dataset.sigtf; renderSignals(); }));
-  view.querySelectorAll('[data-siggrp]').forEach(b => b.addEventListener('click', () => { openGroup = openGroup === b.dataset.siggrp ? null : b.dataset.siggrp; renderSignals(); }));
-  view.querySelectorAll('[data-sigs]').forEach(b => b.addEventListener('click', e => {
-    e.stopPropagation();
-    state.sigStrat = b.dataset.sigs || null; persist();
-    if (b.dataset.sigrowtf) { tfSel = b.dataset.sigrowtf; cardOpen = true; }
-    const nu = curStrat(S); if (!nu) openGroup = null; else openGroup = nu.group;
-    renderSignals(); window.scrollTo(0, 0);
-  }));
+  bindCommon(S);
 }

@@ -23,6 +23,9 @@ Tarayıcıda çalışır, telefonda ana ekrana eklenince uygulama gibi açılır
   başlıkları altında gruplu. Hisse sayfasında grafik üstte, altında sekmeler (Genel, Destek / direnç, Temettü, Temel ve
   değerleme, Sektör); göstergeler tek menüde, açık olanlar etiket olarak; verisi olmayan kartlar gizlenir. Uzun
   açıklamalar "ⓘ" satırlarında katlı.
+- **Piyasa genişliği** (`scripts/breadth.py`, testleri `tests/test_breadth.py`): BIST TÜM hisselerinin 50 ve 200 günlük
+  ortalamasının üstündeki oranı, 4 yıllık dilimi, 10/20 günlük değişimi ve kurallı yorum (olumlu ve olumsuz işaretler: yön,
+  dipten dönüş, yarıyı geçme, uzun vade, aşırı ısınma, endeksle uyumsuzluk). Taramanın Bugün kartlarında; dokununca grafik.
 - **Sütun seçimi ve sırası:** her sekmede yalnızca temel sütunlar açık gelir (8–11 sütun); "☰ Görünüm" ile sütun gizle/göster, diğer sekmelerden ya da ek alanlardan
   sütun ekle, ↑ ↓ ile sırala; bilgisayarda başlıkları sürükleyerek de sıralanır. Sekme başına saklanır,
   "Varsayılana dön" ile sıfırlanır.
@@ -62,7 +65,7 @@ Tarayıcıda çalışır, telefonda ana ekrana eklenince uygulama gibi açılır
 | Açıklanmış (ödenmemiş) temettüler, net | temettuhisseleri.com temettü tarihleri sayfası | 6 saatte bir |
 | Endeks bileşenleri (BIST 30/50/100/TÜM) | Borsa İstanbul resmi dosyası | her çalışmada |
 | Sektör, halka açıklık, piyasa değeri | İş Yatırım özet tablosu | 6 saatte bir |
-| Bilanço, gelir tablosu, nakit akışı (TL) | İş Yatırım mali tablolar | şirket başına 3 günde bir |
+| Bilanço, gelir tablosu, nakit akışı (TL) | İş Yatırım mali tablolar | yalnızca yeni bilanço gelince (son çeyreği eksik şirkete günde bir kontrol; 120 günde bir tam yenileme) |
 
 Temel oranlar güncel fiyat ve son 12 ay (TTM) mali tablolarla **burada hesaplanır**:
 F/K = piyasa değeri / TTM net kâr (ana ortaklık), PD/DD = piyasa değeri / ana ortaklık özkaynakları,
@@ -96,6 +99,12 @@ hak kullanımdan önceki son günden 10 iş günü önce kapanışta giriş, son
 hak kullanımları (sitede doğrulanmış, bedelsize göre düzeltilmiş brüt temettü) + açıklanmış yaklaşan temettüler (net → brüt).
 Motor her hissede `F["sym"]` verir; strateji takvimi modül düzeyinde (`EVENTS`) tutar. Girişe 1–5 gün kalanlar hazırlanan
 kurulumlarda görünür. Elenen: trend içi geri çekilme (RSI2 / 3 gün düşüş) BIST'te rastgele girişten iyi değildi.
+
+Göreli güç rotasyonu (`scripts/strategies/rsrot.py`, deneme, "Portföy" grubu, portföy stratejisi türü — motoru kullanmaz,
+kendi aylık simülasyonunu yürütür): her ayın ilk işlem günü BIST 100 hisseleri (20 mn ₺ hacim) son 6 ay getirisi (son ay
+hariç) / günlük oynaklık ile sıralanır, +%200 üstü yükselenler dışlanır, en güçlü 10 hisse eşit ağırlıkla tutulur; BIST 100
+200 günlük ortalamanın altındaysa nakit. %22'yi aşan günlük hareketler veri hatası sayılır. Sayfada güncel portföy, bugün
+sıralansa önizlemesi, son dengelemeler ve BIST 100 al-tut kıyası.
 
 Strateji ilkesi: her strateji farklı bir piyasa davranışını yakalamalı ve çıkışı o davranışın süresine uymalı (ör. kanal
 çıkışı Donchian'da avantajı 3 kat artırdı, morning star'da sıfırladı). Strateji haritası `scripts/strategies/__init__.py`
@@ -157,8 +166,10 @@ Kod yapısı: `scripts/` veri çekme (Python), `web/` arayüz — `web/js/` alt�
 - Yahoo ve İş Yatırım resmi API değildir; sayfa yapıları değişirse veri çekme bozulabilir. Hisselerin
   yarısından azının fiyatı alınırsa yayın yapılmaz, önceki sürüm yayında kalır. İş Yatırım'a ulaşılamazsa
   son önbellekteki mali tablolar kullanılır.
-- Mali tablolar sunucuyu yormamak için çalışma başına en fazla 150 şirket için çekilir; ilk kurulumda
-  tümünün dolması birkaç çalışma (birkaç saat) sürer.
+- Mali tablolar bilanço döneminde güncellenir: son çeyreği önbellekte olan şirket atlanır; eksik olana tek istekle (son 4 çeyrek)
+  yeni bilanço gelip gelmediği kontrol edilir (çeyrek bitiminden sonraki ilk 30 gün haftada bir, sonra günde bir; hiç verisi
+  olmayan şirkette haftada bir). Önbellekte olmayan şirket tam çekilir (12 çeyrek, 3 istek); geriye dönük düzeltmeler için 120
+  günde bir tam yenileme. Çalışma başına en fazla 200 istek.
 - Enflasyon muhasebesi (TMS 29) nedeniyle TTM toplamları farklı satın alma gücündeki dönemleri birleştirir;
   oranlar yaklaşık değerlerdir. Leasing/faktoring gibi bazı şirketler için mali tablo bulunmaz.
 - Ichimoku bulutu bugünkü tarihe hizalı çizilir (26 günlük ileri kısım gösterilmez).

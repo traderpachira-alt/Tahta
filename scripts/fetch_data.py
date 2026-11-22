@@ -28,6 +28,7 @@ import pandas as pd
 from indicators import ema, sma, wilder_rsi, rma, true_range, rolling_mid, stoch_rsi, fisher, supertrend, ichimoku, vwma  # noqa: F401
 import isyatirim
 import dcf
+import breadth
 import intraday
 import scores
 import signals
@@ -783,6 +784,18 @@ def write_signals(out: Path, prices: dict[str, pd.DataFrame], stocks: list[dict]
         metas.append(m)
         for R in runs.values():
             active += R["active"]; recent += R["recent"]; cands += R["candidates"]
+    # Portföy stratejileri (ör. göreli güç rotasyonu): kendi aylık simülasyonları
+    for pid, ps in signals.PORTFOLIOS.items():
+        try:
+            pr = ps.run(prices, tiers, idx)
+        except Exception as e:  # noqa: BLE001
+            print(f"  {pid} çalıştırılamadı: {e}", flush=True)
+            continue
+        metas.append({"id": pid, "kind": "portfolio", **ps.META, "groupName": signals.GROUPS.get(ps.META["group"], ps.META["group"]),
+                      "tfs": list(ps.TIMEFRAMES), "pf": pr})
+        for h in pr["holdings"]:
+            if h["t"] in by:
+                by[h["t"]]["rot"] = {"k": pid, "n": ps.META["name"], "rank": h["rank"], "since": h["since"]}
     names = {m["id"]: m["name"] for m in metas}
     active.sort(key=lambda a: (a["d"], a["t"]), reverse=True)
     recent.sort(key=lambda a: (a.get("xd") or a["d"], a["t"]), reverse=True)
@@ -920,7 +933,7 @@ def main():
     ap.add_argument("--out", default="site", help="çıktı klasörü (varsayılan: site)")
     ap.add_argument("--cache-dir", default=".cache", help="önbellek klasörü (mali tablolar, endeks listesi)")
     ap.add_argument("--fund-max-age-days", type=float, default=3, help="mali tablolar kaç günde bir yenilensin")
-    ap.add_argument("--fund-max-per-run", type=int, default=60, help="bir çalışmada en fazla kaç şirketin mali tablosu çekilsin")
+    ap.add_argument("--fund-max-per-run", type=int, default=200, help="bir çalışmada mali tablolar için en fazla istek (tam çekim 3, yeni bilanço kontrolü 1 istek)")
     ap.add_argument("--no-fundamentals", action="store_true")
     ap.add_argument("--no-intraday", action="store_true", help="4 saatlik sinyalleri atla (saatlik veri indirilmez)")
     ap.add_argument("--div-max-per-run", type=int, default=120, help="bir çalışmada en fazla kaç hissenin temettü geçmişi (temettuhisseleri) çekilsin")
@@ -1034,6 +1047,13 @@ def main():
     except Exception as e:  # noqa: BLE001 — sinyal hatası yayını durdurmasın
         print(f"  Sinyaller üretilemedi ({e}).", flush=True)
 
+    try:
+        brd = breadth.compute({t: prices[t] for t in ok}, tier, idx)
+        if brd:
+            print(f"Piyasa genişliği: SMA50 üstü %{brd['a50'] * 100:.0f}, SMA200 üstü %{brd['a200'] * 100:.0f} · {brd['head']}", flush=True)
+    except Exception as e:  # noqa: BLE001
+        brd = None
+        print(f"  Piyasa genişliği hesaplanamadı ({e}).", flush=True)
     summary = {
         "updated": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
         "lastDate": max(s["date"] for s in stocks),
@@ -1048,6 +1068,7 @@ def main():
         "sample": bool(args.sample),
         "source": "ÖRNEK VERİ" if args.sample else "Fiyat: Yahoo Finance (gecikmeli) · Mali tablolar: İş Yatırım",
         "index": index_summary,
+        "breadth": brd,
         "failed": failed,
         "stocks": stocks,
     }

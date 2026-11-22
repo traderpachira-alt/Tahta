@@ -6,8 +6,8 @@ import { esc } from './util.js';
    Rehber: kısa kullanım rehberi ve aranabilir terim sözlüğü
    ============================================================ */
 const GUIDE = [
-  ['Tarama', `Ana sayfa. En üstteki <b>Bugün</b> kartları açık sinyalleri, portföyünüzü, izleme listesindeki en büyük hareketleri ve
-    14 gün içindeki temettüleri özetler. Hazır taramalar gruplara ayrılmıştır: <b>Tümü</b>, <b>İzleme listem</b> ve <b>Aktif sinyal</b> tek dokunuş;
+  ['Tarama', `Ana sayfa. En üstteki <b>Bugün</b> kartları açık sinyalleri, portföyünüzü, izleme listesindeki en büyük hareketleri,
+    14 gün içindeki temettüleri ve <b>piyasa genişliğini</b> özetler. Genişlik kartı, BIST TÜM hisselerinin kaçının 50 ve 200 günlük ortalamasının üstünde olduğunu gösterir; dokununca 4 yıllık grafik, 4 yıla göre yeri ve olumlu (▲) / olumsuz (▼) işaretlerle yorum açılır. Hazır taramalar gruplara ayrılmıştır: <b>Tümü</b>, <b>İzleme listem</b> ve <b>Aktif sinyal</b> tek dokunuş;
     <b>Teknik</b>, <b>Temettü</b>, <b>Temel</b> başlıklarına dokununca altında o grubun taramaları açılır; seçili tarama başlıkta yazar.
     <b>Kayıtlı</b> başlığı kendi taramalarınızı ve "Bu taramayı kaydet" düğmesini gösterir. Alttaki sekmeler (Fiyat, Trend, Momentum, Temettü, Temel)
     tablonun sütun grubunu değiştirir. <b>+ Filtre</b> ile kendi koşulunuzu ekleyin (yüzde alanlara yüzde yazın: 5 = %5). Endeks, pazar ve sektörde birden
@@ -24,7 +24,7 @@ const GUIDE = [
     stratejiyi seçince yalnızca onun sinyalleri, kuralları ve geriye dönük testi açılır. "Deneme" etiketli stratejilerin kuralları değişebilir.
     Satırdaki <b>1G / 4S</b> etiketi sinyalin günlük mi 4 saatlik mumda mı oluştuğunu gösterir. Açık sinyali olan hissenin grafiğinde giriş ve stop çizilir.
     <b>Hazırlanan kurulumlar</b>, bir sonraki mumda tamamlanabilecek hisseleri tetik fiyatıyla gösterir. Şu an: <b>Morning star</b> (sert kırmızı mum, doji,
-    1. mumun tepesinin üstünde kapanan yeşil mum; üstte doldurulmamış düşüş FVG'si varsa sinyal yok; +1R'den sonra takip eden stop) deneme aşamasında <b>Donchian kırılımı</b> (yükseliş trendinde 20 günlük zirvenin kırılımı, yalnızca günlük; kapanış son 10 günün en düşüğünün altına inince çıkış) ve <b>Temettü Rallisi</b> (brüt verimi ≥ %5 açıklanmış temettüde hak kullanımdan 10 iş günü önce kapanışta giriş, temettü hakkı olan son gün kapanışta çıkış, stop yok; girişe 1–5 gün kalanlar hazırlanan kurulumlarda görünür). Test tablosunda sonuçları BIST 30 / 50 / 100 / TÜM ayrımıyla karşılaştırın.`],
+    1. mumun tepesinin üstünde kapanan yeşil mum; üstte doldurulmamış düşüş FVG'si varsa sinyal yok; +1R'den sonra takip eden stop) deneme aşamasında <b>Donchian kırılımı</b> (yükseliş trendinde 20 günlük zirvenin kırılımı, yalnızca günlük; kapanış son 10 günün en düşüğünün altına inince çıkış) ve <b>Temettü Rallisi</b> (brüt verimi ≥ %5 açıklanmış temettüde hak kullanımdan 10 iş günü önce kapanışta giriş, temettü hakkı olan son gün kapanışta çıkış, stop yok; girişe 1–5 gün kalanlar hazırlanan kurulumlarda görünür). Portföy grubunda <b>Göreli güç rotasyonu</b> (deneme): her ayın ilk işlem günü BIST 100'ün oynaklığa göre en güçlü 10 hissesi eşit ağırlıkla tutulur; son 6 ayda +%200 üstü yükselenler alınmaz, BIST 100 200 günlük ortalamasının altındaysa nakitte kalınır. Sayfasında güncel portföy, bugün sıralansa listesi ve son dengelemeler görünür. Test tablosunda sonuçları BIST 30 / 50 / 100 / TÜM ayrımıyla karşılaştırın.`],
 
   ['Karşılaştır', `En fazla 5 hisseyi ve BIST 100'ü aynı başlangıçtan (%0) itibaren getiri olarak üst üste çizer.`],
   ['Portföy', `<b>+ Varlık ekle</b> ile hisse (Temettü ya da Trend/Momentum), emtia/döviz ya da kripto ekleyin. Her varlık bir işlem
@@ -124,6 +124,7 @@ const TERMS = [
   ['FVG (fair value gap, fiyat boşluğu)', 'Üç mumluk dizide 1. ve 3. mumun fiyat aralıklarının çakışmadığı, arada işlem görmemiş bölge. Düşüş FVG\'si: 3. mumun en yükseği 1. mumun en düşüğünün altında. Fiyat sonradan boşluğun üst sınırına ulaşmadıysa boşluk doldurulmamış sayılır ve çoğu zaman direnç gibi davranır.', 'Sinyaller'],
   ['Donchian kanalı', 'Son N günün en yüksek ve en düşük fiyatı arasındaki bant. Kapanışın üst bandın (ör. 20 günlük zirve) üstüne çıkması kırılım sayılır; trend takip sistemlerinin en eski ve en çok test edilen girişidir.', 'Sinyaller'],
   ['Kanal çıkışı', 'Kırılım işlemlerinde kullanılan çıkış: kapanış son 10 günün en düşüğünün altına inince pozisyon kapatılır. Trend sürdükçe pozisyonu taşır, dönüşte kârın bir kısmını geri verir. Başlangıç stopu her zaman geçerlidir.', 'Sinyaller'],
+  ['Piyasa genişliği', 'Piyasadaki hisselerin ne kadarının yükselişe katıldığı: burada 50 ve 200 günlük ortalamasının üstündeki hisse oranı. Endeks birkaç büyük hisseyle yükselebilir; genişlik, hareketin tabana yayılıp yayılmadığını gösterir. %15 altı panik, %85 üstü aşırı ısınma bölgesi sayılır.', 'Sinyaller'],
   ['Strateji grubu', 'Sinyal sayfasında benzer mantıktaki stratejilerin toplandığı başlık: mum formasyonları, trend takip, kırılım, ortalamaya dönüş.', 'Sinyaller'],
   ['Morning star (sabah yıldızı)', 'Üç mumluk dönüş formasyonu: sert bir kırmızı mum, ardından kararsızlığı gösteren küçük gövdeli bir mum (doji) ve satıcıların başladığı yerin üstüne çıkan güçlü bir yeşil mum. Düşüşün tükendiğine ve alıcıların kontrolü aldığına işaret eder.', 'Sinyaller'],
   ['Geriye dönük test', 'Kuralların geçmiş veride, yalnızca o güne kadar bilinen bilgiyle uygulanması. Burada giriş ertesi gün açılışta yapılır, aynı gün stop ve hedef görülürse stop sayılır, komisyon ve kayma düşülür.', 'Sinyaller'],

@@ -194,3 +194,24 @@ class StatementsTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class FinPlanTest(unittest.TestCase):
+    """Mali tablo yenileme planı: son çeyreği olan atlanır, eksik olana tek istekle bakılır."""
+    def test_plan(self):
+        import datetime as dt
+        import isyatirim as IY
+        today = dt.date(2026, 11, 22)
+        periods = IY.recent_periods(today)            # en yeni: 2026/9
+        now = 1_000_000_000.0
+        day = 86400
+        fin = {
+            "HAVE": {"v": IY.SCHEMA, "_ts": now - 2 * day, "periods": {"2026/9": {"net": 1}}},           # güncel → atla
+            "MISS": {"v": IY.SCHEMA, "_ts": now - 2 * day, "group": "XI_29", "periods": {"2026/6": {"net": 1}}},  # yeni çeyrek yok → kontrol
+            "NODATA": {"v": IY.SCHEMA, "_ts": now - 2 * day, "group": None, "periods": {}},              # hiç veri yok, 2 gün önce bakıldı → atla
+            "JUST": {"v": IY.SCHEMA, "_ts": now - 2 * day, "_chk": now - 3600, "periods": {"2026/6": {}}},  # bugün kontrol edildi → atla
+            "OLDV": {"v": IY.SCHEMA - 1, "_ts": now - day, "periods": {}},                              # eski şema → tam
+            "STALE": {"v": IY.SCHEMA, "_ts": now - 200 * day, "periods": {"2026/9": {"net": 1}}},       # 120 günü geçti → tam
+        }
+        P = IY.plan(fin, ["HAVE", "MISS", "JUST", "OLDV", "NEW", "STALE", "NODATA"], periods, now, today)
+        self.assertEqual(P, [("OLDV", "full"), ("NEW", "full"), ("MISS", "probe"), ("STALE", "full")])

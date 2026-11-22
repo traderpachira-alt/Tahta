@@ -6,7 +6,7 @@ import { listOf, persist, state, ui } from './store.js';
 import { tedbirIcon } from './tedbir.js';
 import { pfRows } from './pfcore.js';
 import { loadSignals } from './signals.js';
-import { cls, esc, fmt, ok } from './util.js';
+import { cls, esc, fmt, info, ok } from './util.js';
 
 /* ============================================================
    Tarama ekranı
@@ -199,6 +199,37 @@ export function presetBar(counts) {
       ${grpBtn('kayitli', '☆ Kayıtlı')}
     </div>${row}`;
 }
+/* Piyasa genişliği: SMA50 / SMA200 üstündeki hisse oranı, 4 yıllık grafik ve yorum (olumlu ve olumsuz notlar) */
+function breadthHtml(B) {
+  const W = 600, H = 90, n = B.hist.length;
+  const xy = k => B.hist.map((r, i) => `${(i / (n - 1) * W).toFixed(1)},${(H - r[k] * H).toFixed(1)}`).join(' ');
+  const pc = x => `%${Math.round(x * 100)}`;
+  const lvl = (x, med, p) => `<b>${pc(x)}</b> <span class="muted">4 yıl medyanı ${pc(med)} · 4 yılın %${Math.max(1, Math.round(p * 100))}. dilimi</span>`;
+  return `<h2>Piyasa genişliği <span class="muted" style="font-weight:400">· BIST TÜM, ${B.n} hisse · ${fmt.date(B.date)}</span></h2>
+    <div class="brdgrid">
+      <div>
+        <p class="brdhead ${B.tone}">${esc(B.head)}</p>
+        <div class="brdrows">
+          <div><span>Kısa vade · 50 günlük ortalama üstü</span>${lvl(B.a50, B.med50, B.p50)}</div>
+          <div><span>Uzun vade · 200 günlük ortalama üstü</span>${lvl(B.a200, B.med200, B.p200)}</div>
+          <div><span>Kısa vadede değişim (10 / 20 gün)</span><b><span class="${cls(B.d50_10)}">${B.d50_10 > 0 ? '+' : ''}${(B.d50_10 * 100).toFixed(0)}</span> / <span class="${cls(B.d50_20)}">${B.d50_20 > 0 ? '+' : ''}${(B.d50_20 * 100).toFixed(0)}</span> puan</b></div>
+        </div>
+        <ul class="brdnotes">
+          ${B.pos.map(t => `<li class="up">▲ ${esc(t)}</li>`).join('')}
+          ${B.neg.map(t => `<li class="down">▼ ${esc(t)}</li>`).join('')}
+          ${!B.pos.length && !B.neg.length ? '<li class="muted">Belirgin bir işaret yok: genişlik olağan aralıkta.</li>' : ''}
+        </ul>
+      </div>
+      <div>
+        <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" class="brdchart" role="img" aria-label="Son 4 yılda SMA50 ve SMA200 üstündeki hisse oranı">
+          <line x1="0" x2="${W}" y1="${H / 2}" y2="${H / 2}" class="mid"/>
+          <polyline points="${xy(2)}" class="l200"/><polyline points="${xy(1)}" class="l50"/>
+        </svg>
+        <div class="brdaxis"><span>${fmt.date(B.hist[0][0])}</span><span><i class="k50"></i>SMA50 üstü <i class="k200"></i>SMA200 üstü · orta çizgi %50</span><span>${fmt.date(B.hist[n - 1][0])}</span></div>
+      </div>
+    </div>
+    ${info('Kısa vade (50 gün) piyasanın son haftalardaki yönünü, uzun vade (200 gün) ana trendin ne kadar geniş tabanlı olduğunu gösterir. %15 altı "çok zayıf" (panik), %15–35 zayıf, %35–65 dengeli, %65–85 güçlü, %85 üstü "çok güçlü" (aşırı ısınma). Yorumlar, seviyeye ek olarak yönü (son 10/20 gündeki değişim), kısa ve uzun vadenin ilişkisini ve endeksle uyumu dikkate alır; olumlu işaretler ▲, olumsuz işaretler ▼ ile gösterilir. Bu bir gösterge, al-sat sinyali değil.', 'Nasıl okunur?')}`;
+}
 /* Bugün özeti: açık sinyaller, portföy, izleme listesi, yaklaşan temettüler (içeriği olan kartlar) */
 function todayHtml() {
   const cards = [];
@@ -217,7 +248,10 @@ function todayHtml() {
   const lim = new Date(new Date(DATA.lastDate) * 1 + 14 * 864e5).toISOString().slice(0, 10);
   const div = DATA.stocks.filter(s => s.nextDivDate && s.nextDivDate >= DATA.lastDate && s.nextDivDate <= lim).sort((a, b) => a.nextDivDate.localeCompare(b.nextDivDate));
   if (div.length) cards.push(`<button type="button" class="tcard" data-preset="divSoon"><span>Temettü · 14 gün</span><b>${div.length} hisse</b><small>${div.slice(0, 3).map(s => `${s.t} ${fmt.date(s.nextDivDate).slice(0, 5)}`).join(' · ')}</small></button>`);
-  return `<section class="today" aria-label="Bugün özeti">${cards.join('')}</section>`;
+  const B = DATA.breadth;
+  if (B) cards.push(`<button type="button" class="tcard brd ${B.tone}" id="brdBtn" aria-expanded="${!!ui.brdOpen}" title="BIST TÜM hisselerinin 50 ve 200 günlük ortalamasının üstündeki oranı; ayrıntı için dokunun">
+      <span>Piyasa genişliği</span><b>%${Math.round(B.a50 * 100)} · %${Math.round(B.a200 * 100)}</b><small>${esc(B.head)}</small></button>`);
+  return `<section class="today" aria-label="Bugün özeti">${cards.join('')}</section>${B ? `<section class="panel brdpanel" id="brdPanel"${ui.brdOpen ? '' : ' hidden'}>${breadthHtml(B)}</section>` : ''}`;
 }
 export function renderScreener() {
   destroyCharts();
@@ -257,5 +291,8 @@ export function renderScreener() {
     </div>
   </section>
   <div class="tablewrap">${rows.length ? tableHtml(rows, cols) : '<p class="empty">Bu koşullara uyan hisse yok.</p>'}</div>`;
+  view.querySelector('#brdBtn')?.addEventListener('click', e => {
+    ui.brdOpen = !ui.brdOpen; e.currentTarget.setAttribute('aria-expanded', ui.brdOpen); view.querySelector('#brdPanel').hidden = !ui.brdOpen;
+  });
   loadSignals().then(S => { const el = view.querySelector('#tCand'); if (el && S.candidates) el.textContent = `${S.strategies.length} strateji · ${S.candidates.length} hazırlanan`; }).catch(() => {});
 }
