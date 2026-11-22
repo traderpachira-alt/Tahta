@@ -32,7 +32,9 @@ export async function loadSignals() {
 const TIER_OF = { 'BIST 30': ['30'], 'BIST 50': ['30', '50'], 'BIST 100': ['30', '50', '100'], 'BIST TÜM': ['30', '50', '100', 'TÜM'] };
 const IDX_LABEL = { 30: 'BIST 30', 50: 'BIST 50', 100: 'BIST 100', TÜM: 'TÜM' };
 const rFmt = x => !ok(x) ? '—' : (x > 0 ? '+' : '') + F2.format(x) + 'R';
-const usd = x => !ok(x) ? '—' : (x > 0 ? '+' : x < 0 ? '−' : '') + fmt.big(Math.abs(x)) + ' $';
+// Kümülatif sonuç TL: 1R = 1.000 ₺ (ör. 100.000 ₺ bakiyenin %1'i); bileşik değil, tüm işlemlerin toplamı
+const R_TL = 1000;
+const tl = x => !ok(x) ? '—' : (x > 0 ? '+' : x < 0 ? '−' : '') + fmt.big(Math.abs(x)) + ' ₺';
 const pctFrom = (a, b) => ok(a) && ok(b) && b ? a / b - 1 : null;
 const STATUS = {
   open: ['Açık', '', 'Giriş sinyal günü kapanışında yapıldı; pozisyon sürüyor'],
@@ -49,13 +51,13 @@ function statsTable(S, u) {
   return `<div class="tablewrap flat"><table class="grid sigstat"><thead><tr><th class="tk">Evren</th><th class="txt">Çıkış kuralı</th><th>İşlem</th>
     <th title="Kârla kapanan işlemlerin oranı">Kârlı</th><th title="Sabit hedefe ulaşan işlemlerin oranı">Hedefe ulaşan</th>
     <th title="İşlem başına ortalama sonuç (komisyon ve kayma dahil)">Ort.</th><th title="Aynı hisselerde rastgele günlerde, aynı stop yapısı ve çıkış kuralıyla girişin ortalaması">Rastgele giriş</th>
-    <th title="1R = 100 $ kabulüyle tüm işlemlerin toplamı">Kümülatif (1R=100 $)</th><th title="Art arda en uzun kayıp serisi">Art arda kayıp</th>
+    <th title="Her işlemde sabit 1.000 ₺ riske edilseydi (1R = 1.000 ₺) tüm işlemlerin toplam sonucu; bileşik değildir, pozisyon sınırı yoktur">Kümülatif (1R = 1.000 ₺)</th><th title="Art arda en uzun kayıp serisi">Art arda kayıp</th>
     <th title="1.000.000 ₺, işlem başına %0,5 risk, en fazla 20 pozisyon">Hesap: yıllık / düşüş</th></tr></thead><tbody>
     ${S.tierSets.map(name => vs.map((v, i) => { const st = u.stats?.[tfSel]?.[name]?.[v] || {}, ac = u.accounts?.[tfSel]?.[name]?.[v]; return `<tr class="${name === tierSel ? 'sel' : ''}">
       ${i === 0 ? `<td class="tk" rowspan="${vs.length}">${esc(name)}</td>` : ''}<td class="txt">${esc(u.variants[v])}${v === u.defaultV ? ' <small class="muted">(varsayılan)</small>' : ''}</td>
       <td>${st.n ?? 0}</td><td>${ok(st.win) ? '%' + Math.round(st.win * 100) : '—'}</td><td>${isNaN(+v) ? '—' : ok(st.tp) ? '%' + Math.round(st.tp * 100) : '—'}</td>
       <td class="${cls(st.avgR)}">${rFmt(st.avgR)}</td><td class="muted">${rFmt(st.randR)}</td>
-      <td class="${cls(st.sumR)}">${usd(ok(st.sumR) ? st.sumR * 100 : null)}</td><td>${st.streak ?? '—'}</td>
+      <td class="${cls(st.sumR)}">${tl(ok(st.sumR) ? st.sumR * R_TL : null)}</td><td>${st.streak ?? '—'}</td>
       <td>${ac ? `<span class="${cls(ac.cagr)}">${fmt.pct(ac.cagr)}</span> / <span class="down">−%${Math.round(ac.mdd * 100)}</span>` : '—'}</td></tr>`; }).join('')).join('')}
   </tbody></table></div>`;
 }
@@ -69,8 +71,8 @@ function yearsTable(S, u) {
     ${row('İşlem', st, d => `<td>${d.n}</td>`)}
     ${row('Kârlı', st, d => `<td>%${Math.round(d.win * 100)}</td>`)}
     ${row(`Ort. (${esc(u.variants[u.defaultV])})`, st, d => `<td class="${cls(d.avgR)}">${rFmt(d.avgR)}</td>`)}
-    ${row(`Toplam (${esc(u.variants[u.defaultV])})`, st, d => `<td class="${cls(d.sumR)}">${usd(d.sumR * 100)}</td>`)}
-    ${u.defaultV === '3' || !st3 ? '' : row('Toplam (sabit 3R)', st3, d => `<td class="${cls(d.sumR)}">${usd(d.sumR * 100)}</td>`)}
+    ${row(`Toplam (${esc(u.variants[u.defaultV])})`, st, d => `<td class="${cls(d.sumR)}">${tl(d.sumR * R_TL)}</td>`)}
+    ${u.defaultV === '3' || !st3 ? '' : row('Toplam (sabit 3R)', st3, d => `<td class="${cls(d.sumR)}">${tl(d.sumR * R_TL)}</td>`)}
   </tbody></table></div>`;
 }
 
