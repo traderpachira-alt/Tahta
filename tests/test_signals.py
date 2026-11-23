@@ -413,3 +413,99 @@ class FvgPullbackTest(unittest.TestCase):
         n = len(df)
         df.iloc[:n - 7, :4] = df.iloc[:n - 7, :4].to_numpy() + np.linspace(80, 0, n - 7)[:, None]   # öncesi düşen trend
         self.assertIsNone(S.signal_at(FP, S.frame(df), n - 1))
+
+
+def ohlc(c, vol=2e6, start="2023-01-02"):
+    c = np.asarray(c, dtype=float)
+    o = np.r_[c[0], c[:-1]]
+    h = np.maximum(o, c) + 0.3
+    lo = np.minimum(o, c) - 0.3
+    return pd.DataFrame({"Open": o, "High": h, "Low": lo, "Close": c, "Volume": np.full(len(c), vol)},
+                        index=pd.bdate_range(start, periods=len(c)))
+
+
+class VwapReclaimTest(unittest.TestCase):
+    """VWAP Reclaim: tepeden ≥%30 düşüş, tepe ≥80 mum önce, tepe-VWAP'ının ilk geri alınışı; geleceğe bakmama."""
+    from strategies import vwaprc as VR
+
+    def series(self, peak_at=220):
+        c = list(np.full(200, 100.0))
+        c += list(np.linspace(100, 150, peak_at - 199)[1:])          # tepe
+        c += list(np.linspace(150, 90, 101)[1:])                     # %40 düşüş
+        c += [90.0] * 40
+        c += list(np.linspace(90, 140, 60)[1:])                      # toparlanma: VWAP'ı geri alır
+        return ohlc(c)
+
+    def sigs(self, df):
+        F = S.frame(df)
+        return F, [t for t in range(len(F["c"])) if self.VR.signal(F, t)]
+
+    def test_first_reclaim_only(self):
+        F, ts = self.sigs(self.series())
+        self.assertEqual(len(ts), 1)
+        t = ts[0]
+        x = self.VR.signal(F, t)
+        av = x["info"]["avwap"]
+        self.assertGreater(F["c"][t], av)
+        self.assertLessEqual(F["c"][t - 1], self.VR._prep(F)["av"][t - 1])
+        self.assertAlmostEqual(x["stop"], F["c"][t] - 2 * F["atr"][t])
+        self.assertEqual(x["info"]["peak"], round(float(F["h"][219]), 4))
+
+    def test_no_lookahead(self):
+        df = self.series()
+        F, ts = self.sigs(df)
+        F2 = S.frame(df.iloc[:ts[0] + 1])
+        self.assertIsNotNone(self.VR.signal(F2, ts[0]))
+        self.assertEqual([t for t in range(ts[0]) if self.VR.signal(F2, t)], [])
+
+    def test_shallow_drop_no_signal(self):
+        c = list(np.full(200, 100.0)) + list(np.linspace(100, 150, 21)[1:]) + list(np.linspace(150, 125, 101)[1:]) \
+            + [125.0] * 40 + list(np.linspace(125, 160, 60)[1:])
+        _, ts = self.sigs(ohlc(c))
+        self.assertEqual(ts, [])
+
+    def test_candidate_below_vwap(self):
+        df = self.series()
+        F, ts = self.sigs(df)
+        b = ts[0] - 1
+        cd = self.VR.candidate(S.frame(df.iloc[:b + 1]), b)
+        self.assertIsNotNone(cd)
+        self.assertGreaterEqual(cd["trig"], float(df["Close"].iloc[b]))
+
+
+class Sma200RetestTest(unittest.TestCase):
+    """SMA200 Retest: yükselen trend, %15 uzama, SMA200'e yakın test ve dönüş günü."""
+    from strategies import sma200rt as SR
+
+    def series(self, touch=True):
+        c = list(50 + np.arange(300) * 0.3)                          # düzenli yükseliş; fiyat SMA200'ün ~%30 üstünde
+        s200 = np.mean(c[-200:])
+        target = s200 * (1.01 if touch else 1.10)
+        c += list(np.linspace(c[-1], target, 9)[1:])                 # hızlı geri çekilme
+        df = ohlc(c + [target + 0.4])
+        # dönüş günü: önceki tepenin üstünde, günün üst kısmında kapanış
+        p = target
+        df.iloc[-1, [0, 1, 2, 3]] = [p, p + 5.5, p - 0.2, p + 5.3]
+        return df
+
+    def test_signal_on_reversal(self):
+        df = self.series()
+        F = S.frame(df)
+        t = len(F["c"]) - 1
+        x = self.SR.signal(F, t)
+        self.assertIsNotNone(x)
+        s200 = self.SR._prep(F)["s200"][t]
+        self.assertLess(x["stop"], min(float(np.min(F["l"][t - 3:t + 1])), s200))
+        self.assertEqual(x["info"]["sma200"], round(float(s200), 4))
+
+    def test_no_touch_no_signal(self):
+        F = S.frame(self.series(touch=False))
+        self.assertIsNone(self.SR.signal(F, len(F["c"]) - 1))
+
+    def test_candidate_before_reversal(self):
+        df = self.series().iloc[:-1]
+        F = S.frame(df)
+        b = len(F["c"]) - 1
+        cd = self.SR.candidate(F, b)
+        self.assertIsNotNone(cd)
+        self.assertAlmostEqual(cd["trig"], float(df["High"].iloc[-1]))

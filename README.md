@@ -104,6 +104,16 @@ geçersiz kılar), üstte doldurulmamış düşüş FVG'si yok; dokunuştan itib
 giriş; stop alt sınır − 0,5 ATR; kanal çıkışı (varsayılan), takip eden stop ve sabit 3R karşılaştırma; %1 risk. Teyit bekleyen
 bölgeler hazırlanan kurulumlarda. Donchian'la aynı trendlerde sık örtüşür (ikinci giriş noktası), ayrı izlenir.
 
+SMA200 Retest (`scripts/strategies/sma200rt.py`, "Trend takip"): SMA50 > SMA200, SMA200 yükseliyor, son 60 günde kapanış
+SMA200'ün en az %15 üstüne çıkmış; son 4 günde en düşük SMA200'ün en fazla %3 üstüne inmiş; kapanış SMA200 ve önceki günün
+tepesinin üstünde, günün üst %40'ında → giriş; stop son 4 günün dibi ile SMA200'ün küçüğü − 0,5 ATR; +1R sonrası takip stopu
+(varsayılan), sabit 2R ve 3R karşılaştırma. Kanal çıkışı bu sinyalde rastgeleden iyi değildi.
+
+VWAP Reclaim (`scripts/strategies/vwaprc.py`, "Dipten dönüş"): 1 yıllık tepeden bu yana fiyat en az %30 düşmüş, tepe en az
+80 mum önce; kapanış tepeden çapalı VWAP'ın (tepe gününden bu yana tipik fiyat × hacim / hacim) ilk kez üstüne çıkınca giriş;
+stop giriş − 2 ATR; kanal çıkışı (varsayılan), takip eden stop ve sabit 3R. Avantaj BIST 100 dışında; rastgele giriş kıyası
+tepeden ≥ %30 düşmüş hisselerin günlerinden.
+
 Temettü Rallisi (`scripts/strategies/divrun.py`, "Takvim / olay" grubu): brüt verimi ≥ %5 olan temettüde
 hak kullanımdan önceki son günden 10 iş günü önce kapanışta giriş, son gün kapanışta çıkış, stop yok (pozisyon büyüklüğü için 1R = 3 ATR, en fazla fiyatın %15'i). Olay verisi: geçmiş
 hak kullanımları (sitede doğrulanmış, bedelsize göre düzeltilmiş brüt temettü) + açıklanmış yaklaşan temettüler (net → brüt).

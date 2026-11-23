@@ -12,12 +12,23 @@ Strateji haritası (ne yakalıyor · süre · ortam · çıkış):
   donchian     yükseliş trendinde devam eden kırılım (momentum) · ~3–4 hafta · yükseliş trendi · kanal çıkışı (10 günlük dip)
   fvgpb        trend içi geri çekilme: itkinin bıraktığı yükseliş FVG'sine ilk dönüşte teyitli giriş · ~3 hafta · yükseliş trendi ·
                kanal çıkışı (Donchian'la aynı trendlerde sık örtüşür; kırılım yerine geri çekilmede ikinci giriş)
+  sma200rt     trendde 200 günlük ortalamaya derin geri çekilme ve dönüş · ~2 hafta · yükseliş trendi · +1R sonrası takip stopu
+  vwaprc       sert düşüş (tepeden ≥%30) sonrası tepeden çapalı VWAP'ın ilk geri alınışı (toparlanma teyidi) · ~4 hafta ·
+               düşüş sonrası · kanal çıkışı (avantaj BIST 100 dışında)
   divrun       yüksek verimli temettü öncesi koşu (olay / takvim) · 10 gün · temettü sezonu · tarihte çıkış (hak kullanım öncesi)
   rsrot        BIST 100'de oynaklığa göre ayarlı göreli güç, en güçlü 10 hisse (portföy) · aylık yenileme · BIST 100 200 günlük ortalama üstü · ay sonu
   Araştırılanlar (henüz strateji değil):
   - trend içi geri çekilme, ilk deneme (RSI2 / 3 gün düşüş, fiyat SMA200 üstü): rastgele girişten iyi değildi; FVG bölgesi +
     teyitli dönüş kurgusuyla (fvgpb) yeniden kuruldu
   - göreli güç rotasyonu BIST TÜM'de: balon hisseleri seçip 2026 çöküşünde ağır kaybetti (yalnızca BIST 100 sürümü eklendi)
+  - kaçırılan ralliler (son 4 yılda 20 günde ≥%25 yükselen 5.190 hareketin %78'i hiçbir stratejide yok): çoğu SMA200 altında,
+    düşüş trendinden dönüşte başlıyor. Dipten dönüş için taban kırılımı, çift dip, kapitülasyon dönüşü, SMA50'yi geri alma
+    rastgele girişten iyi değildi; tepeden çapalı VWAP'ı geri alma (vwaprc) sağlam çıktı
+  - trend içi derin geri çekilme: 50 günlük tepeden %15 düşüş sonrası dönüş, hacmi kuruyan geri çekilme, dipten çapalı VWAP
+    desteği rastgeleye yakın ya da kötü; SMA200 testi (sma200rt) sağlam çıktı
+  - oynaklık sıkışması: Bollinger daralması + kırılım rastgeleyle aynı; kutu içinde birikim şartları (kapanışlar üst yarıda,
+    yön hacmi artıda) avantaj sağladı ama parametreye hassas — araştırma sürüyor. Ertesi gün teyidi girişi geciktirip kötüleştirdi
+  - haftalık boşluk (dolmayan): 2022–24 güçlü, 2025–26 çalışmadı; aylık boşluk güçlü ama çok seyrek (izlemede)
   - piyasa geneli dip (SMA50 üstündeki hisse oranı): 4 yılda 3–17 sinyal, rastgeleden belirgin iyi değil; strateji değil,
     piyasa durumu göstergesi olarak kullanılabilir
 
@@ -49,12 +60,12 @@ Arayüz (modül düzeyinde):
   candidate(...)["info"] / signal(...)["info"]  kayıtlara aynen eklenen ek bilgi (sayfada gösterilir)
   baseline_ok(F, t)   rastgele giriş kıyasında hangi mumların kullanılacağı (ör. yalnızca yükseliş trendindekiler)
 """
-from . import divrun, donchian, fvgpb, morningstar, rsrot
+from . import divrun, donchian, fvgpb, morningstar, rsrot, sma200rt, vwaprc
 
 # Gruplar: sinyal sayfasında stratejiler bu başlıklar altında toplanır (tarama sayfasındaki hazır taramalar gibi)
-GROUPS = {"formasyon": "Mum formasyonları", "trend": "Trend takip", "kirilim": "Kırılım", "donus": "Ortalamaya dönüş", "olay": "Takvim / olay", "portfoy": "Portföy"}
+GROUPS = {"formasyon": "Mum formasyonları", "trend": "Trend takip", "kirilim": "Kırılım", "donus": "Ortalamaya dönüş", "dip": "Dipten dönüş", "olay": "Takvim / olay", "portfoy": "Portföy"}
 
-REGISTRY = {m.ID: m for m in (morningstar, donchian, fvgpb, divrun)}
+REGISTRY = {m.ID: m for m in (morningstar, donchian, fvgpb, sma200rt, vwaprc, divrun)}
 # Portföy stratejileri: giriş/stop yerine dönemsel olarak yenilenen bir portföy tutar; motoru kullanmaz, kendi run(prices,
 # tiers, idx) fonksiyonuyla aylık simülasyon yürütür (ör. göreli güç rotasyonu).
 PORTFOLIOS = {m.ID: m for m in (rsrot,)}

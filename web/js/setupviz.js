@@ -24,6 +24,8 @@ function levels(a, u) {
     if (isRec) L.push({ y: a.x, cls: 'lv-exit dot', lab: 'Çıkış' });
   }
   if (ok(a.info?.top)) L.push({ y: a.info.top, cls: 'lv-muted dot', lab: '20 gün tepe' });
+  if (ok(a.info?.avwap)) L.push({ y: a.info.avwap, cls: 'lv-muted dot', lab: 'Tepe VWAP' });
+  if (ok(a.info?.sma200)) L.push({ y: a.info.sma200, cls: 'lv-muted dot', lab: 'SMA200' });
   return L.filter(l => ok(l.y));
 }
 
