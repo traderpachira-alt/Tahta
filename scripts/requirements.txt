@@ -1,3 +1,5 @@
-yfinance>=0.2.54
-pandas>=2.2
-numpy>=1.26
+# Sürümler sabittir: yeni bir sürüm veri çekimini ya da hesapları sessizce bozmasın diye.
+# Yükseltmek için: sürümü değiştirin, yerelde `python scripts/fetch_data.py --out site` ve testleri çalıştırın, sonra gönderin.
+yfinance==1.8.0
+pandas==3.1.1
+numpy==2.5.4

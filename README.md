@@ -167,6 +167,8 @@ Kod yapısı: `scripts/` veri çekme (Python), `web/` arayüz — `web/js/` alt�
 
 ## Bilinen sınırlar
 
+- Python kütüphanelerinin sürümleri `scripts/requirements.txt` içinde sabittir (yfinance, pandas, numpy); yükseltme
+  bilerek ve yerelde denenerek yapılır.
 - Yahoo ve İş Yatırım resmi API değildir; sayfa yapıları değişirse veri çekme bozulabilir. Hisselerin
   yarısından azının fiyatı alınırsa yayın yapılmaz, önceki sürüm yayında kalır. İş Yatırım'a ulaşılamazsa
   son önbellekteki mali tablolar kullanılır.
