@@ -192,6 +192,25 @@ class AccountTest(unittest.TestCase):
         a = S.account([quick_loss, long_win], capital=100_000, risk=0.5, max_pos=1)
         self.assertAlmostEqual(a["final"], 100_000 + 50_000 * 0.20, delta=2)
 
+    def test_cash_limited_vs_unlimited(self):
+        # Üç sinyal aynı gün, her biri bakiyenin %40'ı büyüklüğünde: nakitle sınırlıda üçüncüsü kaçar, sınırsızda alınır
+        d = pd.bdate_range("2024-01-01", periods=30)
+        T = [{"d0": d[0], "d1": d[5], "pct": 0.10, "rp": 0.025, "sym": s} for s in ("AAA", "BBB", "CCC")]
+        a = S.account(T, capital=100_000, risk=0.01)
+        self.assertEqual((a["taken"], a["missed"]), (2, 1))
+        self.assertAlmostEqual(a["final"], 100_000 + 2 * 40_000 * 0.10, delta=2)
+        self.assertEqual((a["u"]["taken"], a["u"]["missed"]), (3, 0))
+        self.assertAlmostEqual(a["u"]["final"], 100_000 + 3 * 40_000 * 0.10, delta=2)
+        self.assertAlmostEqual(a["u"]["maxExp"], 1.2, places=2)
+
+    def test_balance_compounds(self):
+        # Kapanan işlem bakiyeyi büyütür; sonraki işlemin 1R'si büyüyen bakiyeden hesaplanır
+        d = pd.bdate_range("2024-01-01", periods=30)
+        T = [{"d0": d[0], "d1": d[2], "pct": 0.10, "rp": 0.05}, {"d0": d[3], "d1": d[5], "pct": 0.10, "rp": 0.05}]
+        a = S.account(T, capital=100_000, risk=0.01)
+        self.assertAlmostEqual(a["final"], 100_000 * 1.02 * 1.02, delta=2)
+        self.assertEqual(a["final"], a["u"]["final"])
+
 
 class RunTest(unittest.TestCase):
     def test_run_structure(self):

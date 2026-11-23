@@ -33,7 +33,7 @@ META = {
     "name": "Göreli güç rotasyonu",
     "short": "Her ay BIST 100'ün en güçlü 10 hissesi, oynaklığa göre ayarlı",
     "group": "portfoy",
-    "status": "test",
+    "status": "live",
     "summary": "Son 6 ayda oynaklığına göre en güçlü yükselen 10 BIST 100 hissesi her ay yenilenen eşit ağırlıklı bir portföyde tutulur",
     "rules": [
         "Evren: BIST 100 hisseleri; 20 günlük ortalama işlem hacmi en az 20 mn ₺",
@@ -44,7 +44,7 @@ META = {
         "Maliyet: değişen pozisyonlar için gidiş-dönüş %0,2",
     ],
     "notes": [
-        "Deneme aşamasında. Kurallar birçok varyasyon arasından aynı 4 yıllık veride seçildi; sonuç bir hipotezdir, canlı sonuçları izleyin.",
+        "Kurallar birçok varyasyon arasından aynı 4 yıllık veride seçildi; sonuç bir hipotezdir, canlı sonuçları izleyin.",
         "Ham momentum (oynaklık ayarı ve +%200 sınırı olmadan) BIST 100'de endeksi belirgin geçmedi ve düşüşü büyüttü (−%44).",
         "BIST TÜM'de aynı yaklaşım 2025–26'nın balon hisselerini seçti; Eylül–Ekim 2026'da bunlar bir ayda %70–90 çöktü. Bu yüzden yalnızca BIST 100.",
         "Bu bir sinyal değil, portföy kuralıdır: sermayenin bir kısmını sürekli piyasada tutan çekirdek katman olarak düşünülmüştür. Stop yoktur; risk, 10 hisseye yayılma ve aylık yenileme ile sınırlanır.",

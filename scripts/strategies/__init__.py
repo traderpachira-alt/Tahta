@@ -28,7 +28,7 @@ Yeni strateji eklemek:
 
 Arayüz (modül düzeyinde):
   ID          kısa kimlik, ör. "morningstar" (veri ve adreslerde kullanılır; sonradan değiştirmeyin)
-  META        {"name", "short" (tek satır), "group" (GROUPS anahtarı), "status" ("live" | "test": sayfada "deneme" etiketi),
+  META        {"name", "short" (tek satır), "group" (GROUPS anahtarı), "status" ("live"),
                "summary", "rules": [...], "notes": [...], isteğe bağlı "candNote" (hazırlanan kurulumların açıklaması)}
   TIMEFRAMES  desteklenen periyotlar, ör. ("1D", "4H")
   VARIANTS    {anahtar: açıklama}; anahtar "trail" (takip eden stop) ya da hedef R'si ("3", "5" …)

@@ -17,15 +17,22 @@ const dm = d => fmt.date(d).slice(0, 5);
 const tk = a => `<td class="tk"><a class="code" href="#/h/${a.t}">${a.t}</a> ${tfChip(a.tf)}</td>`;
 /* Portföy stratejisi (ör. göreli güç rotasyonu): tablo satırı ve kendi sayfası */
 const pct1 = x => !ok(x) ? '—' : (x > 0 ? '+' : '') + F1.format(x * 100) + '%';
+/* Hesap hücresi: son bakiye (kalın), yıllık getiri ve en büyük düşüş, altında işlem bilgisi */
+const tlFinal = x => fmt.price(x).replace(/,00$/, '') + ' ₺';
+function acctCell(ac, A, note) {
+  if (!ac) return '<td>—</td>';
+  return `<td><b class="${cls(ac.final - A.capital)}">${tlFinal(ac.final)}</b><small class="sub2" title="Yıllık getiri · en büyük düşüş"><span class="${cls(ac.cagr)}">${fmt.pct(ac.cagr)}/yıl</span> · <span class="down">−%${Math.round(ac.mdd * 100)}</span></small>${note ? `<small class="sub2">${note}</small>` : ''}</td>`;
+}
+const missNote = ac => `${ac.taken} işlem${ac.missed ? ` · <span title="Pozisyon boştaki nakdi aştığı için açılamayan sinyal">${ac.missed} kaçtı</span>` : ''}`;
+const expNote = u => u ? `${u.taken} işlem · <span title="Aynı anda açık pozisyonların toplamı en çok bakiyenin bu katı oldu (1'in üstü kaldıraç gerektirir)">${F1.format(u.maxExp)}×</span>` : '';
 function pfRow(u, A) {
   const p = u.pf, st = p.stats, ac = p.account;
   return `<tr data-sigs="${u.id}"><td class="tk"><b>${esc(u.name)}</b>${testChip(u)}<small class="sub2">${esc(u.short || '')}</small></td>
-    <td class="txt">${esc(u.groupName || u.group)}</td><td class="txt"><span class="chip" title="Aylık yenilenen portföy">Aylık</span></td>
+    <td class="txt"><span class="chip" title="Aylık yenilenen portföy">Aylık</span></td>
     <td title="Portföydeki hisse sayısı">${p.holdings.length || '<span class="muted">nakit</span>'}</td>
     <td title="Test edilen ay sayısı">${st.months} ay</td><td title="Endeksi geçen ayların oranı">%${Math.round(st.beat * 100)}</td>
     <td title="Aylık ortalama getiri">${pct1(st.avgM)}/ay</td><td class="muted" title="BIST 100'ün aylık ortalaması">${pct1(st.avgXu)}/ay</td>
-    <td><span class="${cls(ac.cagr)}">${fmt.pct(ac.cagr)}</span> / <span class="down">−%${Math.round(ac.mdd * 100)}</span><small class="sub2">10 hisse</small></td>
-    <td><b class="${cls(ac.final - A.capital)}">${fmt.price(ac.final).replace(/,00$/, '')} ₺</b><small class="sub2">${F1.format(ac.years)} yılda · aylık</small></td></tr>`;
+    ${acctCell(ac, A, '10 hisse · aylık')}<td class="muted" title="Portföy her zaman bakiyenin tamamıyla kurulur; kaldıraç yok, sınırsız biçim aynıdır">aynı</td></tr>`;
 }
 function portfolioView(S, u) {
   const p = u.pf, ac = p.account, b = p.bench, A = S.account;
@@ -126,13 +133,14 @@ function statsTable(S, u) {
     <th title="Kârla kapanan işlemlerin oranı">Kârlı</th><th title="Sabit hedefe ulaşan işlemlerin oranı">Hedefe ulaşan</th>
     <th title="İşlem başına ortalama sonuç (komisyon ve kayma dahil)">Ort.</th><th title="Aynı hisselerde rastgele günlerde, aynı stop yapısı ve çıkış kuralıyla girişin ortalaması">Rastgele giriş</th>
     <th title="Her işlemde sabit 1.000 ₺ riske edilseydi (1R = 1.000 ₺) tüm işlemlerin toplam sonucu; bileşik değildir, pozisyon sınırı yoktur">Kümülatif (1R = 1.000 ₺)</th><th title="Art arda en uzun kayıp serisi">Art arda kayıp</th>
-    <th title="${fmt.big(S.account.capital)} ₺ bakiye, işlem başına bakiyenin %${F1.format((u.risk ?? S.account.risk) * 100)}'i risk, en fazla ${S.account.maxPos} pozisyon">Hesap: yıllık / düşüş</th></tr></thead><tbody>
+    <th title="${fmt.big(S.account.capital)} ₺ bakiye, işlem başına güncel bakiyenin %${F1.format((u.risk ?? S.account.risk) * 100)}'i risk; pozisyon boştaki nakdi aşarsa sinyal kaçar">Bakiye: nakitle sınırlı</th>
+    <th title="Aynı hesap, nakitten bağımsız bütün sinyallere girilirse">Bakiye: sınırsız</th></tr></thead><tbody>
     ${S.tierSets.map(name => vs.map((v, i) => { const st = u.stats?.[tfSel]?.[name]?.[v] || {}, ac = u.accounts?.[tfSel]?.[name]?.[v]; return `<tr class="${name === tierSel ? 'sel' : ''}">
       ${i === 0 ? `<td class="tk" rowspan="${vs.length}">${esc(name)}</td>` : ''}<td class="txt">${esc(u.variants[v])}${v === u.defaultV ? ' <small class="muted">(varsayılan)</small>' : ''}</td>
       <td>${st.n ?? 0}</td><td>${ok(st.win) ? '%' + Math.round(st.win * 100) : '—'}</td><td>${isNaN(+v) ? '—' : ok(st.tp) ? '%' + Math.round(st.tp * 100) : '—'}</td>
       <td class="${cls(st.avgR)}">${rFmt(st.avgR)}</td><td class="muted">${rFmt(st.randR)}</td>
       <td class="${cls(st.sumR)}">${tl(ok(st.sumR) ? st.sumR * R_TL : null)}</td><td>${st.streak ?? '—'}</td>
-      <td>${ac ? `<span class="${cls(ac.cagr)}">${fmt.pct(ac.cagr)}</span> / <span class="down">−%${Math.round(ac.mdd * 100)}</span>` : '—'}</td></tr>`; }).join('')).join('')}
+      ${acctCell(ac, S.account, ac ? missNote(ac) : '')}${acctCell(ac?.u, S.account, expNote(ac?.u))}</tr>`; }).join('')).join('')}
   </tbody></table></div>`;
 }
 
@@ -153,16 +161,21 @@ function yearsTable(S, u) {
 function accountHtml(S, u) {
   const tierSel = curTier(S), a = u.accounts?.[tfSel]?.[tierSel]?.[u.defaultV], A = S.account, b = S.bench;
   if (!a || !A) return '';
-  return `<div class="sigacct"><b>${fmt.big(A.capital)} ₺ bakiyeyle ne olurdu?</b> ${esc(tierSel)}, ${tfSel === '4H' ? '4 saatlik mumlar' : 'günlük mumlar'}, ${esc(u.variants[u.defaultV]).toLocaleLowerCase('tr')}, işlem başına sermayenin
-    %${F1.format((u.risk ?? A.risk) * 100)}'i risk (bakiye büyüdükçe 1R de büyür), en fazla ${A.maxPos} pozisyon, kaldıraç yok: ${a.years} yılda ${a.taken} işlem, yıllık
-    <b class="${cls(a.cagr)}">${fmt.pct(a.cagr)}</b>, en büyük düşüş <b class="down">−%${Math.round(a.mdd * 100)}</b>.
-    <br><span class="muted">Boşta kalan nakde faiz eklenmedi; para piyasası fonunda değerlendirilen nakit toplam getiriyi belirgin artırır.
+  const lim = a, un = a.u, r = F1.format((u.risk ?? A.risk) * 100);
+  const line = (x) => `<b class="${cls(x.final - A.capital)}">${tlFinal(x.final)}</b> (yıllık <span class="${cls(x.cagr)}">${fmt.pct(x.cagr)}</span>, en büyük düşüş <span class="down">−%${Math.round(x.mdd * 100)}</span>)`;
+  return `<div class="sigacct"><b>${fmt.big(A.capital)} ₺ bakiyeyle ne olurdu?</b> ${esc(tierSel)}, ${tfSel === '4H' ? '4 saatlik mumlar' : 'günlük mumlar'}, ${esc(u.variants[u.defaultV]).toLocaleLowerCase('tr')};
+    her işlemde güncel bakiyenin %${r}'i risk (bakiye kazandıkça büyür, kaybettikçe küçülür), ${a.years} yıl:
+    <ul class="acct2">
+      <li><span class="muted">Nakitle sınırlı:</span> ${line(lim)} · ${lim.taken} işlem${lim.missed ? `, ${lim.missed} sinyal nakit yetmediği için kaçtı` : ', kaçan sinyal yok'}</li>
+      ${un ? `<li><span class="muted">Sınırsız (bütün sinyaller):</span> ${line(un)} · ${un.taken} işlem, aynı anda açık pozisyonlar en çok bakiyenin ${F1.format(un.maxExp)} katı${un.maxExp > 1 ? ' (kaldıraç gerekirdi)' : ''}</li>` : ''}
+    </ul>
+    <span class="muted">Boşta kalan nakde faiz eklenmedi; para piyasası fonunda değerlendirilen nakit toplam getiriyi belirgin artırır.
     ${b ? `Aynı dönemde BIST 100 al-tut: yıllık ${fmt.pct(b.cagr)}, en büyük düşüş −%${Math.round(b.mdd * 100)}.` : ''}</span></div>`;
 }
 
 const curTier = S => S.tierSets.includes(state.sigTier) ? state.sigTier : S.defaultSet;
 const curStrat = S => S.strategies.find(u => u.id === state.sigStrat) || null;
-const testChip = u => u.status === 'test' ? ' <span class="chip warn" title="Deneme aşamasında: kurallar değişebilir">deneme</span>' : '';
+const testChip = () => '';
 
 /* Strateji seçimi: Tümü + grup başlıkları (tarama sayfasındaki hazır taramalar gibi); başlığa dokununca stratejiler açılır */
 let openGroup;
@@ -170,7 +183,7 @@ function stratBar(S, nAct) {
   const cur = curStrat(S);
   if (openGroup === undefined) openGroup = cur?.group ?? null;
   const groups = [...new Set(S.strategies.map(u => u.group))];
-  const btn = (u) => `<button type="button" data-sigs="${u.id}" aria-pressed="${cur?.id === u.id}" title="${esc(u.short || u.summary || '')}">${esc(u.name)}${u.status === 'test' ? ' <small>deneme</small>' : ''}<span class="n">${u.kind === 'portfolio' ? u.pf.holdings.length : nAct(u.id)}</span></button>`;
+  const btn = (u) => `<button type="button" data-sigs="${u.id}" aria-pressed="${cur?.id === u.id}" title="${esc(u.short || u.summary || '')}">${esc(u.name)}<span class="n">${u.kind === 'portfolio' ? u.pf.holdings.length : nAct(u.id)}</span></button>`;
   return `<div class="presets" role="group" aria-label="Stratejiler">
       <button type="button" data-sigs="" aria-pressed="${!cur}">Tüm stratejiler<span class="n">${nAct(null)}</span></button>
       ${groups.map(g => { const sel = cur?.group === g, name = S.groups?.[g] || g;
@@ -186,22 +199,21 @@ function overviewHtml(S) {
   // Her strateji × periyot ayrı satır: veriler (test, hesap, açık sinyal) periyoda göre ayrışır
   const rows = S.strategies.flatMap(u => u.tfs.map(tf => ({ u, tf })));
   return `<section class="panel"><h2>Stratejiler <span class="muted" style="font-weight:400">· ${S.strategies.length} · test: ${esc(tier)}, varsayılan çıkış</span></h2>
-    <div class="tablewrap flat"><table class="grid sigtable"><thead><tr><th class="tk">Strateji</th><th class="txt">Grup</th><th class="txt">Periyot</th><th title="Bu periyotta şu an açık sinyal">Açık</th>
+    <div class="tablewrap flat"><table class="grid sigtable"><thead><tr><th class="tk">Strateji</th><th class="txt">Periyot</th><th title="Bu periyotta şu an açık sinyal">Açık</th>
       <th title="Testteki işlem sayısı">İşlem</th><th title="Kârla kapanan işlemlerin oranı">Kârlı</th><th title="İşlem başına ortalama sonuç">Ort.</th>
-      <th title="Aynı hisselerde rastgele girişin ortalaması (aynı stop ve çıkış)">Rastgele</th><th title="${fmt.big(A.capital)} ₺ bakiye, her stratejinin kendi risk oranıyla, en fazla ${A.maxPos} pozisyon">Hesap: yıllık / düşüş</th>
-      <th title="Testin başında ${fmt.big(A.capital)} ₺ ile başlanıp bu stratejinin bütün sinyalleri hesap kurallarıyla izlenseydi bugünkü bakiye (açık pozisyonlar maliyetle)">${fmt.big(A.capital)} ₺ → bugün</th></tr></thead><tbody>
+      <th title="Aynı hisselerde rastgele girişin ortalaması (aynı stop ve çıkış)">Rastgele</th><th title="${fmt.big(A.capital)} ₺ ile başlanır; her işlemde güncel bakiyenin stratejiye ait risk oranı kadar riske edilir. Pozisyon boştaki nakdi aşarsa işlem açılamaz, sinyal kaçar.">Bakiye<small class="sub2">nakitle sınırlı</small></th>
+      <th title="Aynı hesap, ama nakitten bağımsız bütün sinyallere girilir (gerekirse kaldıraçla). Strateji sinyallerinin tamamının değerini gösterir.">Bakiye<small class="sub2">sınırsız</small></th></tr></thead><tbody>
       ${rows.map(({ u, tf }) => { if (u.kind === 'portfolio') return pfRow(u, A);
         const st = u.stats?.[tf]?.[tier]?.[u.defaultV] || {}, ac = u.accounts?.[tf]?.[tier]?.[u.defaultV];
         const nOpen = S.active.filter(a => (TIER_OF[tier] || []).includes(a.idx) && a.k === u.id && (a.tf || '1D') === tf).length;
-        return `<tr data-sigs="${u.id}" data-sigrowtf="${tf}"><td class="tk"><b>${esc(u.name)}</b>${u.tfs.length > 1 ? ` <span class="muted">· ${tfName(tf)}</span>` : ''}${testChip(u)}<small class="sub2">${esc(u.short || '')}</small></td>
-          <td class="txt">${esc(u.groupName || S.groups?.[u.group] || u.group)}</td>
+        return `<tr data-sigs="${u.id}" data-sigrowtf="${tf}"><td class="tk"><b>${esc(u.name)}</b>${u.tfs.length > 1 ? ` <span class="muted">· ${tfName(tf)}</span>` : ''}${testChip(u)}<small class="sub2">${esc(u.short || '')} · <span title="Hesap simülasyonunda işlem başına güncel bakiyenin riske edilen oranı">%${F1.format((u.risk ?? A.risk) * 100)} risk</span></small></td>
           <td class="txt">${tfChip(tf)}</td><td>${nOpen}</td><td>${st.n ?? 0}</td><td>${ok(st.win) ? '%' + Math.round(st.win * 100) : '—'}</td>
           <td class="${cls(st.avgR)}">${rFmt(st.avgR)}</td><td class="muted">${rFmt(st.randR)}</td>
-          <td>${ac ? `<span class="${cls(ac.cagr)}">${fmt.pct(ac.cagr)}</span> / <span class="down">−%${Math.round(ac.mdd * 100)}</span><small class="sub2">%${F1.format((u.risk ?? A.risk) * 100)} risk</small>` : '—'}</td>
-          <td>${ac ? `<b class="${cls(ac.final - A.capital)}">${fmt.price(ac.final).replace(/,00$/, '')} ₺</b><small class="sub2">${F1.format(ac.years)} yılda · ${ac.taken} işlem</small>` : '—'}</td></tr>`; }).join('')}
+          ${acctCell(ac, A, ac ? missNote(ac) : '')}${acctCell(ac?.u, A, expNote(ac?.u))}</tr>`; }).join('')}
     </tbody></table></div>
     ${info(`Her strateji aynı motorla test edilir: 20 mn ₺ hacim filtresi, stop mesafesi %0,5–%15, gidiş-dönüş %0,2 maliyet, aynı hissede önceki işlem kapanmadan yeni işlem yok, rastgele giriş kıyası ve hesap simülasyonu.
-      Bakiye sütunu: testin başında ${fmt.big(A.capital)} ₺ ile başlanıp her işlemde bakiyenin stratejiye ait risk oranı kadar riske edilseydi bugünkü bakiye (bileşik; en fazla ${A.maxPos} pozisyon, kaldıraç yok, boştaki nakde faiz yok).
+      Bakiye sütunları: testin başında ${fmt.big(A.capital)} ₺ ile başlanır; her işlemde güncel bakiyenin stratejiye ait risk oranı kadar riske edilir, bakiye kazandıkça büyür, kaybettikçe küçülür (açık pozisyonlar maliyetle, boştaki nakde faiz yok).
+      <b>Nakitle sınırlı</b>: pozisyon boştaki nakdi aşıyorsa işlem açılamaz ve sinyal kaçar; gerçek bir hesabın sonucu. <b>Sınırsız</b>: nakitten bağımsız bütün sinyallere girilir; "×" aynı anda açık pozisyonların toplamının bakiyeye oranının en yükseğidir (1'in üstü kaldıraç gerektirir). İkisi arasındaki fark kaçan sinyallerin etkisidir.
       4 saatlik test, verinin izin verdiği son ~2,8 yılı kapsar; günlükle süre farkına dikkat edin. Satıra dokununca stratejinin sinyalleri, kuralları ve ayrıntılı test sonuçları açılır.`, 'Nasıl karşılaştırılır?')}
   </section>`;
 }

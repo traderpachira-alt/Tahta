@@ -671,3 +671,5 @@ td.pvable a { -webkit-touch-callout: none; -webkit-user-select: none; user-selec
 .svfacts div { display: flex; flex-direction: column; } .svfacts dt { color: var(--muted); font-size: 11px; } .svfacts dd { margin: 0; font-family: var(--mono); }
 .svfacts small { font-size: 10px; }
 .pvfoot { font-size: 11px; margin: 6px 0 0; }
+.sigacct ul.acct2 { margin: 4px 0 6px; padding-left: 18px; } .sigacct ul.acct2 li { margin: 2px 0; }
+.grid th small.sub2 { display: block; font-size: 10.5px; font-weight: 400; color: var(--muted); text-transform: none; letter-spacing: 0; }

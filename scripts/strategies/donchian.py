@@ -37,7 +37,7 @@ META = {
     "name": "Donchian Break",
     "short": "20 günlük kanalın kırılımı, trend ve direnç filtreli",
     "group": "kirilim",
-    "status": "test",
+    "status": "live",
     "summary": "Fiyat son 20 günün zirvesinin üstünde kapanınca, yükseliş trendinde ve yakında direnç yokken girilir; trend sürdükçe taşınır",
     "rules": [
         "Kırılım: kapanış önceki 20 günün en yükseğinin üstünde (ilk kırılım günü; bir önceki kapanış kanalın içinde)",
@@ -49,7 +49,7 @@ META = {
         "Çıkış: kapanış önceki 10 günün en düşüğünün altına inince o kapanıştan; başlangıç stopu her zaman geçerli · En fazla 60 işlem günü",
     ],
     "notes": [
-        "Deneme aşamasında: kurallar son 4 yılın günlük verisiyle seçildi; canlı sonuçları yıllık tablodan izleyin.",
+        "Kurallar son 4 yılın günlük verisiyle seçildi; canlı sonuçları yıllık tablodan izleyin.",
         "Başarı oranı düşüktür (~%35–40): kârın çoğu az sayıdaki uzun trendden gelir. Art arda kayıplar normaldir.",
         "Kanal çıkışı, takip eden stopa göre işlem başına yaklaşık 3 kat kazandırdı: kırılımlar trend sürdükçe taşındığında kazanır.",
         "Son iki yılda (2025–2026) avantaj BIST 100 dışındaki hisselerden geldi; BIST 100'de sonuç sıfıra yakındı. Endeks gruplarını tabloda karşılaştırın.",

@@ -25,7 +25,7 @@ COST = 0.002
 MIN_TURNOVER = 20e6
 RISK_MIN, RISK_MAX = 0.005, 0.15      # stop mesafesi fiyatın %0,5–%15'i
 RANDOM_PER_STOCK = 60
-ACCOUNT = {"capital": 100_000, "risk": 0.01, "maxPos": 20}   # risk: varsayılan; strateji ACCOUNT_RISK ile kendi oranını verebilir
+ACCOUNT = {"capital": 100_000, "risk": 0.01}   # risk: varsayılan; strateji ACCOUNT_RISK ile kendi oranını verebilir
 TIER_SETS = {"BIST 30": ("30",), "BIST 50": ("30", "50"), "BIST 100": ("30", "50", "100"),
              "BIST TÜM": ("30", "50", "100", "TÜM")}
 DEFAULT_SET = "BIST TÜM"
@@ -108,11 +108,12 @@ def simulate(F, t, entry, stop, mode="trail", hold=None, trail=(1.0, 1.0)) -> di
     return res("time", F["c"][last], last)
 
 
-def account(trades: list[dict], capital: float = ACCOUNT["capital"], risk: float = ACCOUNT["risk"],
-            max_pos: int = ACCOUNT["maxPos"]) -> dict | None:
-    """Gerçekçi hesap: sinyaller tarih sırasıyla; 1R = özsermayenin `risk` oranı (pozisyon = risk / stop mesafesi);
-    kaldıraç yok; en fazla `max_pos` açık pozisyon; aynı gün birden fazla sinyalde hisse koduna göre sıra (geleceğe
-    bakmadan). Açık pozisyonlar maliyetle değerlenir; boşta kalan nakde faiz eklenmez."""
+def account(trades: list[dict], capital: float = ACCOUNT["capital"], risk: float = ACCOUNT["risk"], max_pos: int | None = None) -> dict | None:
+    """Hesap simülasyonu, iki biçimde (ikisinde de 1R = güncel bakiyenin `risk` oranı, pozisyon = 1R / stop mesafesi; bakiye
+    kazandıkça büyür, kaybettikçe küçülür; bakiye = başlangıç + kapanan işlemlerin sonucu, açık pozisyonlar maliyetle):
+      üst düzey alanlar (nakitle sınırlı): pozisyon boştaki nakdi aşıyorsa işlem açılamaz, sinyal kaçar ("missed");
+      "u" (sınırsız): nakitten bağımsız bütün sinyallere girilir (kaldıraç sınırsız); "maxExp" en yüksek toplam pozisyon / bakiye.
+    Aynı gün birden fazla sinyalde hisse koduna göre sıra (geleceğe bakmadan). Boşta kalan nakde faiz eklenmez."""
     if not trades:
         return None
     T = sorted(trades, key=lambda x: (x["d0"], x.get("sym", "")))
@@ -120,27 +121,40 @@ def account(trades: list[dict], capital: float = ACCOUNT["capital"], risk: float
     by_day = {}
     for x in T:
         by_day.setdefault(x["d0"], []).append(x)
-    cash, open_, taken, peak, mdd = capital, [], 0, capital, 0.0
-    for d in days:
-        for p in [p for p in open_ if p["d1"] <= d]:
-            cash += p["pos"] * (1 + p["pct"])
-            open_.remove(p)
-        equity = cash + sum(p["pos"] for p in open_)
-        peak = max(peak, equity)
-        mdd = max(mdd, 1 - equity / peak)
-        for x in by_day.get(d, []):
-            if len(open_) >= max_pos:
-                break
-            pos = min(equity * risk / max(x["rp"], 1e-6), cash)
-            if pos < equity * 0.005:
-                continue
-            cash -= pos
-            open_.append({"pos": pos, "pct": x["pct"], "d1": x["d1"]})
-            taken += 1
-    final = cash + sum(p["pos"] * (1 + p["pct"]) for p in open_)
     yrs = max((days[-1] - days[0]).days / 365.25, 0.1)
-    return {"taken": taken, "final": round(final), "cagr": round((final / capital) ** (1 / yrs) - 1, 4), "mdd": round(mdd, 4),
-            "years": round(yrs, 1)}
+
+    def sim(limited: bool) -> dict:
+        bal, open_, taken, missed, peak, mdd, exp = capital, [], 0, 0, capital, 0.0, 0.0
+        for d in days:
+            for p in [p for p in open_ if p["d1"] <= d]:
+                bal += p["pos"] * p["pct"]
+                open_.remove(p)
+            peak = max(peak, bal)
+            mdd = max(mdd, 1 - bal / peak) if peak > 0 else 1.0
+            for x in by_day.get(d, []):
+                pos = max(bal, 0) * risk / max(x["rp"], 1e-6)
+                used = sum(p["pos"] for p in open_)
+                if limited and (pos > bal - used or (max_pos and len(open_) >= max_pos)):
+                    missed += 1
+                    continue
+                if pos <= 0:
+                    missed += 1
+                    continue
+                open_.append({"pos": pos, "pct": x["pct"], "d1": x["d1"]})
+                taken += 1
+                if bal > 0:
+                    exp = max(exp, (used + pos) / bal)
+        final = bal + sum(p["pos"] * p["pct"] for p in open_)
+        out = {"taken": taken, "missed": missed, "final": round(final),
+               "cagr": round((final / capital) ** (1 / yrs) - 1, 4) if final > 0 else -1.0, "mdd": round(min(mdd, 1.0), 4)}
+        if not limited:
+            out["maxExp"] = round(exp, 2)
+        return out
+
+    res = sim(True)
+    res["years"] = round(yrs, 1)
+    res["u"] = sim(False)
+    return res
 
 
 def bench(idx: pd.DataFrame | None, years: int = 4) -> dict | None:

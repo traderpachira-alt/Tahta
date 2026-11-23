@@ -94,23 +94,23 @@ hesap simülasyonu, endeks gruplarına göre istatistik); her strateji `scripts/
 `strategies/__init__.py`'deki `REGISTRY`'ye eklenir. Stratejiler gruplar (`GROUPS`: mum formasyonları, trend takip, kırılım,
 ortalamaya dönüş) altında sinyal sayfasında listelenir; "Tüm stratejiler" görünümünde açık sinyaller birlikte ve stratejiler
 karşılaştırma tablosunda görünür, bir strateji seçilince yalnızca onun sinyalleri, kuralları ve ayrıntılı testi açılır.
-`status: "test"` olan stratejiler "deneme" etiketiyle gösterilir. Yeni strateji: modülü yazın (arayüz
+Yeni strateji: modülü yazın (arayüz
 `strategies/__init__.py` içinde), `REGISTRY`'ye ekleyin, testini `tests/test_signals.py`'ye yazın; arayüz kendiliğinden
 gösterir. Testler `tests/test_signals.py`.
 
-FVG Push (`scripts/strategies/fvgpb.py`, deneme, "Trend takip"): kapanış SMA200 üstünde ve SMA50 > SMA200; gövdesi
+FVG Push (`scripts/strategies/fvgpb.py`, "Trend takip"): kapanış SMA200 üstünde ve SMA50 > SMA200; gövdesi
 ≥ 1 ATR yeşil itki mumunun bıraktığı yükseliş FVG'sine 2–30 mum sonra ilk geri çekilme (alt sınırın altında kapanış bölgeyi
 geçersiz kılar), üstte doldurulmamış düşüş FVG'si yok; dokunuştan itibaren 4 mum içinde kapanış önceki mumun tepesini aşınca
 giriş; stop alt sınır − 0,5 ATR; kanal çıkışı (varsayılan), takip eden stop ve sabit 3R karşılaştırma; %1 risk. Teyit bekleyen
 bölgeler hazırlanan kurulumlarda. Donchian'la aynı trendlerde sık örtüşür (ikinci giriş noktası), ayrı izlenir.
 
-Temettü Rallisi (`scripts/strategies/divrun.py`, deneme, "Takvim / olay" grubu): brüt verimi ≥ %5 olan temettüde
+Temettü Rallisi (`scripts/strategies/divrun.py`, "Takvim / olay" grubu): brüt verimi ≥ %5 olan temettüde
 hak kullanımdan önceki son günden 10 iş günü önce kapanışta giriş, son gün kapanışta çıkış, stop yok (pozisyon büyüklüğü için 1R = 3 ATR, en fazla fiyatın %15'i). Olay verisi: geçmiş
 hak kullanımları (sitede doğrulanmış, bedelsize göre düzeltilmiş brüt temettü) + açıklanmış yaklaşan temettüler (net → brüt).
 Motor her hissede `F["sym"]` verir; strateji takvimi modül düzeyinde (`EVENTS`) tutar. Girişe 1–5 gün kalanlar hazırlanan
 kurulumlarda görünür. Elenen: trend içi geri çekilme (RSI2 / 3 gün düşüş) BIST'te rastgele girişten iyi değildi.
 
-Göreli güç rotasyonu (`scripts/strategies/rsrot.py`, deneme, "Portföy" grubu, portföy stratejisi türü — motoru kullanmaz,
+Göreli güç rotasyonu (`scripts/strategies/rsrot.py`, "Portföy" grubu, portföy stratejisi türü — motoru kullanmaz,
 kendi aylık simülasyonunu yürütür): her ayın ilk işlem günü BIST 100 hisseleri (20 mn ₺ hacim) son 6 ay getirisi (son ay
 hariç) / günlük oynaklık ile sıralanır, +%200 üstü yükselenler dışlanır, en güçlü 10 hisse eşit ağırlıkla tutulur; BIST 100
 200 günlük ortalamanın altındaysa nakit. %22'yi aşan günlük hareketler veri hatası sayılır. Sayfada güncel portföy, bugün
@@ -121,7 +121,7 @@ Strateji ilkesi: her strateji farklı bir piyasa davranışını yakalamalı ve 
 içinde tutulur: morning star = sert düşüş sonrası kısa dönüş (~9 gün, takip stopu); Donchian = trend içinde kırılım
 (~3–4 hafta, kanal çıkışı).
 
-Donchian Break (`scripts/strategies/donchian.py`, deneme, yalnızca günlük): kapanış önceki 20 günün en yükseğinin üstünde
+Donchian Break (`scripts/strategies/donchian.py`, yalnızca günlük): kapanış önceki 20 günün en yükseğinin üstünde
 (ilk kırılım günü), kapanış SMA200 üstünde ve SMA50 > SMA200, önceki 1 yılın tepesi girişin 0–2R üstünde değil, üstte
 doldurulmamış düşüş FVG'si yok. Stop giriş − 2 ATR; varsayılan çıkış kanal çıkışı (kapanış önceki 10 günün en düşüğünün altına
 inince), karşılaştırma için takip eden stop ve sabit 5R. Kanal çıkışı stratejinin kendi `simulate`'iyle yürür (`CUSTOM_EXITS`);
@@ -133,7 +133,7 @@ Morning star (`scripts/strategies/morningstar.py`): 1. mum sert kırmızı
 oluşmuş, doldurulmamış ve girişin üstünde kalan bir düşüş FVG'si varsa işlem yok; 20 mn ₺ hacim filtresi. Giriş 3. mumun kapanışında, başlangıç stopu üç mumun en düşüğünün %0,1 altında; fiyat +1R'ye ulaşınca stop en yüksek
 fiyatın 1R altından takip eder, sabit hedef yok (sabit 3R/5R karşılaştırma için test edilir). Her
 güncellemede son 4 yıl BIST 30/50/100/TÜM için yeniden test edilir: rastgele giriş kıyası, yıllara göre sonuç, hesap
-simülasyonu (100.000 ₺ bakiye, işlem başına bakiyenin %1’i — strateji `ACCOUNT_RISK` ile değiştirir, Donchian %0,5 — en fazla 20 pozisyon). "Hazırlanan formasyonlar" listesi ilk iki mumu oluşmuş
+simülasyonu (100.000 ₺ bakiye, işlem başına bakiyenin %1’i — strateji `ACCOUNT_RISK` ile değiştirir, Donchian %0,5; iki biçimde: nakitle sınırlı — pozisyon boştaki nakdi aşarsa sinyal kaçar — ve sınırsız — bütün sinyaller). "Hazırlanan formasyonlar" listesi ilk iki mumu oluşmuş
 (sert kırmızı + doji) ve ertesi gün tamamlanabilecek hisseleri tetik fiyatı, tahmini stop ve FVG engeliyle gösterir (tetiğe
 uzaklık en fazla %6). Kurallar BIST'te seçildi; ABD ve Almanya'da etki bulunmadı.
 

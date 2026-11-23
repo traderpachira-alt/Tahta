@@ -38,7 +38,7 @@ META = {
     "name": "Temettü Rallisi",
     "short": "Verimi ≥ %5 temettünün hak kullanımından 10 gün önce gir, son gün çık",
     "group": "olay",
-    "status": "test",
+    "status": "live",
     "candNote": "Açıklanmış, brüt verimi en az %5 olan ve girişe 1–5 iş günü kalan temettüler. Giriş, temettü hakkı olan son günden 10 iş günü önce kapanışta; resmî tatil varsa bir gün kayabilir. Stop yoktur; pozisyon büyüklüğü için 1R = 3 ATR (en fazla fiyatın %15'i).",
     "summary": "Yüksek verimli temettüsü açıklanmış hisseler hak kullanım tarihine doğru yükselir; temettü öncesi koşu alınır, temettü alınmadan çıkılır",
     "rules": [
@@ -50,7 +50,7 @@ META = {
         "Hazırlanan kurulumlar: girişe 1–5 işlem günü kalan (son güne 15–11 gün kalan) yüksek verimli temettüler",
     ],
     "notes": [
-        "Deneme aşamasında. Etki verimle birlikte büyüdü: %5 üstü temettülerde 10 günlük getiri BIST 100'ü ortalama ~%5,6 geçti ve her yıl pozitifti (2023–2026).",
+        "Etki verimle birlikte büyüdü: %5 üstü temettülerde 10 günlük getiri BIST 100'ü ortalama ~%5,6 geçti ve her yıl pozitifti (2023–2026).",
         "Stop kullanılmaz: 10 günlük kısa tutuşta stop, güçlü işlemlerin bir kısmını gürültüyle kapatıyordu. Bunun bedeli: tek işlemde zarar 1R'yi aşabilir (temettü kesilirse ya da piyasa sert düşerse). Pozisyon büyüklüğü 1R = 3 ATR'ye göre ayarlandığı için oynak hisselerde pozisyon küçüktür.",
         "Hak kullanım günü alıp tutmak işe yaramadı: temettü düşüşünden sonra fiyat toparlanmadı; etki tamamen öncesinde.",
         "Yılda 13–30 işlem, çoğu Mart–Nisan temettü sezonunda: sermaye yılın büyük bölümünde boştadır. Değeri diğer stratejilerle birlikte: aylık sonuçları morning star ve Donchian ile neredeyse ilişkisiz.",

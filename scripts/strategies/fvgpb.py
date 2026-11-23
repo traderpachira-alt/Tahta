@@ -42,7 +42,7 @@ META = {
     "name": "FVG Push",
     "short": "Trendde güçlü itkinin bıraktığı boşluğa ilk geri çekilmede teyitli dönüş",
     "group": "trend",
-    "status": "test",
+    "status": "live",
     "candNote": "Fiyat yükseliş FVG'sine ilk kez inmiş, teyit bekleniyor: önümüzdeki mumlarda kapanış önceki mumun en yükseğini (tetik) aşarsa ve bölge bozulmazsa sinyal oluşur. Teyit penceresi dokunuş günü dahil 4 mum.",
     "summary": "Yükseliş trendinde güçlü bir itkinin bıraktığı fiyat boşluğuna (FVG) geri çekilen hisse, boşlukta tutunup yukarı dönünce alınır",
     "rules": [
@@ -55,7 +55,7 @@ META = {
         "Çıkış: kapanış önceki 10 günün en düşüğünün altına inince o kapanıştan; başlangıç stopu her zaman geçerli · En fazla 60 işlem günü",
     ],
     "notes": [
-        "Deneme aşamasında. Kurallar son 4 yılın günlük verisinde birkaç giriş/stop/çıkış varyasyonu arasından seçildi; canlı sonuçları yıllık tablodan izleyin.",
+        "Kurallar son 4 yılın günlük verisinde birkaç giriş/stop/çıkış varyasyonu arasından seçildi; canlı sonuçları yıllık tablodan izleyin.",
         "En güçlü etki BIST 100'de; BIST TÜM'de rastgele girişe göre fark daha küçük. Endeks gruplarını tabloda karşılaştırın.",
         "Teyit şart: boşluğa dokunur dokunmaz almak (teyitsiz) belirgin şekilde zayıftı.",
         "Donchian ile sık örtüşür: sinyallerin yaklaşık yarısında aynı hissede açık bir Donchian işlemi vardır, aylık sonuçlar yüksek korelasyonludur. Aynı trende kırılımda değil geri çekilmede ikinci bir giriştir; ayrı izlenir.",
