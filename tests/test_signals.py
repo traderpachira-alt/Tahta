@@ -348,3 +348,49 @@ class DivRunTest(unittest.TestCase):
     def test_engine_run(self):
         R = S.run({"AAA": self.df}, {"AAA": "30"}, self.DR)
         self.assertEqual(R["stats"]["BIST 30"]["cum"]["n"], 1)
+
+
+class FvgPullbackTest(unittest.TestCase):
+    """FVG geri çekilmesi: trendde itki boşluğu, ilk geri çekilme, teyitli dönüş; geleceğe bakmama."""
+    from strategies import fvgpb as FP
+
+    def df(self):
+        n = 300
+        c = list(50 + np.arange(n) * 0.2)                 # düzenli yükseliş (SMA50 > SMA200)
+        o = [x - 0.1 for x in c]; h = [x + 0.3 for x in c]; lo = [x - 0.3 for x in c]
+        p = c[-1]
+        # itki: 1. mum (tepe p+0.3), 2. mum güçlü yeşil, 3. mum boşluk bırakır (en düşük > 1. mum tepesi)
+        rows = [(p + 0.1, p + 0.3, p - 0.2, p + 0.2),
+                (p + 0.2, p + 4.2, p + 0.1, p + 4.0),
+                (p + 4.1, p + 5.0, p + 3.0, p + 4.8),
+                (p + 4.8, p + 5.2, p + 4.0, p + 4.5),
+                (p + 4.5, p + 4.6, p + 3.4, p + 3.6),
+                (p + 3.6, p + 3.7, p + 2.0, p + 2.6),       # dokunuş: en düşük ≤ üst sınır (p+3.0), kapanış alt sınırın (p+0.3) üstünde
+                (p + 2.6, p + 3.9, p + 2.5, p + 3.8)]       # teyit: kapanış önceki mumun tepesini (p+3.7) aşar
+        for r in rows:
+            o.append(r[0]); h.append(r[1]); lo.append(r[2]); c.append(r[3])
+        return pd.DataFrame({"Open": o, "High": h, "Low": lo, "Close": c, "Volume": np.full(len(c), 2e6)},
+                            index=pd.bdate_range("2023-01-02", periods=len(c)))
+
+    def test_signal_on_confirmation(self):
+        FP = self.FP
+        df = self.df()
+        F = S.frame(df)
+        t = len(df) - 1
+        sig = S.signal_at(FP, F, t)
+        self.assertIsNotNone(sig)
+        bot = df["High"].iloc[t - 6]                       # 1. mumun tepesi
+        self.assertAlmostEqual(sig["stop"], bot - FP.STOP_ATR * F["atr"][t])
+        self.assertIsNone(S.signal_at(FP, F, t - 1))       # dokunuş günü teyit yok
+        # geleceğe bakmama: dokunuş gününe kadarki veriyle aday (teyit bekleniyor) görünür
+        Fc = S.frame(df.iloc[:t])
+        cd = S.candidate_at(FP, Fc, t - 1)
+        self.assertIsNotNone(cd)
+        self.assertAlmostEqual(cd["trig"], df["High"].iloc[t - 1])
+
+    def test_no_signal_without_trend(self):
+        FP = self.FP
+        df = self.df()
+        n = len(df)
+        df.iloc[:n - 7, :4] = df.iloc[:n - 7, :4].to_numpy() + np.linspace(80, 0, n - 7)[:, None]   # öncesi düşen trend
+        self.assertIsNone(S.signal_at(FP, S.frame(df), n - 1))

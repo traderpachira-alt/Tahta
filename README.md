@@ -98,6 +98,12 @@ karşılaştırma tablosunda görünür, bir strateji seçilince yalnızca onun 
 `strategies/__init__.py` içinde), `REGISTRY`'ye ekleyin, testini `tests/test_signals.py`'ye yazın; arayüz kendiliğinden
 gösterir. Testler `tests/test_signals.py`.
 
+FVG geri çekilmesi (`scripts/strategies/fvgpb.py`, deneme, "Trend takip"): kapanış SMA200 üstünde ve SMA50 > SMA200; gövdesi
+≥ 1 ATR yeşil itki mumunun bıraktığı yükseliş FVG'sine 2–30 mum sonra ilk geri çekilme (alt sınırın altında kapanış bölgeyi
+geçersiz kılar), üstte doldurulmamış düşüş FVG'si yok; dokunuştan itibaren 4 mum içinde kapanış önceki mumun tepesini aşınca
+giriş; stop alt sınır − 0,5 ATR; kanal çıkışı (varsayılan), takip eden stop ve sabit 3R karşılaştırma; %1 risk. Teyit bekleyen
+bölgeler hazırlanan kurulumlarda. Donchian'la aynı trendlerde sık örtüşür (ikinci giriş noktası), ayrı izlenir.
+
 Temettü Rallisi (`scripts/strategies/divrun.py`, deneme, "Takvim / olay" grubu): brüt verimi ≥ %5 olan temettüde
 hak kullanımdan önceki son günden 10 iş günü önce kapanışta giriş, son gün kapanışta çıkış, stop yok (pozisyon büyüklüğü için 1R = 3 ATR, en fazla fiyatın %15'i). Olay verisi: geçmiş
 hak kullanımları (sitede doğrulanmış, bedelsize göre düzeltilmiş brüt temettü) + açıklanmış yaklaşan temettüler (net → brüt).
