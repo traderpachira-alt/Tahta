@@ -34,7 +34,7 @@ CAND_MAX_DIST = 0.03    # hazırlanan kurulumlar: kanal tepesine en fazla %3 uza
 COST = 0.002            # motorla aynı (signals.COST); kanal çıkışı burada yürütüldüğü için tekrar tanımlı
 
 META = {
-    "name": "Donchian kırılımı",
+    "name": "Donchian Break",
     "short": "20 günlük kanalın kırılımı, trend ve direnç filtreli",
     "group": "kirilim",
     "status": "test",
@@ -101,7 +101,7 @@ def signal(F, t) -> dict | None:
     stop = entry - ATR_STOP * atr[t]
     if stop <= 0 or not _clear(F, P, t, entry, stop):
         return None
-    return {"entry": entry, "stop": stop}
+    return {"entry": entry, "stop": stop, "info": {"top": round(float(top[t]), 4)}}
 
 
 def baseline_stop(F, t) -> float:

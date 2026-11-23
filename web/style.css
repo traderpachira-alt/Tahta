@@ -643,3 +643,31 @@ details.sigcard[open] > summary { margin-bottom: 8px; }
 /* Veri sağlığı */
 .banner.ok { background: var(--sunk); color: var(--ink); font-weight: 400; }
 .banner ul.health { list-style: none; margin: 8px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 4px 16px; font-weight: 400; font-size: 13px; color: var(--ink); }
+
+/* Kurulum çizimi (sinyal satırında hisse koduna gelince / basılı tutunca) */
+td.pvable { cursor: help; }
+td.pvable a { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+.pvpop { position: fixed; z-index: 45; width: 470px; max-width: calc(100vw - 16px); background: var(--surface); border: 1px solid var(--line);
+  border-radius: 12px; box-shadow: 0 12px 36px #0004; padding: 10px 12px; pointer-events: none; }
+.pvpop.sheet { left: 8px !important; right: 8px; top: auto !important; bottom: calc(66px + env(safe-area-inset-bottom, 0px)); width: auto; pointer-events: auto; }
+.pvhead { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; font-size: 13px; margin-bottom: 6px; }
+.pvhead b { font-size: 15px; }
+.pvclose { margin-left: auto; border: 0; background: none; color: var(--muted); font-size: 16px; padding: 2px 6px; display: none; }
+.pvpop.sheet .pvclose { display: block; }
+.setupsvg { width: 100%; height: auto; display: block; background: var(--sunk); border-radius: 8px; }
+.setupsvg .sv-up { stroke: var(--up); fill: var(--up); } .setupsvg .sv-dn { stroke: var(--down); fill: var(--down); }
+.setupsvg line.sv-up, .setupsvg line.sv-dn { stroke-width: 1; }
+.setupsvg .sv-zone { fill: color-mix(in srgb, var(--accent) 16%, transparent); stroke: color-mix(in srgb, var(--accent) 45%, transparent); stroke-width: .8; }
+.setupsvg .sv-ztxt { font: 600 9px var(--sans); fill: var(--accent); }
+.setupsvg .sv-band { fill: color-mix(in srgb, var(--warn) 12%, transparent); }
+.setupsvg .sv-mark { fill: var(--ink); }
+.setupsvg .sv-lv { stroke-width: 1.2; } .setupsvg .dash { stroke-dasharray: 5 3; } .setupsvg .dot { stroke-dasharray: 1.5 2.5; }
+.setupsvg .lv-entry { stroke: var(--accent); fill: var(--accent); } .setupsvg .lv-stop { stroke: var(--down); fill: var(--down); }
+.setupsvg .lv-tp { stroke: var(--up); fill: var(--up); } .setupsvg .lv-warn { stroke: var(--warn); fill: var(--warn); }
+.setupsvg .lv-exit { stroke: var(--ink); fill: var(--ink); } .setupsvg .lv-muted { stroke: var(--muted); fill: var(--muted); }
+.setupsvg text.sv-lab { font: 500 9.5px var(--mono); stroke: none; }
+.setupsvg .sv-ax { font: 9px var(--mono); fill: var(--muted); }
+.svfacts { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 8px 0 0; font-size: 12px; }
+.svfacts div { display: flex; flex-direction: column; } .svfacts dt { color: var(--muted); font-size: 11px; } .svfacts dd { margin: 0; font-family: var(--mono); }
+.svfacts small { font-size: 10px; }
+.pvfoot { font-size: 11px; margin: 6px 0 0; }

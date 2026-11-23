@@ -40,6 +40,18 @@ def frame(df: pd.DataFrame) -> dict | None:
             "turn": df["turn"].to_numpy(dtype=float) if "turn" in df.columns else pd.Series(c * v).rolling(20).mean().to_numpy()}
 
 
+BARS_BEFORE, BARS_MAX = 6, 70   # kurulum çizimi için kayıtlara eklenen mum penceresi
+
+
+def bars(F, i0: int, i1: int, fmt_: str, sig: int) -> dict:
+    """Sayfadaki kurulum çizimi için mumlar: i0..i1 (dahil), en fazla BARS_MAX; sig = sinyal mumunun penceredeki yeri."""
+    i0 = max(0, i0)
+    i1 = min(len(F["c"]) - 1, i1, i0 + BARS_MAX - 1)
+    r = lambda a: [round(float(x), 4) for x in a[i0:i1 + 1]]
+    return {"d": [F["idx"][i].strftime(fmt_) for i in range(i0, i1 + 1)], "o": r(F["o"]), "h": r(F["h"]), "l": r(F["l"]),
+            "c": r(F["c"]), "i": sig - i0}
+
+
 def signal_at(strat, F, t) -> dict | None:
     """Stratejinin t mumundaki sinyali + motorun ortak filtreleri (likidite, risk aralığı). {"entry", "stop", "volx", ...}"""
     if not (F["turn"][t] >= MIN_TURNOVER):
@@ -224,9 +236,11 @@ def run(prices: dict[str, pd.DataFrame], tiers: dict[str, str | None], strat=Non
                     rec.update(c=round(float(F["c"][-1]), 4), s=round(r["stop_now"], 4), armed=r["armed"])
                     if r.get("exit_level") is not None:
                         rec["xl"] = round(r["exit_level"], 4)
+                    rec["bars"] = bars(F, t - BARS_BEFORE, n - 1, fmt_, t)
                     active.append(rec)
                 elif t >= n - recent_days * bpd:
-                    rec.update(xd=F["idx"][r["exit_t"]].strftime(fmt_), x=round(r["exit"], 4))
+                    rec.update(xd=F["idx"][r["exit_t"]].strftime(fmt_), x=round(r["exit"], 4),
+                               bars=bars(F, t - BARS_BEFORE, r["exit_t"] + 2, fmt_, t))
                     recent.append(rec)
         # Hazırlanan kurulumlar: son mum itibarıyla bir sonraki mumda tamamlanabilecekler
         cd = candidate_at(strat, F, n - 1)
@@ -236,7 +250,8 @@ def run(prices: dict[str, pd.DataFrame], tiers: dict[str, str | None], strat=Non
                                "trig": round(cd["trig"], 4), "eff": round(cd["eff"], 4), "dist": round(cd["dist"], 4),
                                "s": round(cd["stop"], 4), "risk": round(cd["risk"], 4),
                                "fvg": [round(cd["fvg"][0], 4), round(cd["fvg"][1], 4)] if cd.get("fvg") else None,
-                               **({"info": cd["info"]} if cd.get("info") else {})})
+                               **({"info": cd["info"]} if cd.get("info") else {}),
+                               "bars": bars(F, cd["d1"] - BARS_BEFORE, n - 1, fmt_, cd["d1"])})
         # Kıyas: rastgele mumlar, stratejinin stop yapısı, aynı çıkış (tekrarlanabilir örneklem)
         cand = [t for t in range(max(start, strat.WARMUP), n - 1) if F["turn"][t] >= MIN_TURNOVER and (base_ok is None or base_ok(F, t))]
         if cand:

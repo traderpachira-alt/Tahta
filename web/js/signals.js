@@ -1,6 +1,7 @@
 import { destroyCharts } from './detail.js';
 import { view } from './dom.js';
 import { persist, state } from './store.js';
+import { setupFacts, setupSvg } from './setupviz.js';
 import { F1, F2, cls, esc, fmt, info, ok } from './util.js';
 
 /* ============================================================
@@ -228,7 +229,52 @@ function strategyCard(S, u) {
 }
 
 
+/* Kurulum çizimi: hisse koduna gelince (fare) ya da basılı tutunca (dokunmatik) açılan pencere */
+let PV = null, pvTimer = null, pvSuppress = false;
+function pvRec(tr) { const [k, i] = (tr?.dataset.pv || '').split(':'); return PV?.[k]?.[+i] || null; }
+function pvHtml(a) {
+  const u = PV.S.strategies.find(x => x.id === a.k);
+  const kind = ok(a.trig) ? 'Hazırlanan kurulum' : ok(a.x) ? 'Sonuçlanan sinyal' : 'Açık sinyal';
+  return `<div class="pvhead"><b>${esc(a.t)}</b> ${tfChip(a.tf)} <span>${esc(u?.name || a.k)}</span> <span class="muted">· ${kind}</span>
+      <button type="button" class="pvclose" aria-label="Kapat">✕</button></div>
+    ${setupSvg(a, u)}${setupFacts(a)}<p class="pvfoot muted">Sinyalden önceki 6 mum ve sonrası · ▲ sinyal mumu · ayrıntı için hisseye dokunun</p>`;
+}
+function pvShow(tr, sheet) {
+  const a = pvRec(tr); if (!a) return;
+  let el = document.getElementById('pvPop');
+  if (!el) { el = Object.assign(document.createElement('div'), { id: 'pvPop', className: 'pvpop' }); document.body.append(el);
+    el.addEventListener('click', e => { if (e.target.closest('.pvclose')) pvHide(); }); }
+  el.innerHTML = pvHtml(a);
+  el.classList.toggle('sheet', !!sheet); el.hidden = false;
+  if (!sheet) {
+    const r = tr.querySelector('td.tk').getBoundingClientRect(), w = el.offsetWidth, h = el.offsetHeight;
+    let x = r.right + 12, y = r.top - 20;
+    if (x + w > innerWidth - 8) x = Math.max(8, r.left - w - 12);
+    y = Math.max(8, Math.min(y, innerHeight - h - 8));
+    el.style.left = `${x}px`; el.style.top = `${y}px`;
+  } else { el.style.left = el.style.top = ''; }
+}
+function pvHide() { clearTimeout(pvTimer); const el = document.getElementById('pvPop'); if (el) el.hidden = true; }
+function bindPreview() {
+  view.querySelectorAll('tr[data-pv] td.tk').forEach(td => {
+    const tr = td.parentElement;
+    td.classList.add('pvable');
+    td.addEventListener('mouseenter', () => { if (matchMedia('(hover: hover)').matches) { clearTimeout(pvTimer); pvTimer = setTimeout(() => pvShow(tr, false), 180); } });
+    td.addEventListener('mouseleave', () => { if (matchMedia('(hover: hover)').matches) pvHide(); });
+    td.addEventListener('touchstart', () => { clearTimeout(pvTimer); pvTimer = setTimeout(() => { pvSuppress = true; pvShow(tr, true); navigator.vibrate?.(15); }, 450); }, { passive: true });
+    td.addEventListener('touchend', () => clearTimeout(pvTimer), { passive: true });
+    td.addEventListener('touchmove', () => clearTimeout(pvTimer), { passive: true });
+    td.addEventListener('contextmenu', e => { if (pvSuppress) e.preventDefault(); });
+  });
+}
+// Basılı tutma ardından gelen dokunuş hisse sayfasına gitmesin
+view.addEventListener('click', e => { if (pvSuppress) { pvSuppress = false; e.preventDefault(); e.stopPropagation(); } }, { capture: true });
+addEventListener('hashchange', pvHide);
+addEventListener('scroll', () => { const el = document.getElementById('pvPop'); if (el && !el.hidden && !el.classList.contains('sheet')) pvHide(); }, { passive: true });
+document.addEventListener('click', e => { const el = document.getElementById('pvPop'); if (el?.classList.contains('sheet') && !el.hidden && !e.target.closest('#pvPop') && !pvSuppress) pvHide(); });
+
 function bindCommon(S) {
+  bindPreview();
   view.querySelector('.sigcard')?.addEventListener('toggle', e => { cardOpen = e.target.open; });
   view.querySelectorAll('[data-sigt]').forEach(b => b.addEventListener('click', () => { state.sigTier = b.dataset.sigt; persist(); renderSignals(); }));
   view.querySelectorAll('[data-sigtf]').forEach(b => b.addEventListener('click', () => { tfSel = b.dataset.sigtf; renderSignals(); }));
@@ -255,6 +301,7 @@ export async function renderSignals() {
   const inSet = a => (TIER_OF[tierSel] || []).includes(a.idx) && (!u || a.k === u.id);
   const nAct = id => S.active.filter(a => (TIER_OF[tierSel] || []).includes(a.idx) && (!id || a.k === id)).length;
   const act = S.active.filter(inSet), rec = S.recent.filter(inSet), cand = (S.candidates || []).filter(inSet);
+  PV = { act, cand, rec, S };
   const name = id => S.strategies.find(x => x.id === id)?.name || id;
   const many = !u && sigStrats.length > 1;
   const stratCol = a => many ? `<td class="txt">${esc(name(a.k))}</td>` : '';
@@ -280,7 +327,7 @@ export async function renderSignals() {
       <th class="tk" title="1G: günlük mum · 4S: 4 saatlik mum">Hisse</th>${stratTh}<th title="Sinyal mumunun kapanışı (4S'de mumun bitiş saati)">Sinyal</th><th title="Sinyal mumunun kapanışı">Giriş</th>
       <th title="Takip başlamadıysa başlangıç stopu ve altında takibin başlayacağı seviye; başladıysa güncel takip stopu">Stop</th>
       <th>Son fiyat</th><th title="Girişe göre güncel sonuç, R cinsinden">Güncel</th><th class="txt">Not</th></tr></thead><tbody>
-      ${act.map(a => `<tr data-t="${a.t}">${tk(a)}${stratCol(a)}<td>${dfmt(a.d)}</td><td>${fmt.price(a.e)}</td>
+      ${act.map((a, i) => `<tr data-t="${a.t}" data-pv="act:${i}">${tk(a)}${stratCol(a)}<td>${dfmt(a.d)}</td><td>${fmt.price(a.e)}</td>
         <td>${a.info?.ns ? `<span class="muted" title="Bu stratejide stop yok; işlem son gün kapanışında kapanır. 1R (pozisyon büyüklüğü için) = ${fmt.price(a.e - a.s0)} ₺">stop yok</span><small class="sub2">çıkış: ${dm(prevBday(a.info.exd))} kapanış</small>` : a.armed ? `<b>${fmt.price(a.s)}</b> <span class="chip up">takipte</span>`
           : `${fmt.price(a.s0)} <small class="down">${fmt.pct(pctFrom(a.s0, a.e))}</small>${a.info?.exd ? `<small class="sub2" title="Temettü hakkı olan son günün kapanışında çıkılır (hak kullanım ${fmt.date(a.info.exd)})">çıkış: ${dm(prevBday(a.info.exd))} kapanış</small>` : a.xl > a.s ? `<small class="sub2" title="Kanal çıkışı: kapanış bu seviyenin (son 10 günün en düşüğü) altına inerse çıkılır">çıkış: kapanış &lt; ${fmt.price(a.xl)}</small>` : a.xl ? '<small class="sub2" title="Kanal çıkış seviyesi (son 10 günün en düşüğü) şu an stopun altında; önce stop geçerli">kanal çıkışı stopun altında</small>' : a.a ? `<small class="sub2">+1R: ${fmt.price(a.a)} <span class="up">${fmt.pct(pctFrom(a.a, a.e))}</span></small>` : ''}`}</td>
         <td>${fmt.price(a.c)}</td><td class="${cls(a.r)}">${rFmt(a.r)}</td>
@@ -299,12 +346,12 @@ export async function renderSignals() {
       <th title="Bir sonraki mumun kapanışı bu seviyenin üstünde olmalı">Tetik (kapanış &gt;)</th><th title="Son kapanışa göre gereken yükseliş">Gereken</th>
       <th title="Tahmini stop; parantez içinde tetikten girişteki risk">Tahmini stop</th>
       <th class="txt">Not</th></tr></thead><tbody>
-      ${cand.map(a => a.info?.exd ? `<tr data-t="${a.t}">${tk(a)}${stratCol(a)}
+      ${cand.map((a, i) => a.info?.exd ? `<tr data-t="${a.t}" data-pv="cand:${i}">${tk(a)}${stratCol(a)}
         <td title="Hak kullanım (temettü düşülen) günü">hak kullanım ${dm(a.info.exd)}</td><td>${fmt.price(a.c)}</td>
         <td title="Tahmini giriş günü (kapanışta)"><b>giriş ${dm(a.info.entry)}</b></td><td>${a.info.in} gün</td>
         <td>${a.info.ns ? `<span class="muted" title="Stop yok; pozisyon büyüklüğü için 1R = %${F1.format(a.risk * 100)}">stop yok · 1R %${F1.format(a.risk * 100)}</span>` : `${fmt.price(a.s)} <small class="muted">(%${F1.format(a.risk * 100)})</small>`}</td>
         <td class="txt"><span class="chip up" title="Brüt temettü / son kapanış">temettü %${F1.format(a.info.y * 100)}</span> <span class="muted">${IDX_LABEL[a.idx] || ''}</span></td></tr>`
-      : `<tr data-t="${a.t}">${tk(a)}${stratCol(a)}
+      : `<tr data-t="${a.t}" data-pv="cand:${i}">${tk(a)}${stratCol(a)}
         <td>${a.tf === '4H' ? `${dfmt(a.d1)} · ${dfmt(a.d2).slice(-5)}` : `${fmt.date(a.d1).slice(0, 5)} · ${fmt.date(a.d2).slice(0, 5)}`}</td><td>${fmt.price(a.c)}</td>
         <td><b>${fmt.price(a.eff)}</b></td><td class="up">${fmt.pct(a.dist)}</td>
         <td>${fmt.price(a.s)} <small class="muted">(%${F1.format(a.risk * 100)})</small></td>
@@ -319,7 +366,7 @@ export async function renderSignals() {
     <h2>Son 60 günün sonuçlanan sinyalleri <span class="muted" style="font-weight:400">· ${rec.length}</span></h2>
     ${rec.length ? `<div class="tablewrap flat"><table class="grid sigtable"><thead><tr><th class="tk">Hisse</th>${stratTh}<th>Sinyal</th>
       <th>Giriş</th><th class="txt">Çıkış nedeni</th><th>Çıkış fiyatı</th><th>Çıkış</th><th>Sonuç</th></tr></thead><tbody>
-      ${rec.map(a => `<tr data-t="${a.t}">${tk(a)}${stratCol(a)}<td>${dfmt(a.d)}</td>
+      ${rec.map((a, i) => `<tr data-t="${a.t}" data-pv="rec:${i}">${tk(a)}${stratCol(a)}<td>${dfmt(a.d)}</td>
         <td>${fmt.price(a.e)}</td><td class="txt">${chip(a.st)}</td><td>${fmt.price(a.x)}</td>
         <td>${dfmt(a.xd)}</td><td class="${cls(a.r)}">${rFmt(a.r)}</td></tr>`).join('')}
     </tbody></table></div>` : '<p class="muted">Bu seçimde son 60 günde sonuçlanan sinyal yok.</p>'}

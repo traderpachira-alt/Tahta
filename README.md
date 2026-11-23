@@ -98,7 +98,7 @@ karşılaştırma tablosunda görünür, bir strateji seçilince yalnızca onun 
 `strategies/__init__.py` içinde), `REGISTRY`'ye ekleyin, testini `tests/test_signals.py`'ye yazın; arayüz kendiliğinden
 gösterir. Testler `tests/test_signals.py`.
 
-FVG geri çekilmesi (`scripts/strategies/fvgpb.py`, deneme, "Trend takip"): kapanış SMA200 üstünde ve SMA50 > SMA200; gövdesi
+FVG Push (`scripts/strategies/fvgpb.py`, deneme, "Trend takip"): kapanış SMA200 üstünde ve SMA50 > SMA200; gövdesi
 ≥ 1 ATR yeşil itki mumunun bıraktığı yükseliş FVG'sine 2–30 mum sonra ilk geri çekilme (alt sınırın altında kapanış bölgeyi
 geçersiz kılar), üstte doldurulmamış düşüş FVG'si yok; dokunuştan itibaren 4 mum içinde kapanış önceki mumun tepesini aşınca
 giriş; stop alt sınır − 0,5 ATR; kanal çıkışı (varsayılan), takip eden stop ve sabit 3R karşılaştırma; %1 risk. Teyit bekleyen
@@ -121,7 +121,7 @@ Strateji ilkesi: her strateji farklı bir piyasa davranışını yakalamalı ve 
 içinde tutulur: morning star = sert düşüş sonrası kısa dönüş (~9 gün, takip stopu); Donchian = trend içinde kırılım
 (~3–4 hafta, kanal çıkışı).
 
-Donchian kırılımı (`scripts/strategies/donchian.py`, deneme, yalnızca günlük): kapanış önceki 20 günün en yükseğinin üstünde
+Donchian Break (`scripts/strategies/donchian.py`, deneme, yalnızca günlük): kapanış önceki 20 günün en yükseğinin üstünde
 (ilk kırılım günü), kapanış SMA200 üstünde ve SMA50 > SMA200, önceki 1 yılın tepesi girişin 0–2R üstünde değil, üstte
 doldurulmamış düşüş FVG'si yok. Stop giriş − 2 ATR; varsayılan çıkış kanal çıkışı (kapanış önceki 10 günün en düşüğünün altına
 inince), karşılaştırma için takip eden stop ve sabit 5R. Kanal çıkışı stratejinin kendi `simulate`'iyle yürür (`CUSTOM_EXITS`);

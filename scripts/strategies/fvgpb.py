@@ -1,4 +1,4 @@
-"""FVG geri çekilmesi: yükseliş trendinde, güçlü bir itkinin bıraktığı yükseliş FVG'sine (fiyat boşluğu) ilk geri çekilmede
+"""FVG Push (FVG geri çekilmesi): yükseliş trendinde, güçlü bir itkinin bıraktığı yükseliş FVG'sine (fiyat boşluğu) ilk geri çekilmede
 teyitli dönüşle giriş.
 
 Kurallar (yalnızca o güne kadarki veri):
@@ -39,7 +39,7 @@ BASE_STOP_ATR = 2.5      # rastgele kıyasta stop mesafesi (ortalama FVG stopuna
 CAND_MAX_DIST = 0.06
 
 META = {
-    "name": "FVG geri çekilmesi",
+    "name": "FVG Push",
     "short": "Trendde güçlü itkinin bıraktığı boşluğa ilk geri çekilmede teyitli dönüş",
     "group": "trend",
     "status": "test",

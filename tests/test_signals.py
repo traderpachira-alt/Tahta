@@ -233,7 +233,7 @@ if __name__ == "__main__":
 
 
 class DonchianTest(unittest.TestCase):
-    """Donchian kırılımı: kırılım + trend + direnç/FVG filtreleri, kanal çıkışı."""
+    """Donchian Break: kırılım + trend + direnç/FVG filtreleri, kanal çıkışı."""
     from strategies import donchian as DC
 
     def trend_df(self, n=320, kick=None):
@@ -351,7 +351,7 @@ class DivRunTest(unittest.TestCase):
 
 
 class FvgPullbackTest(unittest.TestCase):
-    """FVG geri çekilmesi: trendde itki boşluğu, ilk geri çekilme, teyitli dönüş; geleceğe bakmama."""
+    """FVG Push: trendde itki boşluğu, ilk geri çekilme, teyitli dönüş; geleceğe bakmama."""
     from strategies import fvgpb as FP
 
     def df(self):
