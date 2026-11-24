@@ -204,6 +204,7 @@ def run(prices: dict[str, pd.DataFrame], tiers: dict[str, str | None], strat=Non
     # Diğer varyantlar ve bu kancayı kullanmayan stratejiler motorun simulate'iyle yürür.
     custom = set(getattr(strat, "CUSTOM_EXITS", ()))
     base_ok = getattr(strat, "baseline_ok", None)
+    reentry = getattr(strat, "REENTRY", 0)      # stop sonrası yeniden giriş penceresi (gün); 0 = kapalı
 
     def sim(F, t, entry, stop, R):
         if R in custom:
@@ -222,40 +223,61 @@ def run(prices: dict[str, pd.DataFrame], tiers: dict[str, str | None], strat=Non
         n = len(F["c"])
         start = max(strat.WARMUP, n - years * 252 * bpd)
         busy = {v: -1 for v in V}
+        def take(t, entry, stop, R, sig, re=False):
+            """t kapanışında girilen işlemi yürüt, istatistiğe ve (varsayılan çıkışta) sayfa kayıtlarına ekle; sonucu döndür."""
+            r = sim(F, t, entry, stop, R)
+            rp = (entry - stop) / entry
+            if r["status"] == "open":
+                busy[R] = n
+            else:
+                busy[R] = r["exit_t"]
+                tr = {"r": r["r"], "pct": r["pct"], "bars": r["exit_t"] - t, "y": F["idx"][t].year, "st": r["status"],
+                      "d0": F["idx"][t], "d1": F["idx"][r["exit_t"]], "rp": rp, "sym": sym, "tier": tier}
+                if re:
+                    tr["re"] = True
+                trades[R].append(tr)
+            if R != DV:
+                return r
+            risk = entry - stop
+            rec = {"k": strat.ID, "t": sym, "tf": tf, "idx": tier, "d": F["idx"][t].strftime(fmt_), "e": round(entry, 4), "s0": round(stop, 4),
+                   "a": round(entry + trail[0] * risk, 4) if DV == "trail" else None if DV in custom else round(entry + float(DV) * risk, 4),
+                   "volx": round(sig["volx"], 2) if sig["volx"] and not re else None, "st": r["status"], "r": round(r["r"], 3)}
+            if sig.get("info"):
+                rec["info"] = sig["info"] if not re else {**sig["info"], "re": 1}
+            elif re:
+                rec["info"] = {"re": 1}
+            if r["status"] == "open":
+                rec.update(c=round(float(F["c"][-1]), 4), s=round(r["stop_now"], 4), armed=r["armed"])
+                if r.get("exit_level") is not None:
+                    rec["xl"] = round(r["exit_level"], 4)
+                rec["bars"] = bars(F, t - BARS_BEFORE, n - 1, fmt_, t)
+                active.append(rec)
+            elif t >= n - recent_days * bpd:
+                rec.update(xd=F["idx"][r["exit_t"]].strftime(fmt_), x=round(r["exit"], 4),
+                           bars=bars(F, t - BARS_BEFORE, r["exit_t"] + 2, fmt_, t))
+                recent.append(rec)
+            return r
+
         for t in range(start, n):
             sig = signal_at(strat, F, t)
             if not sig:
                 continue
-            date = F["idx"][t].strftime(fmt_)
             for R in V:
                 if t <= busy[R]:
                     continue
-                r = sim(F, t, sig["entry"], sig["stop"], R)
-                rp = (sig["entry"] - sig["stop"]) / sig["entry"]
-                if r["status"] == "open":
-                    busy[R] = n
-                else:
-                    busy[R] = r["exit_t"]
-                    trades[R].append({"r": r["r"], "pct": r["pct"], "bars": r["exit_t"] - t, "y": F["idx"][t].year, "st": r["status"],
-                                      "d0": F["idx"][t], "d1": F["idx"][r["exit_t"]], "rp": rp, "sym": sym, "tier": tier})
-                if R != DV:
-                    continue
-                risk = sig["entry"] - sig["stop"]
-                rec = {"k": strat.ID, "t": sym, "tf": tf, "idx": tier, "d": date, "e": round(sig["entry"], 4), "s0": round(sig["stop"], 4),
-                       "a": round(sig["entry"] + trail[0] * risk, 4) if DV == "trail" else None if DV in custom else round(sig["entry"] + float(DV) * risk, 4),
-                       "volx": round(sig["volx"], 2) if sig["volx"] else None, "st": r["status"], "r": round(r["r"], 3)}
-                if sig.get("info"):
-                    rec["info"] = sig["info"]
-                if r["status"] == "open":
-                    rec.update(c=round(float(F["c"][-1]), 4), s=round(r["stop_now"], 4), armed=r["armed"])
-                    if r.get("exit_level") is not None:
-                        rec["xl"] = round(r["exit_level"], 4)
-                    rec["bars"] = bars(F, t - BARS_BEFORE, n - 1, fmt_, t)
-                    active.append(rec)
-                elif t >= n - recent_days * bpd:
-                    rec.update(xd=F["idx"][r["exit_t"]].strftime(fmt_), x=round(r["exit"], 4),
-                               bars=bars(F, t - BARS_BEFORE, r["exit_t"] + 2, fmt_, t))
-                    recent.append(rec)
+                r = take(t, sig["entry"], sig["stop"], R, sig)
+                # Yeniden giriş (isteğe bağlı, strateji REENTRY ile açar): başlangıç stopu tetiklendikten sonra REENTRY gün içinde
+                # kapanış ilk girişin üstüne dönerse o kapanışta bir kez daha girilir; stop çıkıştan bu yana en düşük − 0,2 ATR
+                # (en fazla 3 ATR). Yalnızca o güne kadarki veri kullanılır.
+                if reentry and r["status"] == "stop":
+                    x = r["exit_t"]
+                    for q in range(x + 1, min(n, x + 1 + reentry)):
+                        if F["c"][q] > sig["entry"]:
+                            e2 = F["c"][q]
+                            s2 = max(float(np.min(F["l"][x:q + 1])) - 0.2 * F["atr"][q], e2 - 3 * F["atr"][q])
+                            if RISK_MIN <= (e2 - s2) / e2 <= RISK_MAX and F["turn"][q] >= MIN_TURNOVER:
+                                take(q, e2, s2, R, sig, re=True)
+                            break
         # Hazırlanan kurulumlar: son mum itibarıyla bir sonraki mumda tamamlanabilecekler
         cd = candidate_at(strat, F, n - 1)
         if cd:

@@ -600,3 +600,31 @@ class StructureBreakTest(unittest.TestCase):
         F2 = S.frame(df.iloc[:ts[0] + 1])
         self.assertIsNotNone(self.MB.signal(F2, ts[0]))
         self.assertEqual([t for t in range(ts[0]) if self.MB.signal(F2, t)], [])
+
+
+class ReentryTest(unittest.TestCase):
+    """Motorun isteğe bağlı yeniden giriş kuralı: stop sonrası pencere içinde kapanış ilk girişin üstüne dönerse bir kez daha giriş."""
+
+    def strat(self, W):
+        import types
+        m = types.SimpleNamespace(ID="rt", TIMEFRAMES=("1D",), VARIANTS={"trail": "t"}, DEFAULT_V="trail", TRAIL=(1.0, 1.0), WARMUP=20,
+                                  REENTRY=W, META={})
+        m.signal = lambda F, t: {"entry": F["c"][t], "stop": F["c"][t] * 0.95} if t == 30 else None
+        m.baseline_stop = lambda F, t: F["c"][t] * 0.95
+        return m
+
+    def df(self):
+        c = [100.0] * 31 + [97.0, 93.0, 96.0, 101.0, 104.0, 108.0, 112.0, 116.0] + [116.0] * 30
+        return ohlc(c)
+
+    def test_reentry_after_stop(self):
+        R = S.run({"AAA": self.df()}, {"AAA": "30"}, self.strat(10), recent_days=500)
+        rows = sorted(R["recent"] + R["active"], key=lambda a: a["d"])
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(rows[0]["st"], "stop")
+        self.assertEqual(rows[1]["info"], {"re": 1})
+        self.assertAlmostEqual(rows[1]["e"], 101.0)
+
+    def test_off_by_default(self):
+        R = S.run({"AAA": self.df()}, {"AAA": "30"}, self.strat(0), recent_days=500)
+        self.assertEqual(len(R["recent"] + R["active"]), 1)

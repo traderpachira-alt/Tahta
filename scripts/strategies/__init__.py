@@ -65,6 +65,9 @@ Arayüz (modül düzeyinde):
   ACCOUNT_RISK        hesap simülasyonunda işlem başına risk (bakiyenin oranı); yoksa signals.ACCOUNT["risk"]
   F["sym"]            motorun verdiği hisse kodu: fiyat dışı veri (ör. temettü takvimi) modül düzeyinde tutulup bununla okunur
   candidate(...)["info"] / signal(...)["info"]  kayıtlara aynen eklenen ek bilgi (sayfada gösterilir)
+  REENTRY             stop sonrası yeniden giriş penceresi (gün; 0/yok = kapalı): başlangıç stopu tetiklendikten sonra bu süre içinde
+                      kapanış ilk girişin üstüne dönerse bir kez daha girilir (stop: çıkıştan bu yana en düşük − 0,2 ATR, en fazla
+                      3 ATR); kayıtta info.re = 1
   baseline_ok(F, t)   rastgele giriş kıyasında hangi mumların kullanılacağı (ör. yalnızca yükseliş trendindekiler)
 """
 from . import divrun, donchian, fvgpb, morningstar, msbrk, rsrot, sma200rt, sqzbrk, vwaprc
