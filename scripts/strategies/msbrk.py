@@ -12,7 +12,7 @@ Kurallar (yalnızca o güne kadarki veri):
        arada bölgenin dibinin (D2) altında kapanış olursa bölge geçersiz
   Ölçekler: k = 4, 5, 6, 7; herhangi birinde kırılım sinyaldir (aynı mumda birden çoksa en dar stoplu olan)
   Tekrar yok: bir önceki sinyalden sonraki 5 mum içinde yeni sinyal yok
-  Stop: STOP_MODE (varsayılan: bölgenin dibi − 0,2 ATR; giriş − 3 ATR'den uzaksa giriş − 3 ATR)
+  Stop: STOP_MODE (varsayılan: giriş − 2 ATR; seçenekler: bölge dibi − 0,2 ATR, giriş − 3 ATR, bölge ortası, kırılım mumunun dibi)
 Kırılım günü için hacim / kapanış / gövde şartı yok: çok ölçekli yapıda bu şartlar iyi sinyalleri de eledi.
 Varsayılan çıkış kanal çıkışı (Donchian ile aynı kural); karşılaştırma için 20 gün tut, takip eden stop, sabit 2R ve 3R.
 """
@@ -35,7 +35,7 @@ MAX_WAIT = 30
 GAP = 5
 HOLD = 20
 COST = 0.002
-STOP_MODE = "zone"      # zone: bölge dibi − 0,2 ATR (en fazla 3 ATR) · atr2 / atr3: giriş − 2/3 ATR · mid: bölge ortası · bar: kırılım mumunun dibi
+STOP_MODE = "atr2"      # zone: bölge dibi − 0,2 ATR (en fazla 3 ATR) · atr2 / atr3: giriş − 2/3 ATR · mid: bölge ortası · bar: kırılım mumunun dibi
 CAND_MAX_DIST = 0.05
 
 META = {
@@ -50,7 +50,7 @@ META = {
         "Düşüş yapısı: alçalan tepe (LH) ve alçalan dip (LL)",
         "Kararsız bölge: ardından daha alçak bir tepe (LH) ve daha yüksek bir dip (HL) — fiyat daralıyor; bölge = son dip ile önceki tepe arası",
         "Kırılım: bölge oluştuktan sonra en fazla 30 gün içinde kapanış bölgenin tepesinin ilk kez üstünde → o kapanışta giriş; arada bölgenin dibinin altında kapanış bölgeyi geçersiz kılar",
-        "Stop: bölgenin dibinin 0,2 ATR altı (en fazla giriş − 3 ATR) · Likidite: 20 günlük ortalama işlem hacmi en az 20 mn ₺",
+        "Stop: giriş − 2 ATR (1R = giriş − stop); bölgenin dibinin altında kapanış da çoğu zaman bu seviyeye yakındır · Likidite: 20 günlük ortalama işlem hacmi en az 20 mn ₺",
         "Çıkış: kapanış önceki 10 günün en düşüğünün altına inince o kapanıştan; başlangıç stopu her zaman geçerli · En fazla 60 işlem günü",
     ],
     "notes": [
@@ -60,9 +60,9 @@ META = {
         "Önceki düşüş yapısı şartı gerekli: yalnızca 'SMA200 altında ve daralıyor' şartıyla avantaj belirgin şekilde azaldı.",
         "Avantaj 2022–24'te daha büyüktü; 2025–26'da küçüldü ama rastgele girişin üstünde kaldı.",
         "Çıkış seçimi (Kasım 2026 testi, BIST TÜM, 100.000 ₺, %1 risk, nakitle sınırlı): kanal çıkışı ve sabit 3R ~215 bin ₺ ile önde, takip stopu ~212 bin, sabit 2R ~200 bin, 20 gün tut ~190 bin ₺. En düşük düşüş sabit 3R'de (−%15; kanal çıkışında −%25). Kanal çıkışı varsayılan: rastgele girişe göre farkı en büyük ve her yıl artıda. Güncel değerler yukarıdaki tabloda.",
-        "Stop seçimi (Kasım 2026 testi, aynı koşullar, kanal çıkışı): giriş − 2 ATR ~269 bin, giriş − 3 ATR ~253 bin, bölge dibi ~216 bin, bölge ortası ~192 bin, kırılım mumunun dibi ~183 bin ₺. ATR stopları biraz daha yüksek sonuç verdi ama bölge dibi yapının mantığına uyuyor (bölge bozulunca çıkarır); kırılım mumunun dibi gibi dar stoplar daha çok erken stop oldu.",
+        "Stop seçimi (Kasım 2026 testi, aynı koşullar, kanal çıkışı): giriş − 2 ATR ~269 bin, giriş − 3 ATR ~253 bin, bölge dibi ~216 bin, bölge ortası ~192 bin, kırılım mumunun dibi ~183 bin ₺. Varsayılan giriş − 2 ATR: en yüksek bakiye, düşüş bölge dibi stopuyla aynı (−%25). Kırılım mumunun dibi gibi dar stoplar daha çok erken stop oldu.",
         "Hesapta sinyallerin yaklaşık yarısı nakit yetmediği için kaçıyor (sinyaller düşüş sonrası toparlanmalarda yığılıyor); sınırsız hesapta bütün sinyallere girilse sonuç çok daha yüksek ama aynı anda bakiyenin ~7 katı pozisyon gerekir.",
-        "Rastgele giriş kıyası, SMA200 altındaki günlerden aynı stop mesafesiyle (3 ATR) yapılır.",
+        "Rastgele giriş kıyası, SMA200 altındaki günlerden aynı stop mesafesiyle (2 ATR) yapılır.",
     ],
 }
 
@@ -131,6 +131,17 @@ def _stop(F, t, zb, zt):
     return max(zb - 0.2 * a, e - 3 * a)
 
 
+def _stop_at(e, a, zb, zt=None):
+    """Hazırlanan kurulum için tahmini stop: giriş tetik fiyatında yapılırsa (_stop ile aynı kural)."""
+    if STOP_MODE == "atr2":
+        return e - 2 * a
+    if STOP_MODE == "atr3":
+        return e - 3 * a
+    if STOP_MODE == "mid" and zt is not None:
+        return max((zb + zt) / 2, e - 3 * a)
+    return max(zb - 0.2 * a, e - 3 * a)
+
+
 def _prep(F) -> dict:
     P = F.get("_msb")
     if P is not None:
@@ -162,7 +173,7 @@ def signal(F, t) -> dict | None:
 
 
 def baseline_stop(F, t) -> float:
-    return F["c"][t] - 3 * F["atr"][t]
+    return F["c"][t] - 2 * F["atr"][t]
 
 
 def baseline_ok(F, t) -> bool:
@@ -209,6 +220,6 @@ def candidate(F, b) -> dict | None:
         return None
     dist, zb, zt, t0 = best
     a = float(F["atr"][b])
-    stop = max(zb - 0.2 * a, zt - 3 * a)
+    stop = _stop_at(zt, a, zb)
     return {"trig": zt, "eff": zt, "dist": dist, "stop": stop, "risk": (zt - stop) / zt, "fvg": None,
             "d1": max(0, t0 - 15), "d2": b, "info": {"zone2": [round(zb, 4), round(zt, 4)]}}

@@ -112,7 +112,7 @@ kapanış ortalamada kutunun üst %60'ında ve kutu boyunca yön hacmi (OBV) art
 Structure Break (`scripts/strategies/msbrk.py`, "Dipten dönüş"): salınım tepeleri/dipleri (her iki yanında k mum boyunca
 en yüksek/en düşük, k = 4…7; k mum sonra kesinleşir) ile önce düşüş yapısı (alçalan tepe ve dip), ardından daralma (daha alçak
 tepe, daha yüksek dip); kapanış bu bölgenin tepesini 30 mum içinde ilk kez aşınca giriş (bölge dibi altında kapanış bölgeyi
-bozar); herhangi bir ölçekte kırılım sinyaldir. Stop bölge dibi − 0,2 ATR (en fazla 3 ATR); kanal çıkışı (varsayılan), 20 gün
+bozar); herhangi bir ölçekte kırılım sinyaldir. Stop giriş − 2 ATR (bölge dibi, 3 ATR, bölge ortası ve kırılım mumu dibi de test edildi); kanal çıkışı (varsayılan), 20 gün
 tut, takip eden stop, sabit 2R / 3R. Kırılım günü için hacim/kapanış şartı yok.
 
 SMA200 Retest (`scripts/strategies/sma200rt.py`, "Trend takip"): SMA50 > SMA200, SMA200 yükseliyor, son 60 günde kapanış
