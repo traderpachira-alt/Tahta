@@ -34,15 +34,17 @@ export function setupSvg(a, u) {
   if (!B || !B.c?.length) return '<p class="muted">Bu kayıt için mum verisi yok.</p>';
   const n = B.c.length, L = levels(a, u).map(l => ({ ...l, txt: `${l.lab} ${fmt.price(l.y)}` }));
   const PR = Math.max(60, Math.ceil(Math.max(0, ...L.map(l => l.txt.length)) * CH) + 8);
-  const zone = a.info?.fvg || a.info?.zone;
+  const zone = a.info?.fvg || a.info?.zone || a.info?.box;
+  const zlab = a.info?.box ? 'Kutu' : 'FVG';
   let lo = Math.min(...B.l, ...L.map(l => l.y), ...(zone || [])), hi = Math.max(...B.h, ...L.map(l => l.y), ...(zone || []));
   const pad = (hi - lo) * 0.06 || hi * 0.02; lo -= pad; hi += pad;
   const pw = W - PL - PR, ph = H - PT - PB, step = pw / n, cw = Math.max(1.5, Math.min(9, step * 0.62));
   const X = i => PL + step * (i + 0.5), Y = v => PT + (hi - v) / (hi - lo) * ph;
   const parts = [];
   // Stratejiye özgü yapı
-  if (zone) parts.push(`<rect x="${PL}" width="${pw}" y="${Y(zone[1]).toFixed(1)}" height="${Math.max(1, Y(zone[0]) - Y(zone[1])).toFixed(1)}" class="sv-zone"/>`
-    + `<text x="${PL + 4}" y="${(Y(zone[1]) + 10).toFixed(1)}" class="sv-ztxt">FVG</text>`);
+  const zw = a.info?.box && B.i >= 0 ? Math.max(step, X(B.i) - step / 2 - PL) : pw;   // kutu yalnızca kırılıma kadar
+  if (zone) parts.push(`<rect x="${PL}" width="${zw.toFixed(1)}" y="${Y(zone[1]).toFixed(1)}" height="${Math.max(1, Y(zone[0]) - Y(zone[1])).toFixed(1)}" class="sv-zone"/>`
+    + `<text x="${PL + 4}" y="${(Y(zone[1]) + 10).toFixed(1)}" class="sv-ztxt">${zlab}</text>`);
   if (a.k === 'morningstar' && B.i >= 0) {
     const first = ok(a.trig) ? B.i : B.i - 2, last = ok(a.trig) ? B.i + 1 : B.i;
     parts.push(`<rect x="${(X(first) - step / 2).toFixed(1)}" width="${(step * (last - first + 1)).toFixed(1)}" y="${PT}" height="${ph}" class="sv-band"/>`);
@@ -82,6 +84,7 @@ export function setupFacts(a) {
   } else {
     f.push(['Giriş', fmt.price(a.e)]);
     if (!a.info?.ns) f.push(['Stop', `${fmt.price(a.s0)} <small class="down">${pct(a.s0, a.e)}</small>`]);
+    if (a.info?.hold && !ok(a.x) && a.bars) f.push(['Çıkış', `${Math.max(0, a.info.hold - (a.bars.d.length - 1 - a.bars.i))} işlem günü sonra kapanış`]);
     if (ok(a.a)) f.push([a.armed ? 'Takip' : 'Hedef / +1R', `${fmt.price(a.a)} <small class="up">${pct(a.a, a.e)}</small>`]);
     if (ok(a.xl) && a.xl > a.s) f.push(['Kanal çıkışı', `kapanış &lt; ${fmt.price(a.xl)}`]);
     if (ok(a.x)) f.push(['Çıkış', `${fmt.price(a.x)} · ${esc(dshort(a.xd))}`]);

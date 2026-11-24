@@ -104,6 +104,11 @@ geçersiz kılar), üstte doldurulmamış düşüş FVG'si yok; dokunuştan itib
 giriş; stop alt sınır − 0,5 ATR; kanal çıkışı (varsayılan), takip eden stop ve sabit 3R karşılaştırma; %1 risk. Teyit bekleyen
 bölgeler hazırlanan kurulumlarda. Donchian'la aynı trendlerde sık örtüşür (ikinci giriş noktası), ayrı izlenir.
 
+Squeeze Break (`scripts/strategies/sqzbrk.py`, "Kırılım"): önceki 40 günün kutusu en fazla %20 genişlikte; son 10
+kapanış ortalamada kutunun üst %60'ında ve kutu boyunca yön hacmi (OBV) artıda; kapanış kutu tepesinin 0,1 ATR üstünde
+(ilk kırılım), günün üst %30'unda, gövde ≥ aralığın yarısı, hacim ≥ 1,5 kat → giriş; stop kutunun dibi (en fazla 3 ATR);
+20. işlem günü kapanışında çıkış (varsayılan), takip eden stop ve kanal çıkışı karşılaştırma. Donchian'la sık örtüşür.
+
 SMA200 Retest (`scripts/strategies/sma200rt.py`, "Trend takip"): SMA50 > SMA200, SMA200 yükseliyor, son 60 günde kapanış
 SMA200'ün en az %15 üstüne çıkmış; son 4 günde en düşük SMA200'ün en fazla %3 üstüne inmiş; kapanış SMA200 ve önceki günün
 tepesinin üstünde, günün üst %40'ında → giriş; stop son 4 günün dibi ile SMA200'ün küçüğü − 0,5 ATR; +1R sonrası takip stopu

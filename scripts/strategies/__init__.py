@@ -12,6 +12,8 @@ Strateji haritası (ne yakalıyor · süre · ortam · çıkış):
   donchian     yükseliş trendinde devam eden kırılım (momentum) · ~3–4 hafta · yükseliş trendi · kanal çıkışı (10 günlük dip)
   fvgpb        trend içi geri çekilme: itkinin bıraktığı yükseliş FVG'sine ilk dönüşte teyitli giriş · ~3 hafta · yükseliş trendi ·
                kanal çıkışı (Donchian'la aynı trendlerde sık örtüşür; kırılım yerine geri çekilmede ikinci giriş)
+  sqzbrk       dar kutuda (40 gün, ≤ %20) birikim sonrası güçlü kapanışla kırılım · 20 gün · her ortam · 20. gün kapanışı
+               (Donchian'la sık örtüşür; örtüşmeyen sinyaller de rastgeleden iyiydi)
   sma200rt     trendde 200 günlük ortalamaya derin geri çekilme ve dönüş · ~2 hafta · yükseliş trendi · +1R sonrası takip stopu
   vwaprc       sert düşüş (tepeden ≥%30) sonrası tepeden çapalı VWAP'ın ilk geri alınışı (toparlanma teyidi) · ~4 hafta ·
                düşüş sonrası · kanal çıkışı (avantaj BIST 100 dışında)
@@ -26,8 +28,9 @@ Strateji haritası (ne yakalıyor · süre · ortam · çıkış):
     rastgele girişten iyi değildi; tepeden çapalı VWAP'ı geri alma (vwaprc) sağlam çıktı
   - trend içi derin geri çekilme: 50 günlük tepeden %15 düşüş sonrası dönüş, hacmi kuruyan geri çekilme, dipten çapalı VWAP
     desteği rastgeleye yakın ya da kötü; SMA200 testi (sma200rt) sağlam çıktı
-  - oynaklık sıkışması: Bollinger daralması + kırılım rastgeleyle aynı; kutu içinde birikim şartları (kapanışlar üst yarıda,
-    yön hacmi artıda) avantaj sağladı ama parametreye hassas — araştırma sürüyor. Ertesi gün teyidi girişi geciktirip kötüleştirdi
+  - oynaklık sıkışması: Bollinger daralması + kırılım rastgeleyle aynı; kutu içinde birikim şartları (kapanışlar kutunun
+    üst %60'ında, yön hacmi artıda) avantaj sağladı → sqzbrk. 72 ayarlık taramada 30 günlük ve %25 genişlikteki kutular zayıf;
+    hacim kuruması şartı her ayarda kötüleştirdi; ertesi gün / hafta kapanışı teyidi girişi geciktirip iyileştirmedi
   - haftalık boşluk (dolmayan): 2022–24 güçlü, 2025–26 çalışmadı; aylık boşluk güçlü ama çok seyrek (izlemede)
   - piyasa geneli dip (SMA50 üstündeki hisse oranı): 4 yılda 3–17 sinyal, rastgeleden belirgin iyi değil; strateji değil,
     piyasa durumu göstergesi olarak kullanılabilir
@@ -60,12 +63,12 @@ Arayüz (modül düzeyinde):
   candidate(...)["info"] / signal(...)["info"]  kayıtlara aynen eklenen ek bilgi (sayfada gösterilir)
   baseline_ok(F, t)   rastgele giriş kıyasında hangi mumların kullanılacağı (ör. yalnızca yükseliş trendindekiler)
 """
-from . import divrun, donchian, fvgpb, morningstar, rsrot, sma200rt, vwaprc
+from . import divrun, donchian, fvgpb, morningstar, rsrot, sma200rt, sqzbrk, vwaprc
 
 # Gruplar: sinyal sayfasında stratejiler bu başlıklar altında toplanır (tarama sayfasındaki hazır taramalar gibi)
 GROUPS = {"formasyon": "Mum formasyonları", "trend": "Trend takip", "kirilim": "Kırılım", "donus": "Ortalamaya dönüş", "dip": "Dipten dönüş", "olay": "Takvim / olay", "portfoy": "Portföy"}
 
-REGISTRY = {m.ID: m for m in (morningstar, donchian, fvgpb, sma200rt, vwaprc, divrun)}
+REGISTRY = {m.ID: m for m in (morningstar, donchian, sqzbrk, fvgpb, sma200rt, vwaprc, divrun)}
 # Portföy stratejileri: giriş/stop yerine dönemsel olarak yenilenen bir portföy tutar; motoru kullanmaz, kendi run(prices,
 # tiers, idx) fonksiyonuyla aylık simülasyon yürütür (ör. göreli güç rotasyonu).
 PORTFOLIOS = {m.ID: m for m in (rsrot,)}

@@ -509,3 +509,56 @@ class Sma200RetestTest(unittest.TestCase):
         cd = self.SR.candidate(F, b)
         self.assertIsNotNone(cd)
         self.assertAlmostEqual(cd["trig"], float(df["High"].iloc[-1]))
+
+
+class SqueezeBreakTest(unittest.TestCase):
+    """Squeeze Break: dar kutu, kapanışlar tavana yakın, güçlü ve hacimli kırılım; 20 gün çıkışı; sahte fitil sayılmaz."""
+    from strategies import sqzbrk as SQ
+
+    def series(self, wick=False, low_closes=False):
+        rng = np.random.default_rng(3)
+        n = 120
+        c = list(100 + np.cumsum(rng.normal(0, 0.8, 70)))           # önce serbest seyir
+        for i in range(40):                                        # kutu: 100–110, kapanışlar üst kısımda
+            c.append(101 + (i % 5) * 1.0 if low_closes else 107 + (i % 4) * 0.6)
+        df = ohlc(c + [c[-1]] * (n - len(c)))
+        k = 70
+        df.iloc[k:k + 40, 1] = 110.0                                            # kutu tepesi 110
+        df.iloc[k:k + 40, 2] = 100.0                                            # kutu dibi 100
+        df.iloc[k:k + 40, 4] = np.where(np.arange(40) % 2 == 0, 3e6, 1e6)      # yükselen günler hacimli (OBV artı)
+        t = k + 40
+        o, h, lo, cl = (110.2, 113.5, 110.0, 113.4) if not wick else (109.0, 114.0, 108.8, 110.6)
+        df.iloc[t, [0, 1, 2, 3, 4]] = [o, h, lo, cl, 6e6]
+        return df, t
+
+    def test_breakout_signal_and_stop(self):
+        df, t = self.series()
+        F = S.frame(df.iloc[:t + 1])
+        x = self.SQ.signal(F, t)
+        self.assertIsNotNone(x)
+        self.assertEqual(x["info"]["box"], [100.0, 110.0])
+        self.assertAlmostEqual(x["stop"], max(100.0, F["c"][t] - 3 * F["atr"][t]))
+
+    def test_fake_wick_rejected(self):
+        df, t = self.series(wick=True)
+        self.assertIsNone(self.SQ.signal(S.frame(df.iloc[:t + 1]), t))
+
+    def test_low_closes_rejected(self):
+        df, t = self.series(low_closes=True)
+        self.assertIsNone(self.SQ.signal(S.frame(df.iloc[:t + 1]), t))
+
+    def test_time_exit_20(self):
+        c = [100.0] * 60
+        df = ohlc(c)
+        F = S.frame(df)
+        r = self.SQ.simulate(F, 10, 100.0, 95.0, "t20", 60)
+        self.assertEqual((r["status"], r["exit_t"]), ("time", 30))
+        self.assertEqual(self.SQ.simulate(F, 50, 100.0, 95.0, "t20", 60)["status"], "open")
+        self.assertEqual(self.SQ.simulate(F, 10, 100.0, 99.9, "t20", 60)["status"], "stop")
+
+    def test_candidate_before_breakout(self):
+        df, t = self.series()
+        F = S.frame(df.iloc[:t])
+        cd = self.SQ.candidate(F, t - 1)
+        self.assertIsNotNone(cd)
+        self.assertAlmostEqual(cd["trig"], 110.0 + 0.1 * F["atr"][t - 1])
