@@ -28,6 +28,7 @@ VARIANTS = {"chan": "Kanal çıkışı (10 günlük dip)", "t20": "20 gün tut (
             "2": "Sabit hedef 2R", "3": "Sabit hedef 3R"}
 DEFAULT_V = "chan"
 CUSTOM_EXITS = ("t20", "chan")
+REENTRY = 10         # stop olduktan sonra 10 gün içinde kapanış ilk girişin üstüne dönerse bir kez daha giriş (motor)
 TRAIL = (1.0, 1.0)
 WARMUP = 60
 SCALES = (4, 5, 6, 7)
@@ -52,6 +53,7 @@ META = {
         "Kırılım: bölge oluştuktan sonra en fazla 30 gün içinde kapanış bölgenin tepesinin ilk kez üstünde → o kapanışta giriş; arada bölgenin dibinin altında kapanış bölgeyi geçersiz kılar",
         "Stop: giriş − 2 ATR (1R = giriş − stop); bölgenin dibinin altında kapanış da çoğu zaman bu seviyeye yakındır · Likidite: 20 günlük ortalama işlem hacmi en az 20 mn ₺",
         "Çıkış: kapanış önceki 10 günün en düşüğünün altına inince o kapanıştan; başlangıç stopu her zaman geçerli · En fazla 60 işlem günü",
+        "Yeniden giriş: başlangıç stopu tetiklendikten sonra 10 gün içinde kapanış ilk girişin üstüne dönerse bir kez daha girilir; yeni stop çıkıştan bu yana en düşük fiyatın 0,2 ATR altı (en fazla 3 ATR)",
     ],
     "notes": [
         "Kurallar, kaçırılan rallilerin çoğunun başladığı düşüş trendinden dönüş bölgesi için birçok kurgu arasından seçildi. Tek ölçekte (yalnızca k = 5) sonuç ayara hassastı; 4–7 ölçeklerinin birleşimi hem daha çok sinyal verdi hem de komşu ayarların (3–7, 3–6) hepsinde rastgele girişin üstünde kaldı.",
@@ -62,6 +64,7 @@ META = {
         "Çıkış seçimi (Kasım 2026 testi, BIST TÜM, 100.000 ₺, %1 risk, nakitle sınırlı): kanal çıkışı ve sabit 3R ~215 bin ₺ ile önde, takip stopu ~212 bin, sabit 2R ~200 bin, 20 gün tut ~190 bin ₺. En düşük düşüş sabit 3R'de (−%15; kanal çıkışında −%25). Kanal çıkışı varsayılan: rastgele girişe göre farkı en büyük ve her yıl artıda. Güncel değerler yukarıdaki tabloda.",
         "Stop seçimi (Kasım 2026 testi, aynı koşullar, kanal çıkışı): giriş − 2 ATR ~269 bin, giriş − 3 ATR ~253 bin, bölge dibi ~216 bin, bölge ortası ~192 bin, kırılım mumunun dibi ~183 bin ₺. Varsayılan giriş − 2 ATR: en yüksek bakiye, düşüş bölge dibi stopuyla aynı (−%25). Kırılım mumunun dibi gibi dar stoplar daha çok erken stop oldu.",
         "Hesapta sinyallerin yaklaşık yarısı nakit yetmediği için kaçıyor (sinyaller düşüş sonrası toparlanmalarda yığılıyor); sınırsız hesapta bütün sinyallere girilse sonuç çok daha yüksek ama aynı anda bakiyenin ~7 katı pozisyon gerekir.",
+        "Yeniden giriş: zarar eden işlemlerin çoğu rallinin ilk günlerindeki sert bir silkelemede stop oluyor ve fiyat sonra girişin üstüne dönüyordu. Kasım 2026 testinde (BIST TÜM) 82 yeniden giriş ortalama +1,28R getirdi; nakitle sınırlı hesap ~269 binden ~544 bin ₺'ye çıktı. BIST 100'de etkisi hafif olumsuzdu (~167 → ~134 bin ₺).",
         "Rastgele giriş kıyası, SMA200 altındaki günlerden aynı stop mesafesiyle (2 ATR) yapılır.",
     ],
 }
