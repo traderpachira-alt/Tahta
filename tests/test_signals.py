@@ -562,3 +562,41 @@ class SqueezeBreakTest(unittest.TestCase):
         cd = self.SQ.candidate(F, t - 1)
         self.assertIsNotNone(cd)
         self.assertAlmostEqual(cd["trig"], 110.0 + 0.1 * F["atr"][t - 1])
+
+
+class StructureBreakTest(unittest.TestCase):
+    """Structure Break: düşüş yapısı (LH + LL), daralma (LH + HL), bölge tepesinin kapanışla kırılması; geleceğe bakmama."""
+    from strategies import msbrk as MB
+
+    def series(self, contract=True):
+        # tepe/dip noktaları (gün, fiyat): düşüş T0 > T1, D0 > D1; daralma T2 < T1, D2 > D1; sonra T1 kırılır
+        pts = [(0, 100), (10, 130), (20, 105), (30, 122), (40, 95), (50, 115), (60, 100 if contract else 90), (70, 112), (80, 104 if contract else 85)]
+        xs, ys = zip(*pts)
+        c = list(np.interp(np.arange(81), xs, ys))
+        c += list(np.linspace(104, 125, 11)[1:])                    # kırılım: 115'in (T1) üstü
+        c += [125.0] * 20
+        return ohlc(c, start="2024-01-01")
+
+    def sigs(self, df):
+        F = S.frame(df)
+        return F, [t for t in range(len(F["c"])) if self.MB.signal(F, t)]
+
+    def test_breakout_of_zone_top(self):
+        F, ts = self.sigs(self.series())
+        self.assertTrue(ts)
+        t = ts[0]
+        zb, zt = self.MB.signal(F, t)["info"]["zone2"]
+        self.assertGreater(F["c"][t], zt)
+        self.assertLessEqual(F["c"][t - 1], zt)
+        self.assertLess(zb, zt)
+
+    def test_no_contraction_no_signal(self):
+        _, ts = self.sigs(self.series(contract=False))
+        self.assertEqual(ts, [])
+
+    def test_no_lookahead(self):
+        df = self.series()
+        F, ts = self.sigs(df)
+        F2 = S.frame(df.iloc[:ts[0] + 1])
+        self.assertIsNotNone(self.MB.signal(F2, ts[0]))
+        self.assertEqual([t for t in range(ts[0]) if self.MB.signal(F2, t)], [])

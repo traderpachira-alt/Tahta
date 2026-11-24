@@ -34,15 +34,15 @@ export function setupSvg(a, u) {
   if (!B || !B.c?.length) return '<p class="muted">Bu kayıt için mum verisi yok.</p>';
   const n = B.c.length, L = levels(a, u).map(l => ({ ...l, txt: `${l.lab} ${fmt.price(l.y)}` }));
   const PR = Math.max(60, Math.ceil(Math.max(0, ...L.map(l => l.txt.length)) * CH) + 8);
-  const zone = a.info?.fvg || a.info?.zone || a.info?.box;
-  const zlab = a.info?.box ? 'Kutu' : 'FVG';
+  const zone = a.info?.fvg || a.info?.zone || a.info?.box || a.info?.zone2;
+  const zlab = a.info?.box ? 'Kutu' : a.info?.zone2 ? 'Bölge' : 'FVG';
   let lo = Math.min(...B.l, ...L.map(l => l.y), ...(zone || [])), hi = Math.max(...B.h, ...L.map(l => l.y), ...(zone || []));
   const pad = (hi - lo) * 0.06 || hi * 0.02; lo -= pad; hi += pad;
   const pw = W - PL - PR, ph = H - PT - PB, step = pw / n, cw = Math.max(1.5, Math.min(9, step * 0.62));
   const X = i => PL + step * (i + 0.5), Y = v => PT + (hi - v) / (hi - lo) * ph;
   const parts = [];
   // Stratejiye özgü yapı
-  const zw = a.info?.box && B.i >= 0 ? Math.max(step, X(B.i) - step / 2 - PL) : pw;   // kutu yalnızca kırılıma kadar
+  const zw = (a.info?.box || a.info?.zone2) && B.i >= 0 && !ok(a.trig) ? Math.max(step, X(B.i) - step / 2 - PL) : pw;   // kutu yalnızca kırılıma kadar
   if (zone) parts.push(`<rect x="${PL}" width="${zw.toFixed(1)}" y="${Y(zone[1]).toFixed(1)}" height="${Math.max(1, Y(zone[0]) - Y(zone[1])).toFixed(1)}" class="sv-zone"/>`
     + `<text x="${PL + 4}" y="${(Y(zone[1]) + 10).toFixed(1)}" class="sv-ztxt">${zlab}</text>`);
   if (a.k === 'morningstar' && B.i >= 0) {
