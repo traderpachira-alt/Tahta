@@ -18,7 +18,12 @@ Tarayıcıda çalışır, telefonda ana ekrana eklenince uygulama gibi açılır
   boşluklar ve yuvarlak sayılar yarım ATR toleransla bölgelere birleştirilir; ağırlıklı skor (≥ 10 güçlü) ve kesişim
   sayısı. Grafikte katman, hisse sayfasında tablo, taramada uzaklık/güç sütunları ve hazır taramalar, portföyde destek.
 - **Arayüz düzeni:** üstte Tarama · Sinyaller · Portföy · Karşılaştır (telefonda alt sekme çubuğu); Rehber (?) ve
-  Aktar (⚙) sağ üstte; veri tarihi üst çubukta rozet olarak (eskiyse sarı). Taramanın üstünde "Bugün" kartları (açık
+  Ayarlar ve yedek (⚙) sağ üstte; son güncelleme zamanı üst çubukta rozet olarak ("Son veri bugün 19:12"; eskiyse sarı).
+  İlk açılışta 3 adımlı tanıtım (Rehber'den yeniden açılır). Telefonda taramanın endeks / pazar / sektör / gösterge
+  koşulları "Filtrele" düğmesinin arkasında, seçili filtreler kaldırılabilir etiketler; hazır taramalar ve kartlar tek satırda
+  yana kayar (devamı varsa sağ kenar solar); tablo ekranın görünen alanını doldurur. Sinyaller sayfası Açık / Hazırlanan /
+  Sonuçlanan / Performans sekmeleri; telefonda sinyaller ve arşiv kart olarak. Hisse sayfasında açık sinyaller tek kutuda,
+  grafikte yalnızca seçili sinyalin seviyeleri. Dokunmatik ekranda dokunma alanları en az 40 px. Taramanın üstünde "Bugün" kartları (açık
   sinyaller, portföy, izleme listesi, 14 gün içindeki temettüler). Hazır taramalar Teknik / Temettü / Temel / Kayıtlı
   başlıkları altında gruplu. Hisse sayfasında grafik üstte, altında sekmeler (Genel, Destek / direnç, Temettü, Temel ve
   değerleme, Sektör); göstergeler tek menüde, açık olanlar etiket olarak; verisi olmayan kartlar gizlenir. Uzun
@@ -54,7 +59,7 @@ Tarayıcıda çalışır, telefonda ana ekrana eklenince uygulama gibi açılır
   GitHub Gist'inde tutulur; erişim anahtarı (yalnızca `gist` yetkisi) sadece cihazın tarayıcısında saklanır.
   Açılışta, uygulamaya dönünce ve değişiklikten sonra eşitlenir; iki cihaz habersiz değiştirirse sorulur.
   Site bağlantısı paylaşılabilir: başkaları kendi (boş) portföyünü görür.
-- **Aktar (⚙):** izleme listesi, kayıtlı taramalar ve portföyü bir kod ya da bağlantıyla başka cihaza taşı.
+- **Ayarlar ve yedek (⚙):** yedek dosyası, bulut senkronizasyonu ve izleme listesi, kayıtlı taramalar ve portföyü bir kod ya da bağlantıyla başka cihaza taşıma.
 - **Güncelleme uyarısı:** yeni sürüm yayınlanınca uygulamada "Yeni sürüm hazır · Yenile" çıkar.
 
 ## Veri kaynakları
@@ -115,7 +120,7 @@ tepe, daha yüksek dip); kapanış bu bölgenin tepesini 30 mum içinde ilk kez 
 bozar); herhangi bir ölçekte kırılım sinyaldir. Stop giriş − 2 ATR (bölge dibi, 3 ATR, bölge ortası ve kırılım mumu dibi de test edildi); kanal çıkışı (varsayılan), 20 gün
 tut, takip eden stop, sabit 2R / 3R. Kırılım günü için hacim/kapanış şartı yok.
 
-Trade arşivi (sinyaller sayfasında sağ üstteki düğme, `#/sinyal/arsiv`): her stratejinin varsayılan çıkışla son 4 yılda
+İşlem arşivi (sinyaller sayfasında sağ üstteki düğme, `#/sinyal/arsiv`): her stratejinin varsayılan çıkışla son 4 yılda
 sonuçlanan bütün işlemleri `data/trades.json` dosyasına yazılır (`fetch_data.archive_rows`; sütunlar `ARCHIVE_COLS`; açık
 işlemler sonuçlanınca arşive geçer), yalnızca arşiv açılınca yüklenir. Strateji, periyot, endeks, yıl, sonuç, çıkış nedeni ve
 hisse filtreleri; özet, strateji kırılımı, CSV indirme. Hisse koduna gelince (basılı tutunca) sinyal sayfasındaki kurulum
@@ -172,7 +177,7 @@ Aynı kurallar 4 saatlik mumlarda da çalışır (`scripts/intraday.py`, testler
 saatlik verisi (son ~2 yıl) günde iki muma çevrilir (açılış–13:30 ve 13:30–kapanış), bölünmelere göre günlük
 kapanışa ölçeklenir; yalnızca 20 mn ₺ hacim filtresini geçen hisseler indirilir. 4 saatlik işlemler en fazla 120 mum
 (~60 gün) tutulur. Açık sinyaller, hazırlananlar ve son sonuçlar tek tabloda, *Periyot* sütununda 1G / 4S olarak
-ayrılır; test sonuçları periyoda göre ayrı gösterilir. `--no-intraday` ile 4 saatlik kısım atlanır.
+ayrılır (arayüzde "Günlük" / "4 saat"); test sonuçları periyoda göre ayrı gösterilir. `--no-intraday` ile 4 saatlik kısım atlanır.
 
 Bedelsiz / bölünme düzeltmesi (`scripts/corpact.py`, testleri `tests/test_corpact.py`): Yahoo, BIST'teki bedelsiz sermaye
 artırımlarının çoğunu fiyatlara yansıtmıyor. BIST'te açılış da önceki kapanışın ±%10'u ile sınırlı olduğundan, açılışın

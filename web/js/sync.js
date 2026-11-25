@@ -69,7 +69,7 @@ export function setSync(st, msg = '') {
   document.querySelectorAll('[data-syncstatus]').forEach(el => { el.innerHTML = syncStatusHtml(); });
 }
 export function syncStatusHtml() {
-  if (!syncCfg.token) return '<span class="muted">☁ Senkronizasyon kapalı · <a href="#/aktar">⚙ Aktar</a>\'dan açabilirsiniz</span>';
+  if (!syncCfg.token) return location.hash.startsWith('#/aktar') ? '<span class="muted">☁ Senkronizasyon kapalı</span>' : '<span class="muted">☁ Senkronizasyon kapalı · <a href="#/aktar">⚙ Ayarlar</a>\'dan açabilirsiniz</span>';
   if (sync.state === 'busy') return '<span class="muted">☁ Eşitleniyor…</span>';
   if (sync.state === 'error') return `<span class="down">☁ Eşitlenemedi: ${esc(sync.msg)}</span>`;
   if (sync.state === 'conflict') return '<span class="down">☁ Çakışma: hangi sürümün kalacağını seçin</span>';
@@ -136,6 +136,8 @@ export function syncPanelHtml() {
         <button type="button" class="btn" data-sync="disconnect">Bu cihazda kapat</button></div>
       <p class="muted" style="font-size:12px;margin:0">"Bu cihazda kapat" anahtarı yalnızca bu cihazdan siler; Gist ve verileriniz yerinde kalır.</p>`
     : `
+      <p class="muted" style="font-size:13px;margin:0">Verilerinizi birden fazla cihazda otomatik eşitlemek için kendi GitHub hesabınızdaki özel bir Gist kullanılır.</p>
+      <details class="info syncsetup"><summary>Kurulum adımları</summary><div>
       <ol class="steps">
         <li>GitHub'da <a href="https://github.com/settings/tokens/new?scopes=gist&description=Tahta%20senkronizasyon" target="_blank" rel="noopener">yeni bir erişim anahtarı oluşturun</a>:
           yalnızca <b>gist</b> kutusu işaretli olsun, süre olarak "No expiration" ya da uzun bir süre seçin, "Generate token" deyin.</li>
@@ -147,8 +149,8 @@ export function syncPanelHtml() {
         <label class="wide">Gist kimliği <small class="muted">(isteğe bağlı; boşsa otomatik bulunur ya da oluşturulur)</small><input id="syncGist" autocomplete="off" spellcheck="false"></label>
       </div>
       <div class="row"><button type="button" class="btn primary" data-sync="connect">Bağlan</button><span id="syncMsg" role="status"></span></div>
-      <p class="muted" style="font-size:12px;margin:0">Anahtar yalnızca bu cihazın tarayıcısında saklanır; Aktar koduna ve siteye girmez. Bu anahtar depolarınıza erişemez, yalnızca Gist'lerinizi yönetebilir.
-        Gist'in adresini kimseyle paylaşmayın.</p>`}
+      <p class="muted" style="font-size:12px;margin:0">Anahtar yalnızca bu cihazın tarayıcısında saklanır; taşıma koduna ve siteye girmez. Bu anahtar depolarınıza erişemez, yalnızca Gist'lerinizi yönetebilir.
+        Gist'in adresini kimseyle paylaşmayın.</p></div></details>`}
   </section>`;
 }
 // Uygulamaya geri dönüldüğünde (sekme/uygulama tekrar görünür olunca) eşitle

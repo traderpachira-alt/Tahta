@@ -18,7 +18,7 @@ export function parseCode(code) {
 }
 export function renderTransfer(incoming) {
   destroyCharts();
-  document.title = 'Aktar · Tahta';
+  document.title = 'Ayarlar ve yedek · Tahta';
   const code = exportCode();
   const link = `${location.origin}${location.pathname}#/aktar/${code}`;
   let preview = '';
@@ -29,7 +29,10 @@ export function renderTransfer(incoming) {
     } catch (e) { preview = `<p class="note-fx">${esc(e.message)}</p>`; }
   }
   view.innerHTML = `
-  <section class="dhead"><div><h1>Aktar</h1><p class="sub">İzleme listenizi, kayıtlı taramalarınızı ve portföyünüzü başka bir cihaza taşıyın.</p></div></section>
+  <section class="dhead"><div><h1>Ayarlar ve yedek</h1><p class="sub">Portföyünüz, izleme listeniz ve kayıtlı taramalarınız yalnızca bu cihazda saklanır. Kaybolmaması için yedekleyin ya da başka bir cihaza taşıyın.</p></div></section>
+  ${backupPanelHtml()}
+  ${syncPanelHtml()}
+  <h2 class="sechead">Başka bir cihaza tek seferlik taşıma</h2>
   <div class="panels two">
     <section class="panel">
       <h2>Bu cihazdan gönder</h2>
@@ -47,9 +50,7 @@ export function renderTransfer(incoming) {
       <div class="row"><button type="button" class="btn primary" id="importBtn">İçe aktar</button><span id="importMsg" role="status"></span></div>
       <p class="muted" style="font-size:12px">Mevcut listeniz silinmez; yeni hisseler eklenir, aynı adlı taramalar güncellenir.</p>
     </section>
-  </div>
-  ${backupPanelHtml()}
-  ${syncPanelHtml()}`;
+  </div>`;
 }
 // Yedek dosyası paneli
 export function backupPanelHtml() {

@@ -1,11 +1,11 @@
 import { CMP_MAX, renderCompare } from './compare.js';
 import { BY, DATA, HIST, loadSummary } from './data.js';
-import { PANES, charts, drawCharts, indChips, renderDetail, setRange, toggleFull } from './detail.js';
+import { PANES, charts, drawCharts, indChips, renderDetail, setRange, setSigPick, toggleFull } from './detail.js';
 import { $, view } from './dom.js';
 import { PRESETS, VIEWS } from './fields.js';
 import { ASSETS, ASSET_CATS, CASH, applyTx, confirmDiv, ensureCash, isAssetCat, isCash, isCoin, isCrypto, num, numDec, pfCalc, pfId, removePosition, removeTx, toTl, trNum, undoDiv } from './pfcore.js';
 import { alertMsg, coinSym, currentPrice, defaultFlow, pfHist, pfOpen, pfReadForm, renderPortfolio, txOpen, txPreview, txReadForm, usdPrice } from './portfolio.js';
-import { closeMs, colsFor, filtered, fitPanel, moveCol, refreshCols, refreshResults, renderScreener, screenOf, setCols, sorted, tableHtml } from './screener.js';
+import { clearFilter, closeMs, colsFor, filtered, fitPanel, moveCol, refreshCols, refreshResults, renderScreener, screenOf, setCols, sorted, tableHtml } from './screener.js';
 import { listOf, persist, state, ui } from './store.js';
 import { sync, syncConnect, syncDisconnect, syncNow, syncOn } from './sync.js';
 import { backupJson, backupName, mergeData, parseBackup, replaceData } from './backup.js';
@@ -69,6 +69,13 @@ view.addEventListener('click', e => {
     return;
   }
   if (d.pgroup) { ui.pgroup = ui.pgroup === d.pgroup ? null : d.pgroup; renderScreener(); return; }
+  if (d.sigpick != null) { setSigPick(+d.sigpick); return; }
+  if (b.id === 'ftoggle') { ui.fOpen = !ui.fOpen; b.setAttribute('aria-expanded', ui.fOpen); b.closest('.toolbar').classList.toggle('fopen', ui.fOpen); return; }
+  if (d.fclear) { clearFilter(d.fclear); persist(); renderScreener(); return; }
+  if (d.intro) {
+    if (d.intro === 'done') { state.introDone = true; ui.introStep = 0; persist(); } else ui.introStep = (ui.introStep || 0) + (d.intro === 'next' ? 1 : -1);
+    renderScreener(); return;
+  }
   if (d.preset) {
     state.preset = d.preset;
     const p = PRESETS.find(x => x.id === d.preset);
@@ -401,6 +408,18 @@ export function route() {
   window.scrollTo(0, 0);
 }
 window.addEventListener('hashchange', route);
+/* Yana kayan satırlarda (sekmeler, hazır taramalar, kartlar) devamı olduğunu sağ kenarı soldurarak göster */
+const FADE = '.dtabs, .presets:not(.sub), .today, .controls .seg';
+function fadeCheck(el) { el.classList.toggle('fade-r', el.scrollWidth - el.clientWidth - el.scrollLeft > 4); }
+function fadeScan() {
+  view.querySelectorAll(FADE).forEach(el => {
+    if (!el.dataset.fade) { el.dataset.fade = '1'; el.addEventListener('scroll', () => fadeCheck(el), { passive: true }); }
+    fadeCheck(el);
+  });
+}
+let fadeT = 0;
+new MutationObserver(() => { cancelAnimationFrame(fadeT); fadeT = requestAnimationFrame(fadeScan); }).observe(view, { childList: true, subtree: true });
+addEventListener('resize', fadeScan);
 (async () => {
   try {
     await loadSummary();

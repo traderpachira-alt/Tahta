@@ -99,8 +99,10 @@ export function multiSelect(key, allLabel, unit, options, searchable) {
 // Tabloyu ve sayacı yenile (araç çubuğunu yeniden çizmeden; açık paneller ve odak korunur)
 export function refreshResults() {
   const rows = sorted(filtered());
-  view.querySelector('.tablewrap').innerHTML = rows.length ? tableHtml(rows, colsFor(state.view)) : '<p class="empty">Bu koşullara uyan hisse yok.</p>';
+  view.querySelector('.tablewrap').innerHTML = rows.length ? tableHtml(rows, colsFor(state.view)) : emptyHtml();
   view.querySelector('.count b').textContent = rows.length;
+  const ft = view.querySelector('#ftoggle');
+  if (ft) { ft.innerHTML = 'Filtrele' + fbadge(); view.querySelector('.fchips')?.remove(); ft.closest('.controls').insertAdjacentHTML('afterend', fchips()); }
   view.querySelectorAll('.ms').forEach(m => {
     const k = m.dataset.ms;
     if (k === 'cols') { m.classList.toggle('on', colsCustom(state.view) || !!state.hideTedbir); return; }
@@ -253,8 +255,8 @@ function breadthHtml(B) {
 /* Bugün özeti: açık sinyaller, portföy, izleme listesi, yaklaşan temettüler (içeriği olan kartlar) */
 function todayHtml() {
   const cards = [];
-  const nSig = DATA.stocks.filter(s => s.sig?.length).length;
-  cards.push(`<a class="tcard" href="#/sinyal"><span>Sinyaller</span><b>${nSig} açık</b><small id="tCand">&nbsp;</small></a>`);
+  const sigSt = DATA.stocks.filter(s => s.sig?.length), nSig = sigSt.reduce((a, s) => a + s.sig.length, 0);
+  cards.push(`<a class="tcard" href="#/sinyal"><span>Sinyaller</span><b>${nSig} açık sinyal</b><small id="tCand">${sigSt.length} hisse</small></a>`);
   const rows = state.portfolio.length ? pfRows().filter(r => r.open) : [];
   if (rows.length) {
     const v = rows.reduce((a, r) => a + (r.value || 0), 0), d = rows.reduce((a, r) => a + (r.day || 0), 0);
@@ -275,6 +277,58 @@ function todayHtml() {
         : `<b>%${Math.round(B.a50 * 100)} · %${Math.round(B.a200 * 100)}</b><small>${esc(B.head)}</small>`}</button>`);
   return `<section class="today" aria-label="Bugün özeti">${cards.join('')}</section>${B ? `<section class="panel brdpanel" id="brdPanel"${ui.brdOpen ? '' : ' hidden'}>${breadthHtml(B)}</section>` : ''}`;
 }
+const emptyHtml = () => state.preset === 'watch' && !state.watch.length
+  ? '<p class="empty">İzleme listeniz boş.<br>Tablodaki ya da hisse sayfasındaki <b>★</b> işaretine dokunarak hisse ekleyin; burada birlikte izlersiniz.</p>'
+  : `<p class="empty">Bu koşullara uyan hisse yok.${activeFilters().length ? '<br>Filtrelerden birini kaldırmayı deneyin.' : ''}</p>`;
+/* Telefonda tablo ekranın görünen alanı kadar yüksektir; tablo kaydırılmaya başlayınca sayfa, tablo üst çubuğun altına
+   oturacak kadar kendiliğinden kayar (iç içe iki kaydırma alanı yerine tablo ekranı doldurur) */
+const phone = () => matchMedia('(max-width: 640px)').matches;
+export function setTopH() { document.documentElement.style.setProperty('--toph', `${document.querySelector('.top')?.offsetHeight || 90}px`); }
+addEventListener('resize', setTopH);
+function fitTable(tw) {
+  if (!tw) return;
+  setTopH();
+  let last = tw.scrollTop;
+  tw.addEventListener('scroll', () => {
+    const y = tw.scrollTop, down = y > last; last = y;
+    if (!phone() || !down) return;
+    const top = tw.getBoundingClientRect().top, want = document.querySelector('.top').offsetHeight + 8;
+    if (top > want + 4) window.scrollTo({ top: window.scrollY + top - want, behavior: 'smooth' });
+  }, { passive: true });
+}
+/* Telefonda filtreler "Filtrele" düğmesinin arkasında toplanır; kapalıyken seçili filtreler kaldırılabilir etiketler olarak görünür */
+function activeFilters() {
+  const out = [];
+  if (state.index) out.push(['index', '', 'BIST ' + state.index]);
+  for (const m of state.markets) out.push(['markets', m, MARKET_OPTS.find(o => o[0] === m)?.[1] || m]);
+  for (const x of state.sectors) out.push(['sectors', x, x]);
+  state.filters.forEach((f, i) => { if (f.value !== '' && f.value != null) out.push(['filter', String(i), `${FIELDS[f.key]?.label} ${f.op === '>' ? '>' : '<'} ${f.value}${FIELDS[f.key]?.pct ? '%' : ''}`]); });
+  return out;
+}
+const fbadge = () => { const n = activeFilters().length; return n ? ` <span class="fn">${n}</span>` : ''; };
+const fchips = () => { const a = activeFilters(); return a.length ? `<div class="fchips" aria-label="Seçili filtreler">${a.map(([k, v, l]) =>
+  `<button type="button" class="fchip" data-fclear="${k}|${esc(v)}" aria-label="${esc(l)} filtresini kaldır">${esc(l)} <span aria-hidden="true">×</span></button>`).join('')}</div>` : ''; };
+export function clearFilter(spec) {
+  const [k, v] = spec.split('|');
+  if (k === 'index') state.index = '';
+  else if (k === 'filter') state.filters.splice(+v, 1);
+  else state[k] = state[k].filter(x => x !== v);
+}
+/* İlk açılış tanıtımı: 3 adım, kapatılınca bir daha görünmez (Rehber'den yeniden açılabilir) */
+const INTRO = [
+  ['Tahta\'ya hoş geldiniz', 'Borsa İstanbul\'daki 600\'den fazla hisse için tarama, teknik ve temel analiz, strateji sinyalleri ve portföy takibi. Veriler her işlem günü otomatik güncellenir; fiyatlar yaklaşık 15 dakika gecikmelidir.'],
+  ['Tarama', 'Hazır taramalardan birini seçin ya da <b>Filtrele</b> ile endeks, pazar, sektör ve gösterge koşulu ekleyin. Satıra dokununca hissenin grafiği ve analizi açılır; <b>★</b> ile izleme listesine eklersiniz.'],
+  ['Sinyaller ve portföy', '<b>Sinyaller</b> sayfası stratejilerin açık sinyallerini, oluşmak üzere olan kurulumları ve geçmiş test sonuçlarını gösterir. Portföyünüz ve izleme listeniz yalnızca bu cihazda saklanır; <b>⚙ Ayarlar</b>\'dan yedekleyebilirsiniz. Terimler için <b>?</b> Rehber.'],
+];
+function introHtml() {
+  const i = Math.min(ui.introStep || 0, INTRO.length - 1), [h, p] = INTRO[i], last = i === INTRO.length - 1;
+  return `<section class="panel intro" aria-label="Tanıtım">
+    <div class="introhead"><span class="introdots" aria-label="Adım ${i + 1} / ${INTRO.length}">${INTRO.map((_, k) => `<i${k === i ? ' class="on"' : ''}></i>`).join('')}</span>
+      <button type="button" class="linkbtn" data-intro="done">Geç</button></div>
+    <h2>${h}</h2><p>${p}</p>
+    <div class="row">${i ? '<button type="button" class="btn" data-intro="prev">Geri</button>' : ''}<button type="button" class="btn primary" data-intro="${last ? 'done' : 'next'}">${last ? 'Başla' : 'İleri'}</button></div>
+  </section>`;
+}
 export function renderScreener() {
   destroyCharts();
   document.title = 'Tahta';
@@ -287,20 +341,25 @@ export function renderScreener() {
 
   view.innerHTML = `
   ${todayHtml()}
-  <section class="toolbar">
+  ${state.introDone ? '' : introHtml()}
+  <section class="toolbar${ui.fOpen ? ' fopen' : ''}">
     ${presetBar(counts)}
     <div class="controls">
       <div class="seg" role="group" aria-label="Sütun grubu">
         ${Object.entries(VIEWS).map(([id, v]) => `<button type="button" data-view="${id}" aria-pressed="${state.view === id}">${v.label}</button>`).join('')}
       </div>
-      <label class="sr" for="indexSel">Endeks</label>
-      <select id="indexSel" class="btn">${[['', 'Tüm hisseler'], ['30', 'BIST 30'], ['50', 'BIST 50'], ['100', 'BIST 100']].map(([v, l]) => `<option value="${v}"${v === state.index ? ' selected' : ''}>${l}</option>`).join('')}</select>
-      ${multiSelect('markets', 'Tüm pazarlar', 'pazar', MARKET_OPTS.map(([v, l]) => [v, l, DATA.stocks.filter(x => x.mkt === v).length]), false)}
-      ${multiSelect('sectors', 'Tüm sektörler', 'sektör', sectors.map(v => [v, v, DATA.stocks.filter(x => x.sector === v).length]), true)}
-      <button type="button" class="btn" id="addFilter">+ Filtre</button>
+      <div class="fbox">
+        <label class="sr" for="indexSel">Endeks</label>
+        <select id="indexSel" class="btn">${[['', 'Tüm hisseler'], ['30', 'BIST 30'], ['50', 'BIST 50'], ['100', 'BIST 100']].map(([v, l]) => `<option value="${v}"${v === state.index ? ' selected' : ''}>${l}</option>`).join('')}</select>
+        ${multiSelect('markets', 'Tüm pazarlar', 'pazar', MARKET_OPTS.map(([v, l]) => [v, l, DATA.stocks.filter(x => x.mkt === v).length]), false)}
+        ${multiSelect('sectors', 'Tüm sektörler', 'sektör', sectors.map(v => [v, v, DATA.stocks.filter(x => x.sector === v).length]), true)}
+        <button type="button" class="btn" id="addFilter">+ Gösterge koşulu</button>
+      </div>
+      <button type="button" class="btn ftoggle" id="ftoggle" aria-expanded="${!!ui.fOpen}" aria-controls="filters">Filtrele${fbadge()}</button>
       ${colsPanel()}
       <span class="count"><b class="num">${rows.length}</b> / ${DATA.stocks.length} hisse${preset?.hint ? ` · ${esc(preset.hint)}` : ''}</span>
     </div>
+    ${fchips()}
     <div class="filters" id="filters">
       ${state.filters.map((f, i) => `
         <div class="frow" data-i="${i}">
@@ -312,9 +371,11 @@ export function renderScreener() {
         </div>`).join('')}
     </div>
   </section>
-  <div class="tablewrap">${rows.length ? tableHtml(rows, cols) : '<p class="empty">Bu koşullara uyan hisse yok.</p>'}</div>`;
+  <div class="tablewrap scr">${rows.length ? tableHtml(rows, cols) : emptyHtml()}</div>`;
+  fitTable(view.querySelector('.tablewrap.scr'));
   view.querySelector('#brdBtn')?.addEventListener('click', e => {
     ui.brdOpen = !ui.brdOpen; e.currentTarget.setAttribute('aria-expanded', ui.brdOpen); view.querySelector('#brdPanel').hidden = !ui.brdOpen;
   });
-  loadSignals().then(S => { const el = view.querySelector('#tCand'); if (el && S.candidates) el.textContent = `${S.strategies.length} strateji · ${S.candidates.length} hazırlanan`; }).catch(() => {});
+  const sigSt = DATA.stocks.filter(s => s.sig?.length);
+  loadSignals().then(S => { const el = view.querySelector('#tCand'); if (el && S.candidates) el.textContent = `${sigSt.length} hisse · ${S.candidates.length} hazırlanan kurulum`; }).catch(() => {});
 }

@@ -5,7 +5,7 @@ import { persist, state } from './store.js';
 import { F1, F2, cls, esc, fmt, ok } from './util.js';
 
 /* ============================================================
-   Trade arşivi: stratejilerin geriye dönük testte sonuçlanan bütün işlemleri (varsayılan çıkış), filtrelenebilir. Açık
+   İşlem arşivi: stratejilerin geriye dönük testte sonuçlanan bütün işlemleri (varsayılan çıkış), filtrelenebilir. Açık
    işlemler sonuçlanınca arşive geçer. Veri: data/trades.json (scripts/fetch_data.py → archive_rows); yalnızca bu sayfa
    açılınca yüklenir. Kurulum çizimi için mumlar, üzerine gelinen hissenin günlük fiyat dosyasından (data/hist, 2 yıldan
    eskiyse data/histx) gerektiğinde yüklenir.
@@ -72,7 +72,7 @@ function byStrategy(L) {
   if (f.k) return '';
   const g = new Map();
   for (const a of L) {
-    const key = `${a.kn}${a.tf === '4H' ? ' · 4S' : ''}`;
+    const key = `${a.kn}${a.tf === '4H' ? ' · 4 saat' : ''}`;
     const s = g.get(key) || { n: 0, w: 0, sum: 0 };
     s.n++; s.w += a.r > 0; s.sum += a.r; g.set(key, s);
   }
@@ -87,15 +87,15 @@ function table(L) {
   const many = !F().k;
   const rows = L.slice(0, shown).map((a, i) => {
     const [lab, c] = EXIT[a.st] || [a.st, ''];
-    return `<tr data-pv="arc:${i}"><td class="tk"><a class="code" href="#/h/${esc(a.t)}">${esc(a.t)}</a> ${a.tf === '4H' ? '<span class="chip tf4">4S</span>' : '<span class="chip">1G</span>'}</td>
-      ${many ? `<td class="txt">${esc(a.kn)}</td>` : ''}
-      <td>${dshort(a.d0)}</td><td>${fmt.price(a.e)}</td>
-      <td>${dshort(a.d1)}</td><td>${fmt.price(a.x)}</td>
-      <td class="${cls(a.pct)}">${pctFmt(a.pct)}</td><td class="${cls(a.r)}"><b>${rFmt(a.r)}</b></td>
-      <td class="txt"><span class="chip ${c}">${lab}</span>${a.re ? ' <span class="chip warn" title="Stop sonrası yeniden giriş">yeniden giriş</span>' : ''}</td>
-      <td>${days(a.d0, a.d1)} gün</td></tr>`;
+    return `<tr data-pv="arc:${i}" data-t="${esc(a.t)}"><td class="tk c-tk"><a class="code" href="#/h/${esc(a.t)}">${esc(a.t)}</a> ${a.tf === '4H' ? '<span class="chip tf4">4 saat</span>' : '<span class="chip">Günlük</span>'}</td>
+      ${many ? `<td class="txt c-st">${esc(a.kn)}</td>` : ''}
+      <td class="c-d" data-l="Giriş tarihi">${dshort(a.d0)}</td><td class="c-e" data-l="Giriş">${fmt.price(a.e)}</td>
+      <td class="c-xd" data-l="Çıkış tarihi">${dshort(a.d1)}</td><td class="c-x" data-l="Çıkış">${fmt.price(a.x)}</td>
+      <td class="c-p ${cls(a.pct)}" data-l="Getiri">${pctFmt(a.pct)}</td><td class="c-r ${cls(a.r)}" data-l="Sonuç"><b>${rFmt(a.r)}</b></td>
+      <td class="txt c-w"><span class="chip ${c}">${lab}</span>${a.re ? ' <span class="chip warn" title="Stop sonrası yeniden giriş">yeniden giriş</span>' : ''}</td>
+      <td class="c-du" data-l="Süre">${days(a.d0, a.d1)} gün</td></tr>`;
   }).join('');
-  return `<div class="tablewrap flat"><table class="grid arctable"><thead><tr><th class="tk">Hisse</th>${many ? '<th class="txt">Strateji</th>' : ''}
+  return `<div class="tablewrap flat"><table class="grid arctable cards c-arc"><thead><tr><th class="tk">Hisse</th>${many ? '<th class="txt">Strateji</th>' : ''}
       <th>Giriş tarihi</th><th>Giriş</th><th>Çıkış tarihi</th><th>Çıkış</th><th>Getiri</th><th title="Sonuç, risk birimi cinsinden (1R = giriş − stop); maliyet dahil">Sonuç</th>
       <th class="txt">Çıkış nedeni</th><th>Süre</th></tr></thead><tbody>${rows}</tbody></table></div>
     ${L.length > shown ? `<p class="arcmore"><button type="button" class="btn" data-arcmore="1">Daha fazla göster (${fmt.big(Math.min(PAGE, L.length - shown))} / kalan ${fmt.big(L.length - shown)})</button></p>` : ''}`;
@@ -155,15 +155,15 @@ function drawResults() {
 }
 
 export async function renderArchive() {
-  document.title = 'Trade arşivi · Tahta';
+  document.title = 'İşlem arşivi · Tahta';
   view.innerHTML = '<p class="empty">Arşiv yükleniyor…</p>';
-  try { await load(); } catch { view.innerHTML = '<p class="empty">Trade arşivi henüz yok; bir sonraki veri güncellemesinde oluşacak. <a href="#/sinyal">← Sinyaller</a></p>'; return; }
+  try { await load(); } catch { view.innerHTML = '<p class="empty">İşlem arşivi henüz yok; bir sonraki veri güncellemesinde oluşacak. <a href="#/sinyal">← Sinyaller</a></p>'; return; }
   if (!location.hash.startsWith('#/sinyal/arsiv')) return;
   const f = F();
   shown = 100;
   const sel = (id, lab, val, opts) => `<label class="arcf"><span>${lab}</span><select id="${id}">${opts.map(([v, t]) => `<option value="${esc(v)}"${v === val ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select></label>`;
   view.innerHTML = `
-  <section class="dhead"><div><h1>Trade arşivi</h1>
+  <section class="dhead"><div><h1>İşlem arşivi</h1>
     <p class="sub">Stratejilerin son 4 yılda sonuçlanan bütün işlemleri (her stratejinin varsayılan çıkışıyla, aynı test motoru; açık işlemler sonuçlanınca buraya geçer) · güncellendi ${fmt.date(ARC.updated.slice(0, 10))}</p></div>
     <a class="btn dhead-act" href="#/sinyal">← Sinyaller</a></section>
   <section class="panel arcfilters">

@@ -47,8 +47,12 @@ export async function loadSummary() {
   const stale = !DATA.sample && (ageDays > 4 || late || bad.length > 0);
   badge.hidden = false;
   badge.classList.toggle('warn', stale);
-  badge.textContent = `Veri ${fmt.date(DATA.lastDate).slice(0, 5)}${stale ? ' ⚠' : ''}`;
-  badge.title = `Son kapanış ${fmt.date(DATA.lastDate)} · güncellendi ${upd.toLocaleString('tr-TR', { dateStyle: 'short', timeStyle: 'short' })}`;
+  // "Son veri bugün 19:12" / "dün 19:12" / "21.11 18:40" (İstanbul saatiyle)
+  const dayKey = d => d.toLocaleDateString('sv-SE', { timeZone: 'Europe/Istanbul' });
+  const hm = upd.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Istanbul' }), ud = dayKey(upd);
+  const ago = ud === dayKey(new Date()) ? 'bugün' : ud === dayKey(new Date(Date.now() - 864e5)) ? 'dün' : fmt.date(ud).slice(0, 5);
+  badge.textContent = `Son veri ${ago} ${hm}${stale ? ' ⚠' : ''}`;
+  badge.title = `Dokunun: veri durumu ve kaynaklar · son kapanış ${fmt.date(DATA.lastDate)} · güncellendi ${upd.toLocaleString('tr-TR', { dateStyle: 'short', timeStyle: 'short' })}`;
   // ISO zaman damgalarını yerel saate çevir (ör. 2026-11-22T21:37+00:00 → 23.11.2026 00:37)
   const when = t => String(t).replace(/\d{4}-\d\d-\d\dT\d\d:\d\d(:\d\d)?(\+00:00|Z)/, m => new Date(m).toLocaleString('tr-TR', { dateStyle: 'short', timeStyle: 'short' }));
   const mark = { true: '<span class="up">✓</span>', false: '<span class="down">⚠</span>', null: '<span class="muted">ⓘ</span>' };

@@ -1,5 +1,6 @@
 import { destroyCharts } from './detail.js';
 import { view } from './dom.js';
+import { persist, state } from './store.js';
 import { esc } from './util.js';
 
 /* ============================================================
@@ -10,7 +11,7 @@ const GUIDE = [
     14 gün içindeki temettüleri ve <b>piyasa genişliğini</b> özetler. Genişlik kartı, BIST TÜM hisselerinin kaçının 50 ve 200 günlük ortalamasının üstünde olduğunu gösterir; dokununca 4 yıllık grafik, 4 yıla göre yeri ve olumlu (▲) / olumsuz (▼) işaretlerle yorum açılır. Hazır taramalar gruplara ayrılmıştır: <b>Tümü</b>, <b>İzleme listem</b> ve <b>Aktif sinyal</b> tek dokunuş;
     <b>Teknik</b>, <b>Temettü</b>, <b>Temel</b> başlıklarına dokununca altında o grubun taramaları açılır; seçili tarama başlıkta yazar.
     <b>Kayıtlı</b> başlığı kendi taramalarınızı ve "Bu taramayı kaydet" düğmesini gösterir. Alttaki sekmeler (Fiyat, Trend, Momentum, Temettü, Temel)
-    tablonun sütun grubunu değiştirir. <b>+ Filtre</b> ile kendi koşulunuzu ekleyin (yüzde alanlara yüzde yazın: 5 = %5). Endeks, pazar ve sektörde birden
+    tablonun sütun grubunu değiştirir. Telefonda endeks, pazar, sektör ve gösterge koşulları <b>Filtrele</b> düğmesinin arkasındadır; seçili filtreler tablonun üstünde etiket olarak görünür, × ile kaldırılır. <b>+ Gösterge koşulu</b> ile kendi koşulunuzu ekleyin (yüzde alanlara yüzde yazın: 5 = %5). Endeks, pazar ve sektörde birden
     fazla seçim yapılabilir. Her sekmede yalnızca temel sütunlar açık gelir; <b>☰ Görünüm</b> panelinde sekmeye ait diğer sütunlar "eklenebilir" başlığı altındadır. Bu panelde sütun ekleyip çıkarın ve tedbirli hisseleri gizleyin; masaüstünde sütun başlığını sürükleyerek,
     telefonda paneldeki oklarla sırasını değiştirin. Başlığa dokununca sıralanır. Endeks sütununda 30 / 50 / 100 / TÜM yazar; pazar yalnızca Yıldız ve Ana
     dışındaysa görünür.`],
@@ -20,23 +21,26 @@ const GUIDE = [
     teknik görünüm), <b>Destek / direnç</b>, <b>Temettü</b> (geçmiş, güvenlik skoru, verim bandı, F-skoru), <b>Temel ve değerleme</b> (oranlar,
     mali tablolar, DCF) ve <b>Sektör</b>. Verisi olmayan bölümler gösterilmez. ★ hisseyi izleme listesine ekler. "ⓘ" satırları açıklamaları açar.`],
   ['Sinyaller', `Birden fazla strateji aynı motorla çalışır ve gruplar (ör. Mum formasyonları) altında toplanır. Üstteki <b>Tüm stratejiler</b>
-    seçiliyken bütün açık sinyaller tek tabloda (Strateji sütunuyla) ve en altta stratejilerin karşılaştırma tablosu görünür; bir grup başlığına dokunup
-    stratejiyi seçince yalnızca onun sinyalleri, kuralları ve geriye dönük testi açılır.
-    Satırdaki <b>1G / 4S</b> etiketi sinyalin günlük mi 4 saatlik mumda mı oluştuğunu gösterir. Açık sinyali olan hissenin grafiğinde giriş ve stop çizilir.
+    seçiliyken bütün stratejilerin sinyalleri birlikte görünür; bir grup başlığına dokunup stratejiyi seçince yalnızca onunkiler kalır. Sayfa dört sekmedir:
+    <b>Açık</b> (pozisyonu süren sinyaller), <b>Hazırlanan</b> (oluşmak üzere olan kurulumlar), <b>Sonuçlanan</b> (son 60 gün) ve <b>Performans</b>
+    (stratejilerin karşılaştırma tablosu; strateji seçiliyken kuralları ve geriye dönük testi). Telefonda sinyaller kart olarak listelenir.
+    Satırdaki <b>Günlük / 4 saat</b> etiketi sinyalin günlük mü 4 saatlik mumda mı oluştuğunu gösterir. Açık sinyali olan hissenin sayfasında sinyaller tek kutuda listelenir; grafikte seçili sinyalin giriş, stop ve çıkış seviyeleri çizilir.
     <b>Hazırlanan kurulumlar</b>, bir sonraki mumda tamamlanabilecek hisseleri tetik fiyatıyla gösterir. Şu an: <b>Morning star</b> (sert kırmızı mum, doji,
-    1. mumun tepesinin üstünde kapanan yeşil mum; üstte doldurulmamış düşüş FVG'si varsa sinyal yok; +1R'den sonra takip eden stop) <b>Donchian Break</b> (yükseliş trendinde 20 günlük zirvenin kırılımı, yalnızca günlük; kapanış son 10 günün en düşüğünün altına inince çıkış) ve <b>Temettü Rallisi</b> (brüt verimi ≥ %5 açıklanmış temettüde hak kullanımdan 10 iş günü önce kapanışta giriş, temettü hakkı olan son gün kapanışta çıkış, stop yok; girişe 1–5 gün kalanlar hazırlanan kurulumlarda görünür). Trend takip grubunda <b>FVG Push</b>: yükseliş trendinde güçlü bir itkinin bıraktığı fiyat boşluğuna (FVG) ilk geri çekilmede, kapanış önceki mumun tepesini aşınca girilir; stop boşluğun 0,5 ATR altı, kanal çıkışı. Donchian'la aynı trendlerde sık örtüşür ama ayrı izlenir; teyit bekleyenler hazırlanan kurulumlarda görünür. Kırılım grubunda ayrıca <b>Squeeze Break</b>: 40 günlük dar bir kutuda (en fazla %20) kapanışları tavana yakın seyreden, alım hacmi ağır basan hisse kutuyu güçlü bir kapanış (günün üst %30'u, gövdeli) ve hacimle yukarı kırınca girilir; fitille kutu üstüne çıkıp geri dönen günler sayılmaz; stop kutunun dibi, 20. işlem günü kapanışında çıkış. Sağ üstteki <b>Trade arşivi</b> düğmesi, stratejilerin geriye dönük testte sonuçlanan bütün işlemlerini (varsayılan çıkışla; açık işlemler sonuçlanınca arşive geçer) strateji, periyot, endeks, yıl, sonuç ve çıkış nedenine göre filtrelenebilir şekilde gösterir; özet istatistik ve CSV indirme içerir. Hisse koduna gelince (basılı tutunca) işlemin kurulum çizimi açılır. Trend takipte <b>Rise Baby</b>: SMA200 üstünde 10 günde %25'ten fazla yükselen hisseye yükselişin kendini gösterdiği ilk gün binilir; sinyal günü tavanda kapanırsa beklenir, tavanda kapanmadığı ilk günün kapanışında girilir (3 gün tavanda kalırsa iptal); stop 2,5 ATR, kanal çıkışı. Trend takipte ayrıca <b>SMA200 Retest</b>: yükseliş trendinde ortalamadan en az %15 uzaklaşmış fiyat 200 günlük ortalamaya kadar geri çekilip dönünce (kapanış önceki günün tepesinin üstünde) girilir; stop testin dibinin 0,5 ATR altı, +1R sonrası takip stopu. Dipten dönüş grubunda <b>VWAP Reclaim</b>: 1 yıllık tepesinden en az %30 düşen hisse, tepeden bu yana alanların ortalama maliyetini (tepeden çapalı VWAP) ilk kez geri alınca girilir; stop 2 ATR, kanal çıkışı; avantaj BIST 100 dışındaki hisselerde. Dipten dönüş grubunda ayrıca <b>Structure Break</b>: alçalan tepe ve diplerle düşen hisse daha alçak bir tepe ve daha yüksek bir dip yapıp daralınca (kararsız bölge), kapanış bu bölgenin tepesini aştığında girilir; salınım noktaları birkaç farklı ölçekte (her iki yanında 4–7 mum) aranır; stop giriş − 2 ATR, kanal çıkışı. Portföy grubunda <b>Göreli güç rotasyonu</b>: her ayın ilk işlem günü BIST 100'ün oynaklığa göre en güçlü 10 hissesi eşit ağırlıkla tutulur; son 6 ayda +%200 üstü yükselenler alınmaz, BIST 100 200 günlük ortalamasının altındaysa nakitte kalınır. Sayfasında güncel portföy, bugün sıralansa listesi ve son dengelemeler görünür. Test tablosunda sonuçları BIST 30 / 50 / 100 / TÜM ayrımıyla karşılaştırın.`],
+    1. mumun tepesinin üstünde kapanan yeşil mum; üstte doldurulmamış düşüş FVG'si varsa sinyal yok; +1R'den sonra takip eden stop) <b>Donchian Break</b> (yükseliş trendinde 20 günlük zirvenin kırılımı, yalnızca günlük; kapanış son 10 günün en düşüğünün altına inince çıkış) ve <b>Temettü Rallisi</b> (brüt verimi ≥ %5 açıklanmış temettüde hak kullanımdan 10 iş günü önce kapanışta giriş, temettü hakkı olan son gün kapanışta çıkış, stop yok; girişe 1–5 gün kalanlar hazırlanan kurulumlarda görünür). Trend takip grubunda <b>FVG Push</b>: yükseliş trendinde güçlü bir itkinin bıraktığı fiyat boşluğuna (FVG) ilk geri çekilmede, kapanış önceki mumun tepesini aşınca girilir; stop boşluğun 0,5 ATR altı, kanal çıkışı. Donchian'la aynı trendlerde sık örtüşür ama ayrı izlenir; teyit bekleyenler hazırlanan kurulumlarda görünür. Kırılım grubunda ayrıca <b>Squeeze Break</b>: 40 günlük dar bir kutuda (en fazla %20) kapanışları tavana yakın seyreden, alım hacmi ağır basan hisse kutuyu güçlü bir kapanış (günün üst %30'u, gövdeli) ve hacimle yukarı kırınca girilir; fitille kutu üstüne çıkıp geri dönen günler sayılmaz; stop kutunun dibi, 20. işlem günü kapanışında çıkış. Sağ üstteki <b>İşlem arşivi</b> düğmesi, stratejilerin geriye dönük testte sonuçlanan bütün işlemlerini (varsayılan çıkışla; açık işlemler sonuçlanınca arşive geçer) strateji, periyot, endeks, yıl, sonuç ve çıkış nedenine göre filtrelenebilir şekilde gösterir; özet istatistik ve CSV indirme içerir. Hisse koduna gelince (basılı tutunca) işlemin kurulum çizimi açılır. Trend takipte <b>Rise Baby</b>: SMA200 üstünde 10 günde %25'ten fazla yükselen hisseye yükselişin kendini gösterdiği ilk gün binilir; sinyal günü tavanda kapanırsa beklenir, tavanda kapanmadığı ilk günün kapanışında girilir (3 gün tavanda kalırsa iptal); stop 2,5 ATR, kanal çıkışı. Trend takipte ayrıca <b>SMA200 Retest</b>: yükseliş trendinde ortalamadan en az %15 uzaklaşmış fiyat 200 günlük ortalamaya kadar geri çekilip dönünce (kapanış önceki günün tepesinin üstünde) girilir; stop testin dibinin 0,5 ATR altı, +1R sonrası takip stopu. Dipten dönüş grubunda <b>VWAP Reclaim</b>: 1 yıllık tepesinden en az %30 düşen hisse, tepeden bu yana alanların ortalama maliyetini (tepeden çapalı VWAP) ilk kez geri alınca girilir; stop 2 ATR, kanal çıkışı; avantaj BIST 100 dışındaki hisselerde. Dipten dönüş grubunda ayrıca <b>Structure Break</b>: alçalan tepe ve diplerle düşen hisse daha alçak bir tepe ve daha yüksek bir dip yapıp daralınca (kararsız bölge), kapanış bu bölgenin tepesini aştığında girilir; salınım noktaları birkaç farklı ölçekte (her iki yanında 4–7 mum) aranır; stop giriş − 2 ATR, kanal çıkışı. Portföy grubunda <b>Göreli güç rotasyonu</b>: her ayın ilk işlem günü BIST 100'ün oynaklığa göre en güçlü 10 hissesi eşit ağırlıkla tutulur; son 6 ayda +%200 üstü yükselenler alınmaz, BIST 100 200 günlük ortalamasının altındaysa nakitte kalınır. Sayfasında güncel portföy, bugün sıralansa listesi ve son dengelemeler görünür. Test tablosunda sonuçları BIST 30 / 50 / 100 / TÜM ayrımıyla karşılaştırın.`],
 
   ['Karşılaştır', `En fazla 5 hisseyi ve BIST 100'ü aynı başlangıçtan (%0) itibaren getiri olarak üst üste çizer.`],
   ['Portföy', `<b>+ Varlık ekle</b> ile hisse (Temettü ya da Trend/Momentum), emtia/döviz ya da kripto ekleyin. Her varlık bir işlem
     listesidir: alım ve satımlar ortalama maliyet yöntemiyle hesaplanır. Alımı TL bakiyesinden ödeyebilir, satış gelirini TL bakiyesine
     aktarabilirsiniz; bu iki kayıt birbirine bağlıdır ve birlikte silinir. BTC/ETH/SOL/BNB USDT ya da USDC ile alınır.
     Hisselerinize temettü ödendiğinde portföy sayfası sorar; tutarı onaylayınca kayda geçer.`],
-  ['Verilerinizi korumak', `Portföy ve listeler yalnızca bu cihazın tarayıcısında saklanır. Sağ üstteki <b>⚙</b> (Aktar) sayfasında üç yol var:
+  ['Verilerinizi korumak', `Portföy ve listeler yalnızca bu cihazın tarayıcısında saklanır. Sağ üstteki <b>⚙</b> (Ayarlar ve yedek) sayfasında üç yol var:
     <b>Yedek dosyası</b> (düzenli indirin, gerekince geri yükleyin), <b>bulut senkronizasyonu</b> (kendi özel GitHub Gist'iniz; cihazlar
-    otomatik eşitlenir) ve tek seferlik taşıma için <b>Aktar kodu</b>. Tarayıcı verisini temizlemek ya da uygulamayı silmek
+    otomatik eşitlenir) ve tek seferlik taşıma için <b>taşıma kodu</b>. Tarayıcı verisini temizlemek ya da uygulamayı silmek
     yedeksiz verileri siler.`],
   ['Güncelleme', `Fiyatlar hafta içi seans boyunca yaklaşık saatte bir (GitHub'ın izin verdiği sıklıkta) güncellenir ve gecikmelidir;
-    üst çubuktaki <b>Veri</b> rozeti son kapanış tarihini gösterir (veri eskiyse sarıya döner; dokununca ayrıntı çıkar). Uygulamanın yeni sürümü gelince altta "Yeni sürüm hazır" çıkar; Yenile'ye basmanız yeterli.`],
+    üst çubuktaki <b>Son veri</b> rozeti son güncellemenin zamanını gösterir (veri eskiyse sarıya döner; dokununca her kaynağın durumu çıkar). Uygulamanın yeni sürümü gelince altta "Yeni sürüm hazır" çıkar; Yenile'ye basmanız yeterli.`],
+  ['Veri kaynakları', `Fiyatlar: Yahoo Finance (yaklaşık 15 dk gecikmeli; bedelsiz ve bölünme gibi düzeltilmemiş kurumsal işlemler BIST'in ±%10 fiyat sınırına göre tespit edilip geriye doğru düzeltilir).
+    Temettü: temettuhisseleri.com, eksikler Yahoo. Mali tablolar: İş Yatırım. Endeks bileşenleri: Borsa İstanbul. Tedbir listesi: GCM Yatırım. Döviz, altın ve kripto: Yahoo Finance. Hiçbir bilgi yatırım tavsiyesi değildir.`],
 ];
 
 // [terim, açıklama, grup]
@@ -156,7 +160,7 @@ export function renderGuide() {
   document.title = 'Rehber · Tahta';
   const groups = [...new Set(TERMS.map(t => t[2]))];
   view.innerHTML = `
-  <section class="dhead"><div><h1>Rehber</h1><p class="sub">Kısa kullanım rehberi ve terim sözlüğü</p></div></section>
+  <section class="dhead"><div><h1>Rehber</h1><p class="sub">Kısa kullanım rehberi ve terim sözlüğü</p></div><button type="button" class="btn dhead-act" id="introAgain">Tanıtımı yeniden göster</button></section>
   <div class="guide">
     <section class="panel guide-how">
       <h2>Nasıl kullanılır?</h2>
@@ -173,6 +177,7 @@ export function renderGuide() {
       <p class="muted" style="font-size:12px">Masaüstünde tablo başlıklarının üzerine gelince de kısa açıklamalar görünür. Yatırım tavsiyesi değildir.</p>
     </section>
   </div>`;
+  view.querySelector('#introAgain').addEventListener('click', () => { state.introDone = false; persist(); location.hash = '#/'; });
   view.querySelector('.gloss-groups').addEventListener('click', e => {
     const b = e.target.closest('[data-gjump]');
     if (b) view.querySelector(`.gloss-group[data-g="${b.dataset.gjump}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });

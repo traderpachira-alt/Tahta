@@ -745,7 +745,7 @@ ARCHIVE_COLS = ["k", "tf", "t", "idx", "d0", "d1", "e", "x", "pct", "r", "st", "
 
 
 def archive_rows(k: int, tf: str, R: dict) -> list[list]:
-    """Trade arşivi satırları: yalnızca sonuçlanan işlemler (history; açık işlemler sonuçlanınca arşive geçer). Sütunlar
+    """İşlem arşivi satırları: yalnızca sonuçlanan işlemler (history; açık işlemler sonuçlanınca arşive geçer). Sütunlar
     ARCHIVE_COLS sırasıyla; k strateji sırası, st çıkış nedeni, re yeniden giriş, s0 başlangıç stopu (kurulum çizimi için)."""
     fmt_ = signals.TIMEFRAMES[tf]["fmt"]
     return [[k, tf, x["sym"], x["tier"], x["d0"].strftime(fmt_), x["d1"].strftime(fmt_), round(float(x["e"]), 4), round(float(x["x"]), 4),
@@ -1040,7 +1040,7 @@ def write_hist(path: Path, df: pd.DataFrame, sr: dict | None = None):
     full_close = df["Close"].shift(1)
     avg_y = avg_price_yields(df)
     cut = df.index[-1] - pd.DateOffset(years=2)
-    # Trade arşivindeki kurulum çizimi için 2 yıldan eski mumlar ayrı dosyada (yalnızca arşivde eski bir işleme gelince yüklenir)
+    # İşlem arşivindeki kurulum çizimi için 2 yıldan eski mumlar ayrı dosyada (yalnızca arşivde eski bir işleme gelince yüklenir)
     old = df[(df.index < cut) & (df.index >= df.index[-1] - pd.DateOffset(years=4, months=4))]
     xdir = path.parent.parent / "histx"
     xdir.mkdir(parents=True, exist_ok=True)

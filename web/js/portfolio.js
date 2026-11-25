@@ -88,7 +88,15 @@ export function renderPortfolio() {
   ${tot.value ? `<div class="alloc" aria-label="Kategori dağılımı">
     <div class="bar">${Object.entries(PF_CATS).map(([c, d]) => { const v = catVal(c); return v > 0 ? `<i style="width:${v / tot.value * 100}%;background:var(${d.color})" title="${d.label}"></i>` : ''; }).join('')}</div>
     <div class="legend2">${Object.entries(PF_CATS).filter(([c]) => catVal(c) > 0).map(([c, d]) => `<span><i style="background:var(${d.color})"></i>${d.label} <b class="num">${fmt.pctPlain(catVal(c) / tot.value)}</b> <span class="muted num">${fmt.big(catVal(c))} ₺</span></span>`).join('')}</div>
-  </div>` : ''}` : `<p class="empty">Portföyünüz boş. "+ Varlık ekle" ile başlayın ya da bir hisse sayfasındaki "+ Portföye ekle" düğmesini kullanın.</p>`}
+  </div>` : ''}` : ui.pfForm || ui.txForm ? '' : `<section class="panel pfempty">
+    <h2>Portföyünüz boş</h2>
+    <ol class="steps">
+      <li><b>+ Varlık ekle</b> ile hisse, altın/döviz ya da kripto ekleyin; alım tarihini, adedi ve fiyatı girin. Bir hisse sayfasındaki <b>+ Portföye ekle</b> düğmesi de aynı formu açar.</li>
+      <li>İsterseniz <b>± Para yatır / çek</b> ile TL bakiyesi tutun; alımlar bu bakiyeden ödenir, satışlar bakiyeye eklenir ve toplam getiri buna göre hesaplanır.</li>
+      <li>Değer, kâr/zarar ve temettüler her veri güncellemesinde kendiliğinden hesaplanır; temettü ödendiğinde onayınız istenir.</li>
+    </ol>
+    <p class="muted" style="font-size:12px;margin:0">Kayıtlar yalnızca bu cihazda saklanır. Daha önce yedek aldıysanız ya da başka bir cihazda portföyünüz varsa <a href="#/aktar">⚙ Ayarlar ve yedek</a> sayfasından getirebilirsiniz.</p>
+  </section>`}
   ${Object.entries(PF_CATS).filter(([c]) => byCat[c].length).map(([c, d]) => `
   <section class="panel pfcat">
     <h2><i style="background:var(${d.color})"></i>${d.label} <span class="muted">· ${byCat[c].length} varlık · ${fmt.big(catVal(c))} ₺</span>

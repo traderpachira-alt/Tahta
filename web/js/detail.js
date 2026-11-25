@@ -1,7 +1,7 @@
 import { renderDcfPanel } from './dcf.js';
 import { loadFin, renderFinPanel, renderQualityPanel } from './quality.js';
 import { atr, bollinger, fisher, ichimoku, macd, rsi, sma, stochRsi, supertrend, vwma } from '../ind.js';
-import { BY, DATA, DIV_Y, MEDIANS, loadHist } from './data.js';
+import { BY, DATA, DIV_Y, HIST, MEDIANS, loadHist } from './data.js';
 import { $, view } from './dom.js';
 import { FIELDS, ICHI, SR_STRONG, ST, tierChip } from './fields.js';
 import { colsFor, sorted, tableHtml } from './screener.js';
@@ -149,8 +149,7 @@ export async function renderDetail(t) {
   </div>
 
   ${s.rot ? `<p class="note-ok sigline">Portföy stratejisi: <b>${esc(s.rot.n)}</b> · ${s.rot.rank}. sırada, ${fmt.date(s.rot.since)} dengelemesinden beri portföyde · <a href="#/sinyal">Sinyaller</a></p>` : ''}
-  ${(s.sig || []).map(g => `<p class="note-ok sigline">Aktif sinyal: <b>${esc(g.n || SIG_NAMES[g.k] || g.k)}</b> · ${g.tf === '4H' ? '4 saatlik' : 'günlük'} (${g.d.includes(' ') ? fmt.date(g.d.split(' ')[0]) + ' ' + g.d.split(' ')[1] : fmt.date(g.d)}) · giriş ${fmt.price(g.e)} · ${g.info?.exd ? `${g.info.ns ? 'stop yok' : `stop ${fmt.price(g.s)}`} · temettü %${F1.format(g.info.y * 100)}, hak kullanım ${fmt.date(g.info.exd)} · temettü hakkı olan son gün kapanışta çıkış` : g.armed ? `takip stopu ${fmt.price(g.s)}` : g.xl ? `stop ${fmt.price(g.s)}${g.xl > g.s ? ` · kapanış ${fmt.price(g.xl)} altına inerse çıkış` : ' · kapanış son 10 günün en düşüğünün altına inerse çıkış'}` : `stop ${fmt.price(g.s)}${g.a ? ` · +1R'de (${fmt.price(g.a)}) takip başlar` : ''}`}
-    · giriş sinyal günü kapanışında, pozisyon açık · <a href="#/sinyal">Sinyaller</a></p>`).join('')}
+  ${sigBox(t, s.sig || [])}
   ${tabs.length > 1 ? `<nav class="dtabs" role="tablist" aria-label="Hisse bölümleri">${tabs.map(([k, l]) => `<button type="button" role="tab" data-dtab="${k}" aria-selected="${k === tab}">${l}</button>`).join('')}</nav>` : ''}
   <div class="dpane" data-pane="genel"${tab === 'genel' ? '' : ' hidden'}>
   <div class="panels two">
@@ -256,6 +255,38 @@ export function renderDivPanel(s, h) {
   ${info(`Verim: <b>O gün</b> ödeme günündeki fiyata, <b>Bağıl</b> önceki temettüden bu temettüye kadarki ortalama kapanış fiyatına (ilk temettüde son 1 yıl), <b>Bugün</b> güncel fiyata göre. Geçmiş ödemeler brüt, bedelsiz sermaye artırımlarına göre düzeltilmiş (temettuhisseleri.com ve Yahoo Finance karşılaştırılarak); tarih, hak kullanım tarihidir. Açıklanan temettüler stopaj sonrası net tutardır (temettuhisseleri.com).`, 'Verim nasıl hesaplanır?')}`;
 }
 export function css(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+/* Açık sinyaller: tek kutuda liste; grafikte yalnızca seçili sinyalin seviyeleri çizilir (varsayılan en yeni sinyal) */
+let sigPick = { t: null, i: 0 };
+const sigDate = d => d.includes(' ') ? fmt.date(d.split(' ')[0]).slice(0, 5) + ' ' + d.split(' ')[1] : fmt.date(d);
+function pickedSig(t, sigs) {
+  if (sigPick.t !== t || sigPick.i >= sigs.length) {
+    let i = 0; sigs.forEach((g, k) => { if (g.d > sigs[i].d) i = k; });
+    sigPick = { t, i };
+  }
+  return sigPick.i;
+}
+function sigExit(g) {
+  if (g.info?.exd) return `${g.info.ns ? 'stop yok' : `stop ${fmt.price(g.s)}`} · temettü %${F1.format(g.info.y * 100)}, hak kullanım ${fmt.date(g.info.exd)}; hakkı olan son gün kapanışta çıkış`;
+  if (g.armed) return `takip stopu ${fmt.price(g.s)}`;
+  if (g.xl) return `stop ${fmt.price(g.s)}${g.xl > g.s ? ` · kapanış ${fmt.price(g.xl)} altına inerse çıkış` : ' · kapanış son 10 günün en düşüğünün altına inerse çıkış'}`;
+  return `stop ${fmt.price(g.s)}${g.a ? ` · +1R'de (${fmt.price(g.a)}) takip başlar` : ''}`;
+}
+function sigBox(t, sigs) {
+  if (!sigs.length) return '';
+  const pick = pickedSig(t, sigs), many = sigs.length > 1;
+  return `<section class="sigbox" id="sigBox"><div class="sigboxhead"><b>Açık sinyal${many ? 'ler · ' + sigs.length : ''}</b><a href="#/sinyal">Sinyaller →</a></div>
+    ${sigs.map((g, i) => `<button type="button" class="sigrow" data-sigpick="${i}" aria-pressed="${i === pick}"${many ? '' : ' disabled'}>
+      <span class="sgn"><b>${esc(g.n || SIG_NAMES[g.k] || g.k)}</b> <span class="chip${g.tf === '4H' ? ' tf4' : ''}">${g.tf === '4H' ? '4 saatlik' : 'Günlük'}</span> <span class="muted">${sigDate(g.d)}</span>${many ? `<span class="sgon">${i === pick ? 'grafikte' : 'göster'}</span>` : ''}</span>
+      <span class="sgd">giriş ${fmt.price(g.e)} · ${sigExit(g)}</span></button>`).join('')}
+    <p class="muted sgfoot">Giriş sinyal günü kapanışında yapıldı, pozisyon açık.${many ? ' Grafikte seçili sinyalin giriş, stop ve çıkış seviyeleri görünür; başka bir sinyale dokunarak değiştirin.' : ' Seviyeler grafikte kesikli çizgilerle görünür.'}</p></section>`;
+}
+export function setSigPick(i) {
+  const t = decodeURIComponent(location.hash.slice(4)).toUpperCase();
+  sigPick = { t, i };
+  const box = $('#sigBox');
+  if (box) box.outerHTML = sigBox(t, BY.get(t)?.sig || []);
+  if (HIST.has(t)) drawCharts(HIST.get(t));
+}
 export function drawCharts(h) {
   destroyCharts();
   const LWC = window.LightweightCharts;
@@ -285,13 +316,13 @@ export function drawCharts(h) {
   candle.priceScale().applyOptions({ mode: { lin: 0, log: 1, pct: 2 }[C.scale] ?? 0 });
   // Aktif sinyal: giriş / stop / hedef çizgileri
   const sigT = decodeURIComponent(location.hash.slice(4)).toUpperCase();
-  for (const g of BY.get(sigT)?.sig || []) {
+  const sigs = BY.get(sigT)?.sig || [];
+  if (sigs.length) {
+    const g = sigs[pickedSig(sigT, sigs)];
     const line = (price, color, title) => candle.createPriceLine({ price, color, lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title });
-    const tf = g.tf === '4H' ? ' (4S)' : '';
-    const sigs = BY.get(sigT).sig, nm = sigs.length > 1 ? (g.n || SIG_NAMES[g.k] || '') + ' · ' : '';
-    line(g.e, css('--accent'), nm + 'Giriş' + tf); if (!g.info?.ns) line(g.s, css('--down'), (g.armed ? 'Takip stopu' : 'Stop') + tf);
-    if (!g.armed && g.a) line(g.a, css('--up'), '+1R takip başlar' + tf);
-    if (g.xl > g.s) line(g.xl, css('--warn'), nm + 'Kanal çıkışı (kapanış)' + tf);
+    line(g.e, css('--accent'), 'Giriş'); if (!g.info?.ns) line(g.s, css('--down'), g.armed ? 'Takip stopu' : 'Stop');
+    if (!g.armed && g.a) line(g.a, css('--up'), '+1R');
+    if (g.xl > g.s) line(g.xl, css('--warn'), 'Kanal çıkışı');
   }
   if (C.vol !== false) {
     const vol = main.addHistogramSeries({ priceScaleId: 'vol', priceFormat: { type: 'volume' }, lastValueVisible: false, priceLineVisible: false });
