@@ -115,6 +115,11 @@ tepe, daha yüksek dip); kapanış bu bölgenin tepesini 30 mum içinde ilk kez 
 bozar); herhangi bir ölçekte kırılım sinyaldir. Stop giriş − 2 ATR (bölge dibi, 3 ATR, bölge ortası ve kırılım mumu dibi de test edildi); kanal çıkışı (varsayılan), 20 gün
 tut, takip eden stop, sabit 2R / 3R. Kırılım günü için hacim/kapanış şartı yok.
 
+Trade arşivi (sinyaller sayfasında sağ üstteki düğme, `#/sinyal/arsiv`): her stratejinin varsayılan çıkışla son 4 yıldaki
+bütün işlemleri ve açık işlemler `data/trades.json` dosyasına yazılır (`fetch_data.archive_rows`; sütunlar `ARCHIVE_COLS`),
+yalnızca arşiv açılınca yüklenir. Strateji, periyot, endeks, yıl, sonuç, çıkış nedeni ve hisse filtreleri; özet, strateji
+kırılımı, CSV indirme.
+
 Rise Baby (`scripts/strategies/risebaby.py`, "Trend takip"): kapanış SMA200 üstündeyken 10 günlük getirinin ilk kez +%25'i
 aştığı gün; sinyal günü tavanda kapanırsa (≥ %9,5 ve en yüksekte kapanış) beklenir, tavanda kapanmadığı ilk günün kapanışında
 giriş, 3 gün tavan → iptal. Stop giriş − 2,5 ATR; kanal çıkışı (varsayılan), 20 gün tut, takip eden stop, sabit 3R; %0,5 risk.

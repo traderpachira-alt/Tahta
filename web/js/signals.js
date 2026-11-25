@@ -2,6 +2,7 @@ import { destroyCharts } from './detail.js';
 import { view } from './dom.js';
 import { persist, state } from './store.js';
 import { setupFacts, setupSvg } from './setupviz.js';
+import { renderArchive } from './archive.js';
 import { F1, F2, cls, esc, fmt, info, ok } from './util.js';
 
 /* ============================================================
@@ -303,6 +304,7 @@ function bindCommon(S) {
 
 export async function renderSignals() {
   destroyCharts();
+  if (location.hash.startsWith('#/sinyal/arsiv')) return renderArchive();
   document.title = 'Sinyaller · Tahta';
   if (!SIG) view.innerHTML = '<p class="empty">Yükleniyor…</p>';
   let S;
@@ -321,14 +323,14 @@ export async function renderSignals() {
   const stratTh = many ? '<th class="txt">Strateji</th>' : '';
   const hasCand = u ? u.candidates : sigStrats.some(x => x.candidates);
   if (u?.kind === 'portfolio') {
-    view.innerHTML = `<section class="dhead"><div><h1>Sinyaller</h1><p class="sub">${esc(u.name)}${testChip(u)}: ${esc(u.summary || '')}</p></div></section>
+    view.innerHTML = `<section class="dhead"><div><h1>Sinyaller</h1><p class="sub">${esc(u.name)}${testChip(u)}: ${esc(u.summary || '')}</p></div><a class="btn dhead-act" href="#/sinyal/arsiv" title="Stratejilerin geçmiş bütün işlemleri, filtrelenebilir">Trade arşivi</a></section>
       ${stratBar(S, nAct)}${portfolioView(S, u)}`;
     bindCommon(S);
     return;
   }
   view.innerHTML = `
   <section class="dhead"><div><h1>Sinyaller</h1>
-    <p class="sub">${u ? `${esc(u.name)}${testChip(u)}: ${esc(u.summary || '')}` : `${S.strategies.length} strateji · aynı motorla test edilir; bir stratejiyi seçerek yalnızca onun sinyallerini görün`}</p></div></section>
+    <p class="sub">${u ? `${esc(u.name)}${testChip(u)}: ${esc(u.summary || '')}` : `${S.strategies.length} strateji · aynı motorla test edilir; bir stratejiyi seçerek yalnızca onun sinyallerini görün`}</p></div><a class="btn dhead-act" href="#/sinyal/arsiv" title="Stratejilerin geçmiş bütün işlemleri, filtrelenebilir">Trade arşivi</a></section>
   ${S.strategies.length > 1 || Object.keys(S.groups || {}).length ? stratBar(S, nAct) : ''}
   <div class="presets tiers" role="group" aria-label="Endeks"><span class="lbl">Endeks</span>
     ${S.tierSets.map(n => `<button type="button" data-sigt="${esc(n)}" aria-pressed="${tierSel === n}">${esc(n)} <span class="n">${S.active.filter(a => TIER_OF[n].includes(a.idx) && (!u || a.k === u.id)).length}</span></button>`).join('')}

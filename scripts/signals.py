@@ -232,7 +232,7 @@ def run(prices: dict[str, pd.DataFrame], tiers: dict[str, str | None], strat=Non
             else:
                 busy[R] = r["exit_t"]
                 tr = {"r": r["r"], "pct": r["pct"], "bars": r["exit_t"] - t, "y": F["idx"][t].year, "st": r["status"],
-                      "d0": F["idx"][t], "d1": F["idx"][r["exit_t"]], "rp": rp, "sym": sym, "tier": tier}
+                      "d0": F["idx"][t], "d1": F["idx"][r["exit_t"]], "rp": rp, "sym": sym, "tier": tier, "e": entry, "x": r["exit"]}
                 if re:
                     tr["re"] = True
                 trades[R].append(tr)
@@ -311,7 +311,8 @@ def run(prices: dict[str, pd.DataFrame], tiers: dict[str, str | None], strat=Non
     active.sort(key=lambda a: (a["d"], a["t"]), reverse=True)
     recent.sort(key=lambda a: (a["d"], a["t"]), reverse=True)
     candidates.sort(key=lambda x: (x["dist"], x["t"]))
-    return {"stats": stats, "accounts": accounts, "active": active, "recent": recent, "candidates": candidates}
+    # history: varsayılan çıkışla sonuçlanan bütün işlemler (trade arşivi için; test penceresi boyunca)
+    return {"stats": stats, "accounts": accounts, "active": active, "recent": recent, "candidates": candidates, "history": trades[DV]}
 
 
 def acct_risk(strat) -> float:

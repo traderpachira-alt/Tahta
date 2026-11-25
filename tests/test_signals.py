@@ -686,3 +686,18 @@ class RiseBabyTest(unittest.TestCase):
         F, ts = self.sigs(df)
         F2 = S.frame(df.iloc[:ts[0] + 1])
         self.assertIsNotNone(self.RB.signal(F2, ts[0]))
+
+
+class ArchiveTest(unittest.TestCase):
+    """Trade arşivi: motorun history listesi ve fetch_data.archive_rows satırları (sütun sırası, açık işlemler)."""
+
+    def test_rows(self):
+        import fetch_data as FD
+        prices = {"AAA": with_star(base(300), 200), "BBB": with_star(base(300), 295)}
+        R = S.run(prices, {"AAA": "30", "BBB": "TÜM"}, MS)
+        self.assertTrue(all("e" in x and "x" in x for x in R["history"]))
+        rows = FD.archive_rows(0, "1D", R)
+        self.assertEqual(len(rows), len(R["history"]) + len(R["active"]))
+        self.assertTrue(all(len(r) == len(FD.ARCHIVE_COLS) for r in rows))
+        closed = [r for r in rows if r[FD.ARCHIVE_COLS.index("st")] != "open"]
+        self.assertTrue(all(r[FD.ARCHIVE_COLS.index("d1")] for r in closed))

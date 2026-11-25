@@ -740,6 +740,20 @@ def quality_scores(t: str, df: pd.DataFrame, m: dict, f: dict, fin: dict | None,
     return out
 
 
+ARCHIVE_COLS = ["k", "tf", "t", "idx", "d0", "d1", "e", "x", "pct", "r", "st", "re"]
+
+
+def archive_rows(k: int, tf: str, R: dict) -> list[list]:
+    """Trade arşivi satırları: sonuçlanan işlemler (history) ve açık işlemler (active). Sütunlar ARCHIVE_COLS sırasıyla;
+    k strateji sırası, d1/x açık işlemde boş / son fiyat, st çıkış nedeni (open = açık), re yeniden giriş."""
+    fmt_ = signals.TIMEFRAMES[tf]["fmt"]
+    rows = [[k, tf, x["sym"], x["tier"], x["d0"].strftime(fmt_), x["d1"].strftime(fmt_), round(float(x["e"]), 4), round(float(x["x"]), 4),
+             round(float(x["pct"]), 4), round(float(x["r"]), 3), x["st"], 1 if x.get("re") else 0] for x in R.get("history", [])]
+    rows += [[k, tf, a["t"], a["idx"], a["d"], None, a["e"], a["c"], round(a["c"] / a["e"] - 1, 4), a["r"], "open",
+              1 if (a.get("info") or {}).get("re") else 0] for a in R.get("active", [])]
+    return rows
+
+
 def write_signals(out: Path, prices: dict[str, pd.DataFrame], stocks: list[dict], idx: pd.DataFrame | None = None, intraday_on: bool = True,
                   div_events: dict | None = None):
     """Tüm stratejiler (scripts/strategies/), desteklediği periyotlarda (günlük, 4 saatlik): açık sinyaller, hazırlanan
@@ -771,6 +785,7 @@ def write_signals(out: Path, prices: dict[str, pd.DataFrame], stocks: list[dict]
         except Exception as e:  # noqa: BLE001 — 4 saatlik hata günlük sinyalleri engellemesin
             print(f"  4 saatlik veri alınamadı ({e}).", flush=True)
     metas, active, recent, cands = [], [], [], []
+    arc_rows, arc_ids = [], []          # trade arşivi: her stratejinin varsayılan çıkışla bütün işlemleri (data/trades.json)
     for st in strats:
         runs = {}
         for tf in st.TIMEFRAMES:
@@ -787,6 +802,9 @@ def write_signals(out: Path, prices: dict[str, pd.DataFrame], stocks: list[dict]
         metas.append(m)
         for R in runs.values():
             active += R["active"]; recent += R["recent"]; cands += R["candidates"]
+        arc_ids.append(st.ID)
+        for tf, R in runs.items():
+            arc_rows += archive_rows(len(arc_ids) - 1, tf, R)
     # Portföy stratejileri (ör. göreli güç rotasyonu): kendi aylık simülasyonları
     for pid, ps in signals.PORTFOLIOS.items():
         try:
@@ -821,6 +839,11 @@ def write_signals(out: Path, prices: dict[str, pd.DataFrame], stocks: list[dict]
         "active": active, "recent": recent, "candidates": cands,
     }
     (out / "data" / "signals.json").write_text(json.dumps(clean(payload), ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    arc_rows.sort(key=lambda r: (r[4], r[2]), reverse=True)
+    archive = {"updated": payload["updated"], "strategies": [{"id": i, "name": names.get(i, i)} for i in arc_ids],
+               "cols": ARCHIVE_COLS, "rows": arc_rows}
+    (out / "data" / "trades.json").write_text(json.dumps(clean(archive), ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    info["archive"] = len(arc_rows)
     desc = ", ".join(m["name"] + " " + "/".join(m["tfs"]) for m in metas)
     info.update(strategies=len(metas), active=len(active))
     print(f"Sinyaller ({desc}): {len(active)} açık, {len(cands)} hazırlanan, "

@@ -673,3 +673,18 @@ td.pvable a { -webkit-touch-callout: none; -webkit-user-select: none; user-selec
 .pvfoot { font-size: 11px; margin: 6px 0 0; }
 .sigacct ul.acct2 { margin: 4px 0 6px; padding-left: 18px; } .sigacct ul.acct2 li { margin: 2px 0; }
 .grid th small.sub2 { display: block; font-size: 10.5px; font-weight: 400; color: var(--muted); text-transform: none; letter-spacing: 0; }
+
+/* Trade arşivi */
+.dhead-act { margin-left: auto; align-self: center; text-decoration: none; color: var(--ink); white-space: nowrap; }
+.arcfilters { display: flex; flex-wrap: wrap; gap: 10px 12px; align-items: flex-end; }
+.arcf { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--muted); }
+.arcf select, .arcf input { font: inherit; font-size: 13px; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; min-width: 120px; }
+.arcf input { width: 120px; text-transform: uppercase; }
+.arcstats { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin-bottom: 12px; }
+.arcstat { background: var(--sunk); border-radius: 8px; padding: 8px 10px; display: flex; flex-direction: column; gap: 2px; }
+.arcstat > span { font-size: 12px; } .arcstat b { font-family: var(--mono); font-size: 17px; } .arcstat small { font-size: 11px; color: var(--muted); }
+.arcby { margin-bottom: 4px; } .arcmore { text-align: center; margin: 12px 0 0; }
+.archead { display: flex; align-items: center; justify-content: space-between; gap: 8px; } .archead h2 { margin-bottom: 8px; }
+.arccsv { font-size: 12px; padding: 4px 10px; }
+.tablewrap.flat.arcbywrap { max-height: none; }
+@media (max-width: 640px) { .arcf { flex: 1 1 45%; } .arcf select, .arcf input { min-width: 0; width: 100%; } .dhead-act { margin-left: 0; } }
