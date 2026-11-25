@@ -701,3 +701,19 @@ class ArchiveTest(unittest.TestCase):
         self.assertTrue(all(len(r) == len(FD.ARCHIVE_COLS) for r in rows))
         self.assertTrue(all(r[FD.ARCHIVE_COLS.index("st")] != "open" and r[FD.ARCHIVE_COLS.index("d1")] for r in rows))
         self.assertTrue(all(r[FD.ARCHIVE_COLS.index("s0")] < r[FD.ARCHIVE_COLS.index("e")] for r in rows))
+
+
+class FullTestScheduleTest(unittest.TestCase):
+    """Tam test günde iki kez: günün ilk güncellemesi ve kapanış (TSİ 18:10) sonrası; kod değişince hemen."""
+
+    def test_schedule(self):
+        import datetime as dt
+        import fetch_data as FD
+        utc = lambda h, m=0, d=25: dt.datetime(2026, 11, d, h, m, tzinfo=dt.timezone.utc)   # TSİ = UTC + 3
+        c = {"code": "abc", "day": "2026-11-25", "afterClose": False}
+        self.assertTrue(FD.full_test_due(None, "abc", utc(7, 25)))
+        self.assertTrue(FD.full_test_due(c, "xyz", utc(9, 25)))                    # kod değişti
+        self.assertFalse(FD.full_test_due(c, "abc", utc(9, 25)))                   # gün içi: hafif
+        self.assertTrue(FD.full_test_due(c, "abc", utc(15, 25)))                   # TSİ 18:25, kapanış sonrası
+        self.assertFalse(FD.full_test_due({**c, "afterClose": True}, "abc", utc(15, 25)))
+        self.assertTrue(FD.full_test_due(c, "abc", utc(7, 25, 26)))                # ertesi gün

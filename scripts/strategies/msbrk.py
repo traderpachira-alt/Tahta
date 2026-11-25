@@ -71,13 +71,17 @@ META = {
 
 
 def _pivots(h, l, k):
-    n = len(h)
+    import pandas as pd
+    # i'nin her iki yanında k mum: ortalanmış kayan pencere (kenarlarda ve eksik veri içeren pencerelerde NaN → nokta yok)
+    hmax = pd.Series(h).rolling(2 * k + 1, center=True).max().to_numpy()
+    lmin = pd.Series(l).rolling(2 * k + 1, center=True).min().to_numpy()
+    isH, isL = h == hmax, l == lmin
     raw = []
-    for i in range(k, n - k):
-        if h[i] == np.max(h[i - k:i + k + 1]):
-            raw.append((i, "H", float(h[i])))
-        if l[i] == np.min(l[i - k:i + k + 1]):
-            raw.append((i, "L", float(l[i])))
+    for i in np.flatnonzero(isH | isL):
+        if isH[i]:
+            raw.append((int(i), "H", float(h[i])))
+        if isL[i]:
+            raw.append((int(i), "L", float(l[i])))
     seq = []
     for p in raw:
         if seq and seq[-1][1] == p[1]:

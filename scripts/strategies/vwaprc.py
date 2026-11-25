@@ -65,13 +65,19 @@ def _prep(F) -> dict:
     cpv, cv = np.cumsum(tp * v), np.cumsum(v)
     n = len(c)
     av, anc, lo = np.full(n, np.nan), np.full(n, -1), np.full(n, np.nan)
+    if n <= LOOK:
+        P = F["_vwaprc"] = {"av": av, "anc": anc, "lo": lo}
+        return P
+    # çapa: her t için son LOOK+1 mumun en yükseği (ilk görülen) — kayan pencereyle tek seferde
+    am = np.lib.stride_tricks.sliding_window_view(h, LOOK + 1).argmax(axis=1)
     for t in range(LOOK, n):
-        a = t - LOOK + int(np.argmax(h[t - LOOK:t + 1]))
+        a = t - LOOK + int(am[t - LOOK])
         anc[t] = a
         den = cv[t] - (cv[a - 1] if a > 0 else 0.0)
         if den > 0:
             av[t] = (cpv[t] - (cpv[a - 1] if a > 0 else 0.0)) / den
-        lo[t] = np.min(l[a:t + 1])
+        # tepeden bu yana en düşük: çapa değişmediyse bir önceki değerden devam (aynı sonuç, pencere başına tarama yok)
+        lo[t] = np.minimum(lo[t - 1], l[t]) if t > LOOK and anc[t - 1] == a else np.min(l[a:t + 1])
     P = F["_vwaprc"] = {"av": av, "anc": anc, "lo": lo}
     return P
 

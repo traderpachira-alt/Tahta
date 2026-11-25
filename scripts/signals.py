@@ -194,12 +194,17 @@ TIMEFRAMES = {"1D": {"name": "Günlük", "hold": 60, "bars_per_day": 1, "fmt": "
 
 
 def run(prices: dict[str, pd.DataFrame], tiers: dict[str, str | None], strat=None, recent_days: int = 60, years: int = 4,
-        tf: str = "1D") -> dict:
+        tf: str = "1D", light: bool = False) -> dict:
     """Bir stratejiyi tüm hisselerde çalıştır ve test et. tiers: {KOD: '30' | '50' | '100' | 'TÜM' | None}.
     Döner: {"stats": {grup: {varyant: istatistik}}, "accounts": {grup: {varyant: hesap}}, "active", "recent", "candidates"}.
     Kayıtlar "k" (strateji kimliği) ve "tf" taşır."""
     strat = strat or REGISTRY["morningstar"]
     V, DV, trail = strat.VARIANTS, strat.DEFAULT_V, strat.TRAIL
+    # Hafif mod: yalnızca varsayılan çıkış (açık sinyaller, son sonuçlar, hazırlanan kurulumlar, history). Rastgele kıyas,
+    # diğer çıkışlar ve hesap simülasyonu atlanır; stats/accounts None döner. Varsayılan çıkışın işlem zinciri (busy) öteki
+    # varyantlardan bağımsız olduğu için sonuçlar tam testle birebir aynıdır.
+    if light:
+        V = {DV: V[DV]}
     # Stratejiye özel çıkışlar (ör. kanal çıkışı): strateji CUSTOM_EXITS'te listeler ve kendi simulate'ini sağlar.
     # Diğer varyantlar ve bu kancayı kullanmayan stratejiler motorun simulate'iyle yürür.
     custom = set(getattr(strat, "CUSTOM_EXITS", ()))
@@ -290,7 +295,7 @@ def run(prices: dict[str, pd.DataFrame], tiers: dict[str, str | None], strat=Non
                                **({"info": cd["info"]} if cd.get("info") else {}),
                                "bars": bars(F, cd["d1"] - BARS_BEFORE, n - 1, fmt_, cd["d1"])})
         # Kıyas: rastgele mumlar, stratejinin stop yapısı, aynı çıkış (tekrarlanabilir örneklem)
-        cand = [t for t in range(max(start, strat.WARMUP), n - 1) if F["turn"][t] >= MIN_TURNOVER and (base_ok is None or base_ok(F, t))]
+        cand = [] if light else [t for t in range(max(start, strat.WARMUP), n - 1) if F["turn"][t] >= MIN_TURNOVER and (base_ok is None or base_ok(F, t))]
         if cand:
             rng = np.random.default_rng(zlib.crc32(sym.encode()))
             for t in rng.choice(cand, size=min(RANDOM_PER_STOCK, len(cand)), replace=False):
@@ -302,8 +307,8 @@ def run(prices: dict[str, pd.DataFrame], tiers: dict[str, str | None], strat=Non
                     r = sim(F, t, entry, stop, R)
                     if r["status"] != "open":
                         rnd[R].append((tier, r["r"]))
-    stats, accounts = {}, {}
-    for name, ts in TIER_SETS.items():
+    stats, accounts = ({}, {}) if not light else (None, None)
+    for name, ts in (TIER_SETS.items() if not light else ()):
         stats[name] = {}
         for R in V:
             lst = [x for x in trades[R] if x["tier"] in ts]

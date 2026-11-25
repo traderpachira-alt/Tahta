@@ -753,8 +753,31 @@ def archive_rows(k: int, tf: str, R: dict) -> list[list]:
             for x in R.get("history", [])]
 
 
+TEST_CACHE = "sigtest.json"
+
+
+def signal_code_hash() -> str:
+    """Sinyal motoru ve strateji dosyalarının özeti: kod değişince önbellekteki test sonuçları geçersiz olur."""
+    import hashlib
+    h = hashlib.sha256()
+    base = Path(__file__).resolve().parent
+    for p in [base / "signals.py", *sorted((base / "strategies").glob("*.py"))]:
+        h.update(p.name.encode()); h.update(p.read_bytes())
+    return h.hexdigest()[:16]
+
+
+def full_test_due(cache: dict | None, code: str, now: dt.datetime | None = None) -> bool:
+    """Tam geriye dönük test gerekli mi: önbellek yok, kod değişti, bugün henüz yapılmadı ya da kapanıştan (TSİ 18:10)
+    sonra henüz yapılmadı. Gün içindeki diğer güncellemelerde test istatistikleri önbellekten alınır."""
+    now = (now or dt.datetime.now(dt.timezone.utc)).astimezone(dt.timezone(dt.timedelta(hours=3)))
+    if not cache or cache.get("code") != code or cache.get("day") != now.strftime("%Y-%m-%d"):
+        return True
+    after_close = now.hour > 18 or (now.hour == 18 and now.minute >= 10)
+    return after_close and not cache.get("afterClose")
+
+
 def write_signals(out: Path, prices: dict[str, pd.DataFrame], stocks: list[dict], idx: pd.DataFrame | None = None, intraday_on: bool = True,
-                  div_events: dict | None = None):
+                  div_events: dict | None = None, cache_dir: Path | None = None):
     """Tüm stratejiler (scripts/strategies/), desteklediği periyotlarda (günlük, 4 saatlik): açık sinyaller, hazırlanan
     kurulumlar, son sonuçlar ve geriye dönük test (data/signals.json)."""
     t0 = time.time()
@@ -777,12 +800,28 @@ def write_signals(out: Path, prices: dict[str, pd.DataFrame], stocks: list[dict]
                   and float((df["Close"] * df["Volume"]).tail(20).mean()) >= signals.MIN_TURNOVER]
         info["h4Req"] = len(liquid)
         try:
+            th = time.time()
             h4 = intraday.load_h4(liquid, prices, log=lambda m: print(m, flush=True))
+            print(f"  4 saatlik veri {time.time() - th:.0f} sn.", flush=True)
             info["h4"] = len(h4)
             if h4:
                 data["4H"] = h4
         except Exception as e:  # noqa: BLE001 — 4 saatlik hata günlük sinyalleri engellemesin
             print(f"  4 saatlik veri alınamadı ({e}).", flush=True)
+    # Tam test günde iki kez (günün ilk güncellemesi ve kapanış sonrası); diğer güncellemelerde hafif mod: açık sinyaller,
+    # son sonuçlar, kurulumlar ve arşiv yine tam hesaplanır, yalnızca test istatistikleri ve hesap sonuçları önbellekten gelir.
+    code = signal_code_hash()
+    cpath = cache_dir / TEST_CACHE if cache_dir else None
+    cache = None
+    if cpath and cpath.exists():
+        try:
+            cache = json.loads(cpath.read_text(encoding="utf-8"))
+        except Exception:  # noqa: BLE001
+            cache = None
+    full = full_test_due(cache, code)
+    cached = (cache or {}).get("tests", {}) if not full else {}
+    new_tests = {}
+    info["fullTest"] = full
     metas, active, recent, cands = [], [], [], []
     arc_rows, arc_ids = [], []          # trade arşivi: her stratejinin varsayılan çıkışla bütün işlemleri (data/trades.json)
     for st in strats:
@@ -791,7 +830,14 @@ def write_signals(out: Path, prices: dict[str, pd.DataFrame], stocks: list[dict]
             if tf not in data:
                 continue
             try:
-                runs[tf] = signals.run(data[tf], tiers, st, tf=tf)
+                key = f"{st.ID}:{tf}"
+                if key in cached:
+                    R = signals.run(data[tf], tiers, st, tf=tf, light=True)
+                    R["stats"], R["accounts"] = cached[key]["stats"], cached[key]["accounts"]
+                else:
+                    R = signals.run(data[tf], tiers, st, tf=tf)
+                runs[tf] = R
+                new_tests[key] = {"stats": clean(R["stats"]), "accounts": clean(R["accounts"])}
             except Exception as e:  # noqa: BLE001 — bir stratejinin hatası diğerlerini engellemesin
                 print(f"  {st.ID} ({tf}) çalıştırılamadı: {e}", flush=True)
         if not runs:
@@ -816,6 +862,17 @@ def write_signals(out: Path, prices: dict[str, pd.DataFrame], stocks: list[dict]
         for h in pr["holdings"]:
             if h["t"] in by:
                 by[h["t"]]["rot"] = {"k": pid, "n": ps.META["name"], "rank": h["rank"], "since": h["since"]}
+    if cpath:
+        now3 = dt.datetime.now(dt.timezone.utc).astimezone(dt.timezone(dt.timedelta(hours=3)))
+        made = (cache or {}).get("made") if not full else now3.isoformat(timespec="minutes")
+        after = (cache or {}).get("afterClose") if not full else (now3.hour > 18 or (now3.hour == 18 and now3.minute >= 10))
+        try:
+            cpath.parent.mkdir(parents=True, exist_ok=True)
+            cpath.write_text(json.dumps({"code": code, "day": now3.strftime("%Y-%m-%d"), "afterClose": bool(after), "made": made,
+                                         "tests": new_tests}, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+        except Exception as e:  # noqa: BLE001
+            print(f"  test önbelleği yazılamadı ({e}).", flush=True)
+        info["testMade"] = made
     names = {m["id"]: m["name"] for m in metas}
     active.sort(key=lambda a: (a["d"], a["t"]), reverse=True)
     recent.sort(key=lambda a: (a.get("xd") or a["d"], a["t"]), reverse=True)
@@ -836,6 +893,7 @@ def write_signals(out: Path, prices: dict[str, pd.DataFrame], stocks: list[dict]
         "account": signals.ACCOUNT, "bench": signals.bench(idx),
         "params": {"hold": signals.HOLD_MAX, "cost": signals.COST, "minTurnover": signals.MIN_TURNOVER},
         "active": active, "recent": recent, "candidates": cands,
+        "testMade": info.get("testMade"),
     }
     (out / "data" / "signals.json").write_text(json.dumps(clean(payload), ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     arc_rows.sort(key=lambda r: (r[4], r[2]), reverse=True)
@@ -846,7 +904,8 @@ def write_signals(out: Path, prices: dict[str, pd.DataFrame], stocks: list[dict]
     desc = ", ".join(m["name"] + " " + "/".join(m["tfs"]) for m in metas)
     info.update(strategies=len(metas), active=len(active))
     print(f"Sinyaller ({desc}): {len(active)} açık, {len(cands)} hazırlanan, "
-          f"son 60 günde {len(recent)} sonuçlanmış ({time.time() - t0:.0f} sn).", flush=True)
+          f"son 60 günde {len(recent)} sonuçlanmış ({time.time() - t0:.0f} sn; "
+          f"{'tam test' if full else 'hafif mod, test sonuçları ' + str(info.get('testMade')) + ' tarihli tam testten'}).", flush=True)
     return info
 
 
@@ -1130,7 +1189,7 @@ def main():
     sig_info = None
     try:
         sig_info = write_signals(out, {t: prices[t] for t in ok}, stocks, prices.get(INDEX), intraday_on=not args.sample and not args.no_intraday,
-                                 div_events=div_events)
+                                 div_events=div_events, cache_dir=None if args.sample else cache_dir)
     except Exception as e:  # noqa: BLE001 — sinyal hatası yayını durdurmasın
         print(f"  Sinyaller üretilemedi ({e}).", flush=True)
 
