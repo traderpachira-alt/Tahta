@@ -232,7 +232,8 @@ def run(prices: dict[str, pd.DataFrame], tiers: dict[str, str | None], strat=Non
             else:
                 busy[R] = r["exit_t"]
                 tr = {"r": r["r"], "pct": r["pct"], "bars": r["exit_t"] - t, "y": F["idx"][t].year, "st": r["status"],
-                      "d0": F["idx"][t], "d1": F["idx"][r["exit_t"]], "rp": rp, "sym": sym, "tier": tier, "e": entry, "x": r["exit"]}
+                      "d0": F["idx"][t], "d1": F["idx"][r["exit_t"]], "rp": rp, "sym": sym, "tier": tier, "e": entry, "x": r["exit"],
+                      "s0": stop}
                 if re:
                     tr["re"] = True
                 trades[R].append(tr)

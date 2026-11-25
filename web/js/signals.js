@@ -243,22 +243,24 @@ function strategyCard(S, u) {
 }
 
 
-/* Kurulum çizimi: hisse koduna gelince (fare) ya da basılı tutunca (dokunmatik) açılan pencere */
-let PV = null, pvTimer = null, pvSuppress = false;
+/* Kurulum çizimi: hisse koduna gelince (fare) ya da basılı tutunca (dokunmatik) açılan pencere.
+   Kayıt bir çözücüden gelir: sinyal sayfasında mevcut kayıtlar, trade arşivinde gerektiğinde yüklenen mumlar (bkz. archive.js). */
+let PV = null, pvTimer = null, pvSuppress = false, pvToken = 0;
 function pvRec(tr) { const [k, i] = (tr?.dataset.pv || '').split(':'); return PV?.[k]?.[+i] || null; }
-function pvHtml(a) {
-  const u = PV.S.strategies.find(x => x.id === a.k);
+function pvHtml(a, u) {
   const kind = ok(a.trig) ? 'Hazırlanan kurulum' : ok(a.x) ? 'Sonuçlanan sinyal' : 'Açık sinyal';
   return `<div class="pvhead"><b>${esc(a.t)}</b> ${tfChip(a.tf)} <span>${esc(u?.name || a.k)}</span> <span class="muted">· ${kind}</span>
       <button type="button" class="pvclose" aria-label="Kapat">✕</button></div>
-    ${setupSvg(a, u)}${setupFacts(a)}<p class="pvfoot muted">Sinyalden önceki 6 mum ve sonrası · ▲ sinyal mumu · ayrıntı için hisseye dokunun</p>`;
+    ${a.nobars ? `<p class="muted">${esc(a.nobars)}</p>` : setupSvg(a, u)}${setupFacts(a)}<p class="pvfoot muted">Sinyalden önceki 6 mum ve sonrası · ▲ sinyal mumu · ayrıntı için hisseye dokunun</p>`;
 }
-function pvShow(tr, sheet) {
-  const a = pvRec(tr); if (!a) return;
+async function pvShow(tr, sheet, resolve) {
+  const tok = ++pvToken;
+  const res = await resolve(tr);
+  if (!res || tok !== pvToken) return;               // bu arada fare ayrıldıysa ya da başka satıra geçildiyse gösterme
   let el = document.getElementById('pvPop');
   if (!el) { el = Object.assign(document.createElement('div'), { id: 'pvPop', className: 'pvpop' }); document.body.append(el);
     el.addEventListener('click', e => { if (e.target.closest('.pvclose')) pvHide(); }); }
-  el.innerHTML = pvHtml(a);
+  el.innerHTML = pvHtml(res.a, res.u);
   el.classList.toggle('sheet', !!sheet); el.hidden = false;
   if (!sheet) {
     const r = tr.querySelector('td.tk').getBoundingClientRect(), w = el.offsetWidth, h = el.offsetHeight;
@@ -268,19 +270,21 @@ function pvShow(tr, sheet) {
     el.style.left = `${x}px`; el.style.top = `${y}px`;
   } else { el.style.left = el.style.top = ''; }
 }
-function pvHide() { clearTimeout(pvTimer); const el = document.getElementById('pvPop'); if (el) el.hidden = true; }
-function bindPreview() {
-  view.querySelectorAll('tr[data-pv] td.tk').forEach(td => {
+function pvHide() { clearTimeout(pvTimer); pvToken++; const el = document.getElementById('pvPop'); if (el) el.hidden = true; }
+/* root içindeki tr[data-pv] satırlarının hisse hücresine pencere bağlar. resolve(tr) → {a, u} ya da Promise (kayıt, strateji) */
+export function bindPreview(root, resolve) {
+  root.querySelectorAll('tr[data-pv] td.tk').forEach(td => {
     const tr = td.parentElement;
     td.classList.add('pvable');
-    td.addEventListener('mouseenter', () => { if (matchMedia('(hover: hover)').matches) { clearTimeout(pvTimer); pvTimer = setTimeout(() => pvShow(tr, false), 180); } });
+    td.addEventListener('mouseenter', () => { if (matchMedia('(hover: hover)').matches) { clearTimeout(pvTimer); pvTimer = setTimeout(() => pvShow(tr, false, resolve), 180); } });
     td.addEventListener('mouseleave', () => { if (matchMedia('(hover: hover)').matches) pvHide(); });
-    td.addEventListener('touchstart', () => { clearTimeout(pvTimer); pvTimer = setTimeout(() => { pvSuppress = true; pvShow(tr, true); navigator.vibrate?.(15); }, 450); }, { passive: true });
+    td.addEventListener('touchstart', () => { clearTimeout(pvTimer); pvTimer = setTimeout(() => { pvSuppress = true; pvShow(tr, true, resolve); navigator.vibrate?.(15); }, 450); }, { passive: true });
     td.addEventListener('touchend', () => clearTimeout(pvTimer), { passive: true });
     td.addEventListener('touchmove', () => clearTimeout(pvTimer), { passive: true });
     td.addEventListener('contextmenu', e => { if (pvSuppress) e.preventDefault(); });
   });
 }
+const sigResolve = tr => { const a = pvRec(tr); return a ? { a, u: PV.S.strategies.find(x => x.id === a.k) } : null; };
 // Basılı tutma ardından gelen dokunuş hisse sayfasına gitmesin
 view.addEventListener('click', e => { if (pvSuppress) { pvSuppress = false; e.preventDefault(); e.stopPropagation(); } }, { capture: true });
 addEventListener('hashchange', pvHide);
@@ -288,7 +292,7 @@ addEventListener('scroll', () => { const el = document.getElementById('pvPop'); 
 document.addEventListener('click', e => { const el = document.getElementById('pvPop'); if (el?.classList.contains('sheet') && !el.hidden && !e.target.closest('#pvPop') && !pvSuppress) pvHide(); });
 
 function bindCommon(S) {
-  bindPreview();
+  bindPreview(view, sigResolve);
   view.querySelector('.sigcard')?.addEventListener('toggle', e => { cardOpen = e.target.open; });
   view.querySelectorAll('[data-sigt]').forEach(b => b.addEventListener('click', () => { state.sigTier = b.dataset.sigt; persist(); renderSignals(); }));
   view.querySelectorAll('[data-sigtf]').forEach(b => b.addEventListener('click', () => { tfSel = b.dataset.sigtf; renderSignals(); }));

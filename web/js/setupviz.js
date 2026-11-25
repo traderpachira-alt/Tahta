@@ -71,7 +71,7 @@ export function setupSvg(a, u) {
       + `<text x="${PL + pw + 4}" y="${(l.py + 3.5).toFixed(1)}" class="sv-lab ${l.cls}">${esc(l.txt)}</text>`);
   }
   const axis = `<text x="${PL}" y="${H - 6}" class="sv-ax">${esc(dshort(B.d[0]))}</text>`
-    + (B.i >= 0 && B.i < n ? `<text x="${X(B.i).toFixed(1)}" y="${H - 6}" class="sv-ax" text-anchor="middle">${esc(dshort(B.d[B.i]))}</text>` : '')
+    + (B.i >= 0 && B.i < n && X(B.i) - PL > 40 && PL + pw - X(B.i) > 40 ? `<text x="${X(B.i).toFixed(1)}" y="${H - 6}" class="sv-ax" text-anchor="middle">${esc(dshort(B.d[B.i]))}</text>` : '')
     + `<text x="${PL + pw}" y="${H - 6}" class="sv-ax" text-anchor="end">${esc(dshort(B.d[n - 1]))}</text>`;
   return `<svg viewBox="0 0 ${W} ${H}" class="setupsvg" role="img" aria-label="${esc(a.t)} kurulum çizimi">${parts.join('')}${axis}</svg>`;
 }

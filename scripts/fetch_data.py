@@ -741,18 +741,16 @@ def quality_scores(t: str, df: pd.DataFrame, m: dict, f: dict, fin: dict | None,
     return out
 
 
-ARCHIVE_COLS = ["k", "tf", "t", "idx", "d0", "d1", "e", "x", "pct", "r", "st", "re"]
+ARCHIVE_COLS = ["k", "tf", "t", "idx", "d0", "d1", "e", "x", "pct", "r", "st", "re", "s0"]
 
 
 def archive_rows(k: int, tf: str, R: dict) -> list[list]:
-    """Trade arşivi satırları: sonuçlanan işlemler (history) ve açık işlemler (active). Sütunlar ARCHIVE_COLS sırasıyla;
-    k strateji sırası, d1/x açık işlemde boş / son fiyat, st çıkış nedeni (open = açık), re yeniden giriş."""
+    """Trade arşivi satırları: yalnızca sonuçlanan işlemler (history; açık işlemler sonuçlanınca arşive geçer). Sütunlar
+    ARCHIVE_COLS sırasıyla; k strateji sırası, st çıkış nedeni, re yeniden giriş, s0 başlangıç stopu (kurulum çizimi için)."""
     fmt_ = signals.TIMEFRAMES[tf]["fmt"]
-    rows = [[k, tf, x["sym"], x["tier"], x["d0"].strftime(fmt_), x["d1"].strftime(fmt_), round(float(x["e"]), 4), round(float(x["x"]), 4),
-             round(float(x["pct"]), 4), round(float(x["r"]), 3), x["st"], 1 if x.get("re") else 0] for x in R.get("history", [])]
-    rows += [[k, tf, a["t"], a["idx"], a["d"], None, a["e"], a["c"], round(a["c"] / a["e"] - 1, 4), a["r"], "open",
-              1 if (a.get("info") or {}).get("re") else 0] for a in R.get("active", [])]
-    return rows
+    return [[k, tf, x["sym"], x["tier"], x["d0"].strftime(fmt_), x["d1"].strftime(fmt_), round(float(x["e"]), 4), round(float(x["x"]), 4),
+             round(float(x["pct"]), 4), round(float(x["r"]), 3), x["st"], 1 if x.get("re") else 0, round(float(x["s0"]), 4)]
+            for x in R.get("history", [])]
 
 
 def write_signals(out: Path, prices: dict[str, pd.DataFrame], stocks: list[dict], idx: pd.DataFrame | None = None, intraday_on: bool = True,
@@ -803,7 +801,7 @@ def write_signals(out: Path, prices: dict[str, pd.DataFrame], stocks: list[dict]
         metas.append(m)
         for R in runs.values():
             active += R["active"]; recent += R["recent"]; cands += R["candidates"]
-        arc_ids.append(st.ID)
+        arc_ids.append({"id": st.ID, "name": st.META["name"], "v": st.DEFAULT_V, "tr": st.TRAIL[0]})
         for tf, R in runs.items():
             arc_rows += archive_rows(len(arc_ids) - 1, tf, R)
     # Portföy stratejileri (ör. göreli güç rotasyonu): kendi aylık simülasyonları
@@ -841,7 +839,7 @@ def write_signals(out: Path, prices: dict[str, pd.DataFrame], stocks: list[dict]
     }
     (out / "data" / "signals.json").write_text(json.dumps(clean(payload), ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     arc_rows.sort(key=lambda r: (r[4], r[2]), reverse=True)
-    archive = {"updated": payload["updated"], "strategies": [{"id": i, "name": names.get(i, i)} for i in arc_ids],
+    archive = {"updated": payload["updated"], "strategies": arc_ids,
                "cols": ARCHIVE_COLS, "rows": arc_rows}
     (out / "data" / "trades.json").write_text(json.dumps(clean(archive), ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     info["archive"] = len(arc_rows)
@@ -981,7 +979,15 @@ def write_hist(path: Path, df: pd.DataFrame):
     # O günkü verim: temettü düşülmeden önceki fiyata (bir önceki işlem gününün kapanışına) göre
     full_close = df["Close"].shift(1)
     avg_y = avg_price_yields(df)
-    df = df[df.index >= df.index[-1] - pd.DateOffset(years=2)]  # grafik için son 2 yıl yeterli
+    cut = df.index[-1] - pd.DateOffset(years=2)
+    # Trade arşivindeki kurulum çizimi için 2 yıldan eski mumlar ayrı dosyada (yalnızca arşivde eski bir işleme gelince yüklenir)
+    old = df[(df.index < cut) & (df.index >= df.index[-1] - pd.DateOffset(years=4, months=4))]
+    xdir = path.parent.parent / "histx"
+    xdir.mkdir(parents=True, exist_ok=True)
+    if len(old):
+        (xdir / path.name).write_text(json.dumps({"d": [d.strftime("%Y-%m-%d") for d in old.index], "o": r(old["Open"]), "h": r(old["High"]),
+                                                  "l": r(old["Low"]), "c": r(old["Close"])}, separators=(",", ":")), encoding="utf-8")
+    df = df[df.index >= cut]  # grafik için son 2 yıl yeterli
     payload = {
         # [tarih, hisse başı TL, o günkü kapanışa göre verim, dönem ortalama fiyatına göre verim]
         "div": [[d.strftime("%Y-%m-%d"), round(float(x), 4), round(float(x) / float(full_close[d]), 5) if pd.notna(full_close.get(d)) else None,

@@ -697,7 +697,7 @@ class ArchiveTest(unittest.TestCase):
         R = S.run(prices, {"AAA": "30", "BBB": "TÜM"}, MS)
         self.assertTrue(all("e" in x and "x" in x for x in R["history"]))
         rows = FD.archive_rows(0, "1D", R)
-        self.assertEqual(len(rows), len(R["history"]) + len(R["active"]))
+        self.assertEqual(len(rows), len(R["history"]))                       # açık işlemler arşive girmez
         self.assertTrue(all(len(r) == len(FD.ARCHIVE_COLS) for r in rows))
-        closed = [r for r in rows if r[FD.ARCHIVE_COLS.index("st")] != "open"]
-        self.assertTrue(all(r[FD.ARCHIVE_COLS.index("d1")] for r in closed))
+        self.assertTrue(all(r[FD.ARCHIVE_COLS.index("st")] != "open" and r[FD.ARCHIVE_COLS.index("d1")] for r in rows))
+        self.assertTrue(all(r[FD.ARCHIVE_COLS.index("s0")] < r[FD.ARCHIVE_COLS.index("e")] for r in rows))
