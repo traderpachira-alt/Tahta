@@ -115,6 +115,10 @@ tepe, daha yüksek dip); kapanış bu bölgenin tepesini 30 mum içinde ilk kez 
 bozar); herhangi bir ölçekte kırılım sinyaldir. Stop giriş − 2 ATR (bölge dibi, 3 ATR, bölge ortası ve kırılım mumu dibi de test edildi); kanal çıkışı (varsayılan), 20 gün
 tut, takip eden stop, sabit 2R / 3R. Kırılım günü için hacim/kapanış şartı yok.
 
+Rise Baby (`scripts/strategies/risebaby.py`, "Trend takip"): kapanış SMA200 üstündeyken 10 günlük getirinin ilk kez +%25'i
+aştığı gün; sinyal günü tavanda kapanırsa (≥ %9,5 ve en yüksekte kapanış) beklenir, tavanda kapanmadığı ilk günün kapanışında
+giriş, 3 gün tavan → iptal. Stop giriş − 2,5 ATR; kanal çıkışı (varsayılan), 20 gün tut, takip eden stop, sabit 3R; %0,5 risk.
+
 SMA200 Retest (`scripts/strategies/sma200rt.py`, "Trend takip"): SMA50 > SMA200, SMA200 yükseliyor, son 60 günde kapanış
 SMA200'ün en az %15 üstüne çıkmış; son 4 günde en düşük SMA200'ün en fazla %3 üstüne inmiş; kapanış SMA200 ve önceki günün
 tepesinin üstünde, günün üst %40'ında → giriş; stop son 4 günün dibi ile SMA200'ün küçüğü − 0,5 ATR; +1R sonrası takip stopu

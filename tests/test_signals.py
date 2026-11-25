@@ -628,3 +628,61 @@ class ReentryTest(unittest.TestCase):
     def test_off_by_default(self):
         R = S.run({"AAA": self.df()}, {"AAA": "30"}, self.strat(0), recent_days=500)
         self.assertEqual(len(R["recent"] + R["active"]), 1)
+
+
+class RiseBabyTest(unittest.TestCase):
+    """Rise Baby: SMA200 üstünde 10 günde ≥ %25 ilk gün; tavan günü beklenir, 3 gün tavan → iptal; geleceğe bakmama."""
+    from strategies import risebaby as RB
+
+    def series(self, locks=0):
+        c = list(100 + np.arange(230) * 0.05)                       # yavaş yükseliş: SMA200 üstü
+        base = c[-1]
+        c += list(base * (1 + np.linspace(0.02, 0.18, 8)))          # 8 günde +%18 (koşul henüz yok)
+        last = c[-1]
+        jumps = [0.10] * locks + [0.08]                              # tavan günleri, ardından normal gün (+%8, tavan değil)
+        for j in jumps:
+            last *= 1 + j; c.append(last)
+        c += [last] * 10
+        df = ohlc(c)
+        # tavan günleri en yüksekte kapanır; diğer günler en yüksek = kapanış + 0,3
+        for i in range(238, 238 + locks):
+            df.iloc[i, 1] = df.iloc[i, 3]
+        return df
+
+    def sigs(self, df):
+        F = S.frame(df)
+        return F, [t for t in range(len(F["c"])) if self.RB.signal(F, t)]
+
+    def test_signal_without_limit(self):
+        F, ts = self.sigs(self.series(0))
+        self.assertEqual(len(ts), 1)
+        t = ts[0]
+        self.assertGreaterEqual(F["c"][t] / F["c"][t - 10] - 1, 0.25)
+        self.assertLess(F["c"][t - 1] / F["c"][t - 11] - 1, 0.25)
+        x = self.RB.signal(F, t)
+        self.assertAlmostEqual(x["stop"], F["c"][t] - 2.5 * F["atr"][t])
+        self.assertNotIn("info", x)
+
+    def test_waits_one_limit_day(self):
+        F, ts = self.sigs(self.series(1))
+        self.assertEqual(len(ts), 1)
+        self.assertEqual(self.RB.signal(F, ts[0])["info"], {"lock": 1})
+        self.assertFalse(self.RB._locked(F, ts[0]))
+        self.assertTrue(self.RB._locked(F, ts[0] - 1))
+
+    def test_three_limit_days_cancel(self):
+        _, ts = self.sigs(self.series(3))
+        self.assertEqual(ts, [])
+
+    def test_pending_candidate_while_locked(self):
+        df = self.series(2).iloc[:240]                              # son mum 2. tavan günü
+        F = S.frame(df)
+        cd = self.RB.candidate(F, len(F["c"]) - 1)
+        self.assertIsNotNone(cd)
+        self.assertEqual(cd["info"], {"lock": 2})
+
+    def test_no_lookahead(self):
+        df = self.series(1)
+        F, ts = self.sigs(df)
+        F2 = S.frame(df.iloc[:ts[0] + 1])
+        self.assertIsNotNone(self.RB.signal(F2, ts[0]))
