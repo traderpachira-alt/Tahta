@@ -96,7 +96,7 @@ export async function renderDetail(t) {
     ['VWMA20 farkı', `<span class="${cls(s.vsVwma20)}">${fmt.pct(s.vsVwma20)}</span>`, ''],
     ['ATR 14', fmt.pctPlain(s.atrPct), ok(s.atrPct) && ok(s.last) ? `<span class="muted num">≈ ${fmt.price(s.atrPct * s.last)} ₺</span>` : ''],
   ];
-  const hasSr = !isIdx && !!((s.srRes || []).length + (s.srSup || []).length);
+  const hasSr = !isIdx && !!(s.srN ?? ((s.srRes || []).length + (s.srSup || []).length));
   const tabs = [['genel', 'Genel'], ...(hasSr ? [['sr', 'Destek / direnç']] : []), ...(isIdx ? [] : [['temettu', 'Temettü'], ['temel', 'Temel ve değerleme']]),
     ...(peers.length > 1 ? [['sektor', `Sektör <span class="n">${peers.length}</span>`]] : [])];
   const tab = tabs.some(([k]) => k === state.dtab) ? state.dtab : 'genel';
@@ -169,7 +169,7 @@ export async function renderDetail(t) {
     </section>
   </div>
   </div>
-  ${isIdx ? '' : `<div class="dpane" data-pane="sr"${tab === 'sr' ? '' : ' hidden'}>${srPanelHtml(s)}</div>
+  ${isIdx ? '' : `<div class="dpane" data-pane="sr"${tab === 'sr' ? '' : ' hidden'}>${s.srRes || s.srSup ? srPanelHtml(s) : hasSr ? '<p class="muted">Yükleniyor…</p>' : ''}</div>
   <div class="dpane" data-pane="temettu"${tab === 'temettu' ? '' : ' hidden'}>
     <section class="panel" id="divPanel"><h2>Temettü geçmişi</h2><p class="muted">Yükleniyor…</p></section>
     <section class="panel" id="qualPanel"><h2>Temettü güvenliği ve finansal kalite</h2><p class="muted">Yükleniyor…</p></section>
@@ -204,6 +204,11 @@ export async function renderDetail(t) {
   try {
     const h = await loadHist(t);
     if (location.hash !== `#/h/${t}`) return; // kullanıcı bu arada başka sayfaya geçti
+    if (h.sr && !s.srRes && !s.srSup) {          // destek/direnç bölgeleri hissenin fiyat dosyasında (özette yalnızca sayısı)
+      s.srSup = h.sr.sup || []; s.srRes = h.sr.res || [];
+      const pane = document.querySelector('[data-pane="sr"]');
+      if (pane) pane.innerHTML = srPanelHtml(s);
+    }
     drawCharts(h);
     if (!isIdx) renderDivPanel(s, h);
   } catch (e) {

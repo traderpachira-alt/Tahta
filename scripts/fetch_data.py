@@ -965,12 +965,13 @@ def clean(x):
             return None
         if abs(x) >= 1e6:
             return round(x)
-        return round(x, 6 if abs(x) < 1 else 4)
+        # ekranda gösterilenden fazla hassasiyet yok: < 1 → 4 ondalık (oranlar, %0,01), 1–100 → 3, üstü → 2 (fiyat kuruşu)
+        return round(x, 4 if abs(x) < 1 else 3 if abs(x) < 100 else 2)
     return x
 
 
 
-def write_hist(path: Path, df: pd.DataFrame):
+def write_hist(path: Path, df: pd.DataFrame, sr: dict | None = None):
     def r(a):
         return [round(float(x), 2 if abs(x) >= 1 else 4) for x in a]
 
@@ -997,6 +998,8 @@ def write_hist(path: Path, df: pd.DataFrame):
         "o": r(df["Open"]), "h": r(df["High"]), "l": r(df["Low"]), "c": r(df["Close"]),
         "v": [int(x) for x in df["Volume"].fillna(0)],
     }
+    if sr and (sr["sup"] or sr["res"]):
+        payload["sr"] = clean(sr)
     path.write_text(json.dumps(payload, separators=(",", ":")), encoding="utf-8")
 
 
@@ -1090,13 +1093,17 @@ def main():
             div_fix["fixed"] += st["fixed"]
             div_fix["added"] += st["added"]
             div_notes += [f"{t} {n}" for n in st["notes"]]
-        write_hist(hist_dir / f"{t}.json", df)
         dv = df["Dividends"] if "Dividends" in df.columns else pd.Series(dtype=float)
         div_events[t] = [(d.tz_localize(None) if d.tzinfo else d, float(x)) for d, x in dv[dv > 0].items()]
         m = metrics(df, idx)
         m.update(div_metrics(df))
         m["divTax"] = 0.0 if gyo else 0.15  # portföyde net temettü tahmini için stopaj (GYO/YO muaf)
         m.update(sr_metrics(df))
+        # Destek/direnç bölgeleri yalnızca hisse sayfasında kullanılır: özet yerine hissenin fiyat dosyasına yazılır
+        # (açılıştaki summary.json'u küçültmek için); özette yalnızca bölge sayısı kalır (sekmenin görünürlüğü için)
+        sr = {"sup": m.pop("srSup"), "res": m.pop("srRes")}
+        m["srN"] = len(sr["sup"]) + len(sr["res"])
+        write_hist(hist_dir / f"{t}.json", df, sr)
         up = upcoming.get(t)
         if up:
             first = up[0]
