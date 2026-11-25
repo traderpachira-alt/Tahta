@@ -173,6 +173,13 @@ kapanışa ölçeklenir; yalnızca 20 mn ₺ hacim filtresini geçen hisseler in
 (~60 gün) tutulur. Açık sinyaller, hazırlananlar ve son sonuçlar tek tabloda, *Periyot* sütununda 1G / 4S olarak
 ayrılır; test sonuçları periyoda göre ayrı gösterilir. `--no-intraday` ile 4 saatlik kısım atlanır.
 
+Bedelsiz / bölünme düzeltmesi (`scripts/corpact.py`, testleri `tests/test_corpact.py`): Yahoo, BIST'teki bedelsiz sermaye
+artırımlarının çoğunu fiyatlara yansıtmıyor. BIST'te açılış da önceki kapanışın ±%10'u ile sınırlı olduğundan, açılışın
+önceki kapanıştan %11'den fazla farklı olduğu (ve kapanışın da aynı yönde %11'den fazla değiştiği) gün kurumsal işlem sayılır;
+önceki fiyatlar açılış oranıyla geriye doğru düzeltilir, oran `Stock Splits` sütununa yazılır (temettü eşleştirmesi bunu
+kullanır). Aynı gün 5+ hissede görülen boşluklar (piyasa geneli, ör. deprem sonrası açılış) ve bir hissede 10 gün içinde
+birden çok boşluk (veri hatası) düzeltilmez; ikincisi veri sağlığı raporunda listelenir.
+
 Temettü: temettuhisseleri.com tutarları **net** ve bedelsizlere göre **düzeltilmemiş**tir; Yahoo'nun bölünme
 çarpanları ve o tarihteki stopajla (2022–2024 arası %10, öncesi ve sonrası %15, GYO/YO %0) brüt, düzeltilmiş
 tutara çevrilir (`scripts/temettu.py`). İki kaynak uyuşuyorsa Yahoo tutarı kullanılır; fiyatın %1'inden büyük bir

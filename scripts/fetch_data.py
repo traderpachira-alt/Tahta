@@ -29,6 +29,7 @@ from indicators import ema, sma, wilder_rsi, rma, true_range, rolling_mid, stoch
 import isyatirim
 import dcf
 import breadth
+import corpact
 import intraday
 import scores
 import signals
@@ -851,7 +852,7 @@ def write_signals(out: Path, prices: dict[str, pd.DataFrame], stocks: list[dict]
     return info
 
 
-def data_health(n_ok, n_all, index_date, measures_at, upcoming_at, n_div, is_summ, is_fin, ok, sig_info, brd, assets, sample) -> list[dict]:
+def data_health(n_ok, n_all, index_date, measures_at, upcoming_at, n_div, is_summ, is_fin, ok, sig_info, brd, assets, sample, corp=None) -> list[dict]:
     """Veri sağlığı: her kaynağın bu çalışmadaki durumu (sitede veri rozetinde ve iş akışı özetinde gösterilir).
     ok: True (sorunsuz), False (sorun var), None (bilgi)."""
     if sample:
@@ -860,6 +861,9 @@ def data_health(n_ok, n_all, index_date, measures_at, upcoming_at, n_div, is_sum
     have_fin = sum(1 for t in ok if newest in ((is_fin.get(t) or {}).get("periods") or {}))
     h = [
         {"k": "prices", "n": "Fiyatlar (Yahoo)", "ok": n_ok >= 0.95 * n_all, "note": f"{n_ok}/{n_all} hisse"},
+        {"k": "corp", "n": "Bedelsiz / bölünme düzeltmesi", "ok": None,
+         "note": (f"{corp['n_events']} olay, {corp['n_stocks']} hissede fiyatlar geriye doğru düzeltildi"
+                  + (f"; şüpheli veri (düzeltilmedi): {', '.join(sorted(corp['suspicious']))}" if corp["suspicious"] else "")) if corp else "uygulanmadı"},
         {"k": "h4", "n": "4 saatlik mumlar", "ok": bool(sig_info and sig_info.get("h4") and sig_info["h4"] >= 0.8 * (sig_info.get("h4Req") or 1)),
          "note": f"{sig_info.get('h4')}/{sig_info.get('h4Req')} hisse" if sig_info and sig_info.get("h4Req") else "alınamadı"},
         {"k": "signals", "n": "Sinyaller", "ok": bool(sig_info), "note": f"{sig_info['strategies']} strateji, {sig_info['active']} açık sinyal" if sig_info else "üretilemedi"},
@@ -1021,11 +1025,18 @@ def main():
 
     t0 = time.time()
     is_summ, is_fin, sample_funds = {}, {}, {}
+    corp = None
     if args.sample:
         prices, sample_funds = make_sample(tickers + [INDEX])
     else:
         print(f"{len(tickers)} hisse + {INDEX} fiyatları indiriliyor…", flush=True)
         prices = download_prices(tickers + [INDEX])
+        # Yahoo'nun fiyatlara yansıtmadığı bedelsiz / bölünme / birleşme: açılış önceki kapanıştan %11'den fazla farklıysa
+        # (BIST sınırı %10) önceki fiyatlar geriye doğru düzeltilir (scripts/corpact.py)
+        corp = corpact.adjust_all(prices)
+        print(f"Kurumsal işlem düzeltmesi: {corp['n_events']} olay, {corp['n_stocks']} hisse"
+              + (f" · şüpheli veri {len(corp['suspicious'])} hisse ({', '.join(sorted(corp['suspicious']))})" if corp["suspicious"] else "")
+              + (f" · piyasa geneli gün (düzeltilmedi): {', '.join(corp['wide'])}" if corp["wide"] else ""), flush=True)
 
     ok = [t for t in tickers if t in prices]
     failed = [t for t in tickers if t not in prices]
@@ -1119,7 +1130,7 @@ def main():
         print(f"  Piyasa genişliği hesaplanamadı ({e}).", flush=True)
     assets = {"TRY": {"last": 1.0, "chg1d": 0.0}} if args.sample else fetch_assets()
     health = data_health(len(ok), len(tickers), index_date, measures_at, upcoming_at, len(site_div), is_summ, is_fin, ok,
-                         sig_info, brd, assets, args.sample)
+                         sig_info, brd, assets, args.sample, corp)
     summary = {
         "updated": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
         "lastDate": max(s["date"] for s in stocks),
