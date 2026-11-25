@@ -5,6 +5,10 @@ import { F2, cls, esc, fmt, ok } from './util.js';
 export let DATA = null, BY = new Map(), MEDIANS = {}, DIV_Y = new Date().getFullYear(), FX = null;
 export const HIST = new Map();
 // Testler için: özeti ve kur geçmişini doğrudan yükle (fetch olmadan)
+/* Veri sürümüne bağlı adres: aynı güncellemenin dosyaları (hisse fiyatları, mali tablolar, arşiv) tarayıcıda ve servis
+   çalışanında önbellekten verilir; yeni güncelleme gelince adres değişir ve yenisi alınır (bkz. sw.js cacheVersioned). */
+export const vurl = p => DATA?.updated ? `${p}?v=${encodeURIComponent(DATA.updated)}` : p;
+export const vopt = () => (DATA?.updated ? {} : { cache: 'no-cache' });
 export function setData(d, fx = null) { DATA = d; FX = fx; BY = new Map((d?.stocks || []).map(s => [s.t, s])); }
  // tarayıcı dışında (testler) null
 
@@ -63,7 +67,7 @@ export async function loadSummary() {
 }
 export async function loadHist(t) {
   if (HIST.has(t)) return HIST.get(t);
-  const r = await fetch(`data/hist/${encodeURIComponent(t)}.json`, { cache: 'no-cache' });
+  const r = await fetch(vurl(`data/hist/${encodeURIComponent(t)}.json`), vopt());
   if (!r.ok) throw new Error(r.status);
   const h = await r.json();
   HIST.set(t, h);

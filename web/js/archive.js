@@ -1,4 +1,4 @@
-import { loadHist } from './data.js';
+import { loadHist, vopt, vurl } from './data.js';
 import { view } from './dom.js';
 import { bindPreview } from './signals.js';
 import { persist, state } from './store.js';
@@ -26,7 +26,7 @@ const days = (a, b) => Math.round((new Date((b || '').slice(0, 10)) - new Date(a
 
 async function load() {
   if (ARC) return ARC;
-  const r = await fetch('data/trades.json', { cache: 'no-cache' });
+  const r = await fetch(vurl('data/trades.json'), vopt());
   if (!r.ok) throw new Error(r.status);
   const j = await r.json();
   const c = Object.fromEntries(j.cols.map((k, i) => [k, i]));
@@ -115,7 +115,7 @@ function csv(L) {
 async function histx(t) {
   if (HISTX.has(t)) return HISTX.get(t);
   let h = null;
-  try { const r = await fetch(`data/histx/${encodeURIComponent(t)}.json`, { cache: 'no-cache' }); if (r.ok) h = await r.json(); } catch { /* yok */ }
+  try { const r = await fetch(vurl(`data/histx/${encodeURIComponent(t)}.json`), vopt()); if (r.ok) h = await r.json(); } catch { /* yok */ }
   HISTX.set(t, h);
   return h;
 }

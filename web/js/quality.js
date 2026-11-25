@@ -1,4 +1,4 @@
-import { DATA } from './data.js';
+import { DATA, vopt, vurl } from './data.js';
 import { $ } from './dom.js';
 import { F1, F2, esc, fmt, ok, info } from './util.js';
 
@@ -9,7 +9,7 @@ import { F1, F2, esc, fmt, ok, info } from './util.js';
 const FIN = new Map();
 export async function loadFin(t) {
   if (FIN.has(t)) return FIN.get(t);
-  const r = await fetch(`data/fin/${encodeURIComponent(t)}.json`, { cache: 'no-cache' });
+  const r = await fetch(vurl(`data/fin/${encodeURIComponent(t)}.json`), vopt());
   const j = r.ok ? await r.json() : null;
   FIN.set(t, j);
   return j;
