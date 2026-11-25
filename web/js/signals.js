@@ -262,6 +262,7 @@ async function pvShow(tr, sheet, resolve) {
     el.addEventListener('click', e => { if (e.target.closest('.pvclose')) pvHide(); }); }
   el.innerHTML = pvHtml(res.a, res.u);
   el.classList.toggle('sheet', !!sheet); el.hidden = false;
+  if (sheet) window.getSelection()?.removeAllRanges();   // basılı tutarken oluşmuş metin seçimini temizle
   if (!sheet) {
     const r = tr.querySelector('td.tk').getBoundingClientRect(), w = el.offsetWidth, h = el.offsetHeight;
     let x = r.right + 12, y = r.top - 20;
