@@ -4,8 +4,6 @@ import { view } from './dom.js';
 import { FIELDS, MKT_NAME, OPS, PRESETS, PRESET_GROUPS, TEXTCOLS, TIER_RANK, VIEWS, tierRank, val } from './fields.js';
 import { listOf, persist, state, ui } from './store.js';
 import { tedbirIcon } from './tedbir.js';
-import { pfRows } from './pfcore.js';
-import { loadSignals } from './signals.js';
 import { F1, cls, esc, fmt, info, ok } from './util.js';
 
 /* ============================================================
@@ -202,7 +200,7 @@ export function presetBar(counts) {
     </div>${row}`;
 }
 /* Piyasa genişliği: SMA50 / SMA200 üstündeki hisse oranı, 4 yıllık grafik ve yorum (olumlu ve olumsuz notlar) */
-const pulseTone = x => x >= 60 ? 'pos' : x < 40 ? 'neg' : 'neu';
+export const pulseTone = x => x >= 60 ? 'pos' : x < 40 ? 'neg' : 'neu';
 function pulseHtml(P) {
   const d = x => `<span class="${cls(x)}">${x > 0 ? '+' : ''}${F1.format(x)}</span>`;
   return `<div class="pulse">
@@ -216,7 +214,7 @@ function pulseHtml(P) {
       </tbody></table>
     </div>`;
 }
-function breadthHtml(B) {
+export function breadthHtml(B) {
   const W = 600, H = 90, n = B.hist.length;
   const xy = k => B.hist.map((r, i) => `${(i / (n - 1) * W).toFixed(1)},${(H - r[k] * H).toFixed(1)}`).join(' ');
   const pc = x => `%${Math.round(x * 100)}`;
@@ -251,31 +249,6 @@ function breadthHtml(B) {
       </div>
     </div>
     ${info('<b>Piyasa Nabzı</b> beş bileşenin toplamıdır: kısa ve uzun vade genişliğinin son 4 yıldaki yeri (25+25), kısa ve uzun vadenin yönü (20+15) ve kısa vadenin uzun vadeye önderliği (15). Olumlu gelişmeler (genişliğin artması, dipten dönüş) puanı artırır, olumsuzlar düşürür; bileşen tablosu puanın neden değiştiğini gösterir. 0–20 Kritik, 20–40 Zayıf, 40–60 Kararsız, 60–80 Sağlıklı, 80–100 Güçlü. Bir durum göstergesidir, al-sat sinyali değil: son 4 yılda en iyi 40 günlük BIST 100 getirileri hem Kritik (dip, ort. +%7,6) hem Güçlü (yaygın yükseliş, ort. +%12,6) bölgelerinden sonra geldi; aradaki bölgelerde getiri daha düşüktü. ' + 'Kısa vade (50 gün) piyasanın son haftalardaki yönünü, uzun vade (200 gün) ana trendin ne kadar geniş tabanlı olduğunu gösterir. %15 altı "çok zayıf" (panik), %15–35 zayıf, %35–65 dengeli, %65–85 güçlü, %85 üstü "çok güçlü" (aşırı ısınma). Yorumlar, seviyeye ek olarak yönü (son 10/20 gündeki değişim), kısa ve uzun vadenin ilişkisini ve endeksle uyumu dikkate alır; olumlu işaretler ▲, olumsuz işaretler ▼ ile gösterilir. Bu bir gösterge, al-sat sinyali değil.', 'Nasıl okunur?')}`;
-}
-/* Bugün özeti: açık sinyaller, portföy, izleme listesi, yaklaşan temettüler (içeriği olan kartlar) */
-function todayHtml() {
-  const cards = [];
-  const sigSt = DATA.stocks.filter(s => s.sig?.length), nSig = sigSt.reduce((a, s) => a + s.sig.length, 0);
-  cards.push(`<a class="tcard" href="#/sinyal"><span>Sinyaller</span><b>${nSig} açık sinyal</b><small id="tCand">${sigSt.length} hisse</small></a>`);
-  const rows = state.portfolio.length ? pfRows().filter(r => r.open) : [];
-  if (rows.length) {
-    const v = rows.reduce((a, r) => a + (r.value || 0), 0), d = rows.reduce((a, r) => a + (r.day || 0), 0);
-    cards.push(`<a class="tcard" href="#/portfoy"><span>Portföy</span><b>${fmt.big(v)} ₺</b><small class="${cls(d)}">bugün ${fmt.pct(v - d ? d / (v - d) : null)}</small></a>`);
-  }
-  const w = DATA.stocks.filter(s => state.watch.includes(s.t) && ok(s.chg1d)).sort((a, b) => b.chg1d - a.chg1d);
-  if (w.length) {
-    const mv = (s) => `${s.t} <span class="${cls(s.chg1d)}">${fmt.pct(s.chg1d)}</span>`;
-    cards.push(`<button type="button" class="tcard" data-preset="watch"><span>İzleme listesi · ${w.length}</span><b>${mv(w[0])}</b><small>${w.length > 1 ? 'en zayıf ' + mv(w.at(-1)) : ''}</small></button>`);
-  }
-  const lim = new Date(new Date(DATA.lastDate) * 1 + 14 * 864e5).toISOString().slice(0, 10);
-  const div = DATA.stocks.filter(s => s.nextDivDate && s.nextDivDate >= DATA.lastDate && s.nextDivDate <= lim).sort((a, b) => a.nextDivDate.localeCompare(b.nextDivDate));
-  if (div.length) cards.push(`<button type="button" class="tcard" data-preset="divSoon"><span>Temettü · 14 gün</span><b>${div.length} hisse</b><small>${div.slice(0, 3).map(s => `${s.t} ${fmt.date(s.nextDivDate).slice(0, 5)}`).join(' · ')}</small></button>`);
-  const B = DATA.breadth;
-  const PZ = B?.pulse;
-  if (B) cards.push(`<button type="button" class="tcard brd ${PZ ? pulseTone(PZ.score) : B.tone}" id="brdBtn" aria-expanded="${!!ui.brdOpen}" title="Piyasa Nabzı: BIST TÜM hisselerinin genişliğinden 0–100 puan; ayrıntı için dokunun">
-      <span>Piyasa Nabzı</span>${PZ ? `<b>${PZ.score}<small class="of">/100</small> · ${esc(PZ.band)}</b><small>1 hafta önce ${PZ.w1} · 1 ay önce ${PZ.m1}</small>`
-        : `<b>%${Math.round(B.a50 * 100)} · %${Math.round(B.a200 * 100)}</b><small>${esc(B.head)}</small>`}</button>`);
-  return `<section class="today" aria-label="Bugün özeti">${cards.join('')}</section>${B ? `<section class="panel brdpanel" id="brdPanel"${ui.brdOpen ? '' : ' hidden'}>${breadthHtml(B)}</section>` : ''}`;
 }
 const emptyHtml = () => state.preset === 'watch' && !state.watch.length
   ? '<p class="empty">İzleme listeniz boş.<br>Tablodaki ya da hisse sayfasındaki <b>★</b> işaretine dokunarak hisse ekleyin; burada birlikte izlersiniz.</p>'
@@ -320,7 +293,7 @@ const INTRO = [
   ['Tarama', 'Hazır taramalardan birini seçin ya da <b>Filtrele</b> ile endeks, pazar, sektör ve gösterge koşulu ekleyin. Satıra dokununca hissenin grafiği ve analizi açılır; <b>★</b> ile izleme listesine eklersiniz.'],
   ['Sinyaller ve portföy', '<b>Sinyaller</b> sayfası stratejilerin açık sinyallerini, oluşmak üzere olan kurulumları ve geçmiş test sonuçlarını gösterir. Portföyünüz ve izleme listeniz yalnızca bu cihazda saklanır; <b>⚙ Ayarlar</b>\'dan yedekleyebilirsiniz. Terimler için <b>?</b> Rehber.'],
 ];
-function introHtml() {
+export function introHtml() {
   const i = Math.min(ui.introStep || 0, INTRO.length - 1), [h, p] = INTRO[i], last = i === INTRO.length - 1;
   return `<section class="panel intro" aria-label="Tanıtım">
     <div class="introhead"><span class="introdots" aria-label="Adım ${i + 1} / ${INTRO.length}">${INTRO.map((_, k) => `<i${k === i ? ' class="on"' : ''}></i>`).join('')}</span>
@@ -331,7 +304,7 @@ function introHtml() {
 }
 export function renderScreener() {
   destroyCharts();
-  document.title = 'Tahta';
+  document.title = 'Tarama · Tahta';
   const sectors = [...new Set(DATA.stocks.map(s => s.sector).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'tr'));
   const numericKeys = Object.keys(FIELDS).filter(k => !FIELDS[k].nofilter);
   const counts = Object.fromEntries(PRESETS.map(p => [p.id, DATA.stocks.filter(p.test).length]));
@@ -340,8 +313,7 @@ export function renderScreener() {
   const preset = PRESETS.find(p => p.id === state.preset);
 
   view.innerHTML = `
-  ${todayHtml()}
-  ${state.introDone ? '' : introHtml()}
+  <section class="dhead scrhead"><div><h1>Tarama</h1></div></section>
   <section class="toolbar${ui.fOpen ? ' fopen' : ''}">
     ${presetBar(counts)}
     <div class="controls">
@@ -373,9 +345,4 @@ export function renderScreener() {
   </section>
   <div class="tablewrap scr">${rows.length ? tableHtml(rows, cols) : emptyHtml()}</div>`;
   fitTable(view.querySelector('.tablewrap.scr'));
-  view.querySelector('#brdBtn')?.addEventListener('click', e => {
-    ui.brdOpen = !ui.brdOpen; e.currentTarget.setAttribute('aria-expanded', ui.brdOpen); view.querySelector('#brdPanel').hidden = !ui.brdOpen;
-  });
-  const sigSt = DATA.stocks.filter(s => s.sig?.length);
-  loadSignals().then(S => { const el = view.querySelector('#tCand'); if (el && S.candidates) el.textContent = `${sigSt.length} hisse · ${S.candidates.length} hazırlanan kurulum`; }).catch(() => {});
 }

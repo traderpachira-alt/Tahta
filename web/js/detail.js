@@ -67,7 +67,7 @@ export function srPanelHtml(s) {
 export async function renderDetail(t) {
   destroyCharts();
   const s = BY.get(t) || (t === 'XU100' ? DATA.index : null);
-  if (!s) { view.innerHTML = `<p class="empty">"${esc(t)}" bulunamadı. <a href="#/">Taramaya dön</a></p>`; return; }
+  if (!s) { view.innerHTML = `<p class="empty">"${esc(t)}" bulunamadı. <a href="#/tarama">Taramaya dön</a></p>`; return; }
   document.title = `${t} · Tahta`;
   const isIdx = t === 'XU100';
   const starred = state.watch.includes(t);
@@ -107,7 +107,7 @@ export async function renderDetail(t) {
 
   view.innerHTML = `
   <section class="dhead">
-    <a class="back" href="#/">← Tarama</a>
+    <a class="back" href="#/tarama" data-back="1">← Geri</a>
     <div>
       <h1>${isIdx ? '' : `<button type="button" class="star" data-star="${t}" aria-pressed="${starred}" aria-label="İzleme listesi">★</button>`}${esc(t)}${tedbirIcon(s)}</h1>
       <p class="sub">${isIdx ? '' : tierChip(s, true) + ' '}${esc(s.name || '')}${s.sector ? ' · ' + esc(s.sector) : ''}${s.industry ? ' · ' + esc(s.industry) : ''}</p>

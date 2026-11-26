@@ -17,14 +17,13 @@ Tarayıcıda çalışır, telefonda ana ekrana eklenince uygulama gibi açılır
   dönüş noktaları, 1 yıllık hacim profili (POC/VAH/VAL), 52 hafta, SMA200/50, haftalık SMA50, aylık pivot, kapanmamış
   boşluklar ve yuvarlak sayılar yarım ATR toleransla bölgelere birleştirilir; ağırlıklı skor (≥ 10 güçlü) ve kesişim
   sayısı. Grafikte katman, hisse sayfasında tablo, taramada uzaklık/güç sütunları ve hazır taramalar, portföyde destek.
-- **Arayüz düzeni:** üstte Tarama · Sinyaller · Portföy · Karşılaştır (telefonda alt sekme çubuğu); Rehber (?) ve
+- **Arayüz düzeni:** üstte Anasayfa · Tarama · Sinyaller · Portföy · Karşılaştır (telefonda alt sekme çubuğu); Rehber (?) ve
   Ayarlar ve yedek (⚙) sağ üstte; son güncelleme zamanı üst çubukta rozet olarak ("Son veri bugün 19:12"; eskiyse sarı).
   İlk açılışta 3 adımlı tanıtım (Rehber'den yeniden açılır). Telefonda taramanın endeks / pazar / sektör / gösterge
   koşulları "Filtrele" düğmesinin arkasında, seçili filtreler kaldırılabilir etiketler; hazır taramalar ve kartlar tek satırda
   yana kayar (devamı varsa sağ kenar solar); tablo ekranın görünen alanını doldurur. Sinyaller sayfası Açık / Hazırlanan /
   Sonuçlanan / Performans sekmeleri; telefonda sinyaller ve arşiv kart olarak. Hisse sayfasında açık sinyaller tek kutuda,
-  grafikte yalnızca seçili sinyalin seviyeleri. Dokunmatik ekranda dokunma alanları en az 40 px. Taramanın üstünde "Bugün" kartları (açık
-  sinyaller, portföy, izleme listesi, 14 gün içindeki temettüler). Hazır taramalar Teknik / Temettü / Temel / Kayıtlı
+  grafikte yalnızca seçili sinyalin seviyeleri. Dokunmatik ekranda dokunma alanları en az 40 px. Hazır taramalar Teknik / Temettü / Temel / Kayıtlı
   başlıkları altında gruplu. Hisse sayfasında grafik üstte, altında sekmeler (Genel, Destek / direnç, Temettü, Temel ve
   değerleme, Sektör); göstergeler tek menüde, açık olanlar etiket olarak; verisi olmayan kartlar gizlenir. Uzun
   açıklamalar "ⓘ" satırlarında katlı.
@@ -59,6 +58,11 @@ Tarayıcıda çalışır, telefonda ana ekrana eklenince uygulama gibi açılır
   GitHub Gist'inde tutulur; erişim anahtarı (yalnızca `gist` yetkisi) sadece cihazın tarayıcısında saklanır.
   Açılışta, uygulamaya dönünce ve değişiklikten sonra eşitlenir; iki cihaz habersiz değiştirirse sorulur.
   Site bağlantısı paylaşılabilir: başkaları kendi (boş) portföyünü görür.
+- **Anasayfa (`#/`, `web/js/home.js`):** son kapanışın özeti; yalnızca mevcut veriden türetilir. BIST 100 ve son 3 ay çizgisi,
+  Piyasa Nabzı (dokununca genişlik ayrıntısı), yükselen / düşen / tavan / taban sayısı, döviz-altın-bitcoin; portföy ve izleme
+  listesi özeti; açık sinyaller, son kapanışta oluşan sinyaller, son 60 günün sonucu; 20 mn ₺ üstü hacimli hisselerde günün en
+  çok yükselen / düşen / hacmi artan hisseleri ve sektör medyanları; 14 gün içindeki temettüler. Tarama `#/tarama`'ya taşındı;
+  hisse sayfasındaki "← Geri" gelinen sayfaya döner.
 - **Ayarlar ve yedek (⚙):** yedek dosyası, bulut senkronizasyonu ve izleme listesi, kayıtlı taramalar ve portföyü bir kod ya da bağlantıyla başka cihaza taşıma.
 - **Güncelleme uyarısı:** yeni sürüm yayınlanınca uygulamada "Yeni sürüm hazır · Yenile" çıkar.
 

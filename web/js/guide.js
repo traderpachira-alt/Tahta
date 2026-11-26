@@ -7,8 +7,14 @@ import { esc } from './util.js';
    Rehber: kısa kullanım rehberi ve aranabilir terim sözlüğü
    ============================================================ */
 const GUIDE = [
-  ['Tarama', `Ana sayfa. En üstteki <b>Bugün</b> kartları açık sinyalleri, portföyünüzü, izleme listesindeki en büyük hareketleri,
-    14 gün içindeki temettüleri ve <b>piyasa genişliğini</b> özetler. Genişlik kartı, BIST TÜM hisselerinin kaçının 50 ve 200 günlük ortalamasının üstünde olduğunu gösterir; dokununca 4 yıllık grafik, 4 yıla göre yeri ve olumlu (▲) / olumsuz (▼) işaretlerle yorum açılır. Hazır taramalar gruplara ayrılmıştır: <b>Tümü</b>, <b>İzleme listem</b> ve <b>Aktif sinyal</b> tek dokunuş;
+  ['Anasayfa', `Açılış sayfası, son kapanışın özetidir. <b>Piyasa</b>: BIST 100 ve son 3 ayı, <b>Piyasa Nabzı</b> (BIST TÜM hisselerinin
+    50 ve 200 günlük ortalamalarına göre 0–100 puan; dokununca 4 yıllık grafik, bileşenler ve olumlu ▲ / olumsuz ▼ işaretler açılır), günün yükselen /
+    düşen hisse sayısı, tavan / taban ve döviz, altın, bitcoin. <b>Sizin için</b>: portföyünüzün değeri ve günlük değişimi, izleme listenizin en güçlü ve
+    en zayıf hisseleri. <b>Sinyaller</b>: açık sinyal ve hazırlanan kurulum sayısı, son kapanışta oluşan yeni sinyaller, son 60 günün sonucu; izleme listenizde
+    ya da portföyünüzde açık sinyal varsa ayrıca belirtilir. <b>Günün hareketleri</b>: 20 mn ₺ üstü ortalama işlem hacmi olan hisselerde en çok yükselen /
+    düşen ve hacmi ortalamasına göre en çok artan beş hisse; günün en iyi ve en zayıf sektörleri (sektördeki hisselerin medyan değişimi). Altta 14 gün
+    içindeki temettüler. Satırlara dokununca hisse sayfası açılır; hisse sayfasındaki "← Geri" geldiğiniz sayfaya döner.`],
+  ['Tarama', `Bütün hisselerin tablosu. Hazır taramalar gruplara ayrılmıştır: <b>Tümü</b>, <b>İzleme listem</b> ve <b>Aktif sinyal</b> tek dokunuş;
     <b>Teknik</b>, <b>Temettü</b>, <b>Temel</b> başlıklarına dokununca altında o grubun taramaları açılır; seçili tarama başlıkta yazar.
     <b>Kayıtlı</b> başlığı kendi taramalarınızı ve "Bu taramayı kaydet" düğmesini gösterir. Alttaki sekmeler (Fiyat, Trend, Momentum, Temettü, Temel)
     tablonun sütun grubunu değiştirir. Telefonda endeks, pazar, sektör ve gösterge koşulları <b>Filtrele</b> düğmesinin arkasındadır; seçili filtreler tablonun üstünde etiket olarak görünür, × ile kaldırılır. <b>+ Gösterge koşulu</b> ile kendi koşulunuzu ekleyin (yüzde alanlara yüzde yazın: 5 = %5). Endeks, pazar ve sektörde birden

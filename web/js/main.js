@@ -10,6 +10,7 @@ import { listOf, persist, state, ui } from './store.js';
 import { sync, syncConnect, syncDisconnect, syncNow, syncOn } from './sync.js';
 import { backupJson, backupName, mergeData, parseBackup, replaceData } from './backup.js';
 import { renderGuide } from './guide.js';
+import { renderHome } from './home.js';
 import { renderSignals } from './signals.js';
 import { parseCode, renderTransfer } from './transfer.js';
 
@@ -65,7 +66,7 @@ view.addEventListener('click', e => {
     if (i >= 0) state.watch.splice(i, 1); else state.watch.push(d.star);
     persist();
     document.querySelectorAll(`[data-star="${d.star}"]`).forEach(x => x.setAttribute('aria-pressed', i < 0));
-    if (state.preset === 'watch' && !location.hash.startsWith('#/h/')) renderScreener();
+    if (state.preset === 'watch' && location.hash.startsWith('#/tarama')) renderScreener();
     return;
   }
   if (d.pgroup) { ui.pgroup = ui.pgroup === d.pgroup ? null : d.pgroup; renderScreener(); return; }
@@ -74,7 +75,7 @@ view.addEventListener('click', e => {
   if (d.fclear) { clearFilter(d.fclear); persist(); renderScreener(); return; }
   if (d.intro) {
     if (d.intro === 'done') { state.introDone = true; ui.introStep = 0; persist(); } else ui.introStep = (ui.introStep || 0) + (d.intro === 'next' ? 1 : -1);
-    renderScreener(); return;
+    route(); return;
   }
   if (d.preset) {
     state.preset = d.preset;
@@ -385,13 +386,22 @@ matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
    Yönlendirme
    ============================================================ */
 export let lastScroll = 0;
+let prevHash = '#/';
+// Hisse sayfasındaki "← Geri": hangi sayfadan gelindiyse oraya (doğrudan açıldıysa taramaya)
+document.addEventListener('click', e => {
+  const a = e.target.closest?.('a[data-back]');
+  if (a) { e.preventDefault(); location.hash = prevHash; }
+  const g = e.target.closest?.('[data-gopreset]');
+  if (g) { state.preset = g.dataset.gopreset; ui.pgroup = undefined; const p = PRESETS.find(x => x.id === g.dataset.gopreset); if (p?.sort) state.sort = { key: p.sort[0], dir: p.sort[1] }; persist(); }
+});
 export function route() {
   if (!DATA) return;
   const h = location.hash;
   const onScreener = !!view.querySelector('.toolbar');
   if (onScreener) lastScroll = view.querySelector('.tablewrap')?.scrollTop || 0;
   const m = h.match(/^#\/h\/([A-Z0-9]+)$/i);
-  const section = m ? 'hisse' : h.startsWith('#/karsilastir') ? 'karsilastir' : h.startsWith('#/aktar') ? 'aktar' : h.startsWith('#/portfoy') ? 'portfoy' : h.startsWith('#/rehber') ? 'rehber' : h.startsWith('#/sinyal') ? 'sinyal' : 'tarama';
+  const section = m ? 'hisse' : h.startsWith('#/karsilastir') ? 'karsilastir' : h.startsWith('#/aktar') ? 'aktar' : h.startsWith('#/portfoy') ? 'portfoy' : h.startsWith('#/rehber') ? 'rehber' : h.startsWith('#/sinyal') ? 'sinyal' : h.startsWith('#/tarama') ? 'tarama' : 'ana';
+  if (section !== 'hisse') prevHash = h || '#/';
   document.querySelectorAll('[data-nav]').forEach(a => a.toggleAttribute('aria-current', a.dataset.nav === section));
   if (m) renderDetail(m[1].toUpperCase());
   else if (section === 'karsilastir') renderCompare();
@@ -399,6 +409,7 @@ export function route() {
   else if (section === 'portfoy') renderPortfolio();
   else if (section === 'rehber') renderGuide();
   else if (section === 'sinyal') renderSignals();
+  else if (section === 'ana') renderHome();
   else {
     renderScreener();
     const tw = view.querySelector('.tablewrap');
