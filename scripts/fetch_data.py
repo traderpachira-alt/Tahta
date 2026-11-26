@@ -974,6 +974,64 @@ def download_prices(symbols: list[str]) -> dict[str, pd.DataFrame]:
         if todo and attempt < 2:
             print(f"  {len(todo)} sembol alınamadı, {20 * (attempt + 1)} sn sonra tekrar denenecek…", flush=True)
             time.sleep(20 * (attempt + 1))
+    return refresh_lagging(out, _download_once)
+
+
+def _download_once(symbols: list[str]) -> dict[str, pd.DataFrame]:
+    """Tek deneme (geride kalan semboller için): download_prices ile aynı biçim."""
+    import yfinance as yf
+    data = yf.download([s + ".IS" for s in symbols], period="5y", interval="1d", auto_adjust=False, actions=True,
+                       group_by="ticker", progress=False, threads=True)
+    have = set(data.columns.get_level_values(0)) if isinstance(data.columns, pd.MultiIndex) else set()
+    out = {}
+    for s in symbols:
+        if s + ".IS" not in have:
+            continue
+        sub = data[s + ".IS"]
+        cols = [c for c in ["Open", "High", "Low", "Close", "Volume", "Dividends", "Stock Splits"] if c in sub.columns]
+        df = sub[cols].dropna(subset=["Close"])
+        if "Dividends" not in df.columns:
+            df = df.assign(Dividends=0.0)
+        df = df[~df.index.duplicated(keep="last")].sort_index()
+        if len(df) >= 30:
+            out[s] = df
+    return out
+
+
+LAG_MAX = 0.3   # hisselerin bu orandan fazlası endeksin son gününden geride kalırsa veri eksik sayılır
+
+
+class StaleData(RuntimeError):
+    """Yahoo hisselerin son gününü (endeks gelmişken) vermedi: yayınlanırsa site bir gün geriye gider."""
+
+
+def lagging(prices: dict[str, pd.DataFrame], ref: str = INDEX) -> list[str]:
+    """Son günü endeksin (yoksa en yeni) son gününden eski olan hisseler."""
+    last = {s: df.index[-1].normalize() for s, df in prices.items() if len(df)}
+    if not last:
+        return []
+    top = last.get(ref, max(last.values()))
+    return [s for s, d in last.items() if s != ref and d < top]
+
+
+def refresh_lagging(out: dict[str, pd.DataFrame], fetch, waits=(30, 60), sleep=time.sleep) -> dict[str, pd.DataFrame]:
+    """Hisselerin çoğu endeksten geride kaldıysa (Yahoo son günü henüz vermediyse) geride kalanları tekrar indir; düzelmezse
+    StaleData: güncelleme yayınlanmaz, sitede önceki (eksiksiz) veri kalır ve bir sonraki çalışma yeniden dener."""
+    n = max(1, len([s for s in out if s != INDEX]))
+    for w in waits:
+        lag = lagging(out)
+        if len(lag) <= LAG_MAX * n:
+            return out
+        print(f"  {len(lag)}/{n} hissede son gün eksik (endeks {out[INDEX].index[-1]:%Y-%m-%d} itibarıyla); {w} sn sonra tekrar indirilecek…" if INDEX in out
+              else f"  {len(lag)}/{n} hissede son gün eksik; {w} sn sonra tekrar indirilecek…", flush=True)
+        sleep(w)
+        new = fetch(lag)
+        for s, df in new.items():
+            if df.index[-1] > out[s].index[-1]:
+                out[s] = df
+    lag = lagging(out)
+    if len(lag) > LAG_MAX * n:
+        raise StaleData(f"{len(lag)}/{n} hissede son gün yok (Yahoo henüz vermedi); eski veriyle yayın yapılmadı.")
     return out
 
 
