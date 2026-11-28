@@ -35,7 +35,7 @@ META = {
     "name": "VWAP Reclaim",
     "short": "Sert düşüş sonrası tepeden çapalı VWAP'ın ilk geri alınışı",
     "group": "dip",
-    "status": "live",
+    "status": "passive",
     "summary": "1 yıllık tepesinden en az %30 düşen hisse, tepeden bu yana alanların ortalama maliyetini (tepeden çapalı VWAP) ilk kez geri alınca girilir",
     "candNote": "Düşüş ve yaş şartları sağlanmış, fiyat tepe-VWAP'ının en fazla %4 altında: kapanış VWAP'ın (tetik) üstüne çıkarsa sinyal oluşur. Tetik VWAP'ın bugünkü değeridir; yarın hacimle biraz değişebilir.",
     "rules": [

@@ -32,7 +32,7 @@ META = {
     "name": "SMA200 Retest",
     "short": "Trendde 200 günlük ortalamaya geri çekilme ve dönüş",
     "group": "trend",
-    "status": "live",
+    "status": "passive",
     "summary": "Yükseliş trendinde ortalamadan uzaklaşmış hisse 200 günlük ortalamaya kadar geri çekilip dönünce girilir",
     "candNote": "Fiyat son günlerde SMA200'e indi ve trend şartları sağlanıyor: bir sonraki kapanış bugünkü en yüksek fiyatı (tetik) ve SMA200'ü aşarsa ve günün üst kısmında kapanırsa sinyal oluşur.",
     "rules": [

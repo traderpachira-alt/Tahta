@@ -130,19 +130,16 @@ işlemler sonuçlanınca arşive geçer), yalnızca arşiv açılınca yüklenir
 hisse filtreleri; özet, strateji kırılımı, CSV indirme. Hisse koduna gelince (basılı tutunca) sinyal sayfasındaki kurulum
 çizimi açılır: mumlar hissenin günlük fiyat dosyasından (`data/hist`, 2 yıl; daha eskisi `data/histx`) gerektiğinde yüklenir.
 
-Rise Baby (`scripts/strategies/risebaby.py`, "Trend takip"): kapanış SMA200 üstündeyken 10 günlük getirinin ilk kez +%25'i
-aştığı gün; sinyal günü tavanda kapanırsa (≥ %9,5 ve en yüksekte kapanış) beklenir, tavanda kapanmadığı ilk günün kapanışında
-giriş, 3 gün tavan → iptal. Stop giriş − 2,5 ATR; kanal çıkışı (varsayılan), 20 gün tut, takip eden stop, sabit 3R; %0,5 risk.
+**Pasif stratejiler** (`strategies.PASSIVE`; kod ve testler yerinde, sinyal üretmez, sitede görünmez, araştırmada
+`signals.run(prices, tiers, PASSIVE[id])` ile çalıştırılabilir; yeniden açmak için `REGISTRY`'ye taşınır):
 
-SMA200 Retest (`scripts/strategies/sma200rt.py`, "Trend takip"): SMA50 > SMA200, SMA200 yükseliyor, son 60 günde kapanış
-SMA200'ün en az %15 üstüne çıkmış; son 4 günde en düşük SMA200'ün en fazla %3 üstüne inmiş; kapanış SMA200 ve önceki günün
-tepesinin üstünde, günün üst %40'ında → giriş; stop son 4 günün dibi ile SMA200'ün küçüğü − 0,5 ATR; +1R sonrası takip stopu
-(varsayılan), sabit 2R ve 3R karşılaştırma. Kanal çıkışı bu sinyalde rastgeleden iyi değildi.
-
-VWAP Reclaim (`scripts/strategies/vwaprc.py`, "Dipten dönüş"): 1 yıllık tepeden bu yana fiyat en az %30 düşmüş, tepe en az
-80 mum önce; kapanış tepeden çapalı VWAP'ın (tepe gününden bu yana tipik fiyat × hacim / hacim) ilk kez üstüne çıkınca giriş;
-stop giriş − 2 ATR; kanal çıkışı (varsayılan), takip eden stop ve sabit 3R. Avantaj BIST 100 dışında; rastgele giriş kıyası
-tepeden ≥ %30 düşmüş hisselerin günlerinden.
+- Rise Baby (`risebaby.py`): kapanış SMA200 üstündeyken 10 günlük getirinin ilk kez +%25'i aştığı gün; tavanda kapanırsa
+  tavanda kapanmadığı ilk günün kapanışında giriş (3 gün tavan → iptal); stop 2,5 ATR, kanal çıkışı, %0,5 risk. Pasif nedeni:
+  sonuç birkaç büyük işleme bağlı (2026'da en iyi ve en kötü %5 hariç ortalama −0,34R).
+- SMA200 Retest (`sma200rt.py`): yükseliş trendinde SMA200'e geri çekilip dönüş; stop testin dibi − 0,5 ATR, takip stopu. Pasif
+  nedeni: 2026'da −0,08R/işlem, büyük kazanç kuyruğu yok; denenen piyasa filtreleri (BIST 100 / genişlik) 2022–25'i bozuyordu.
+- VWAP Reclaim (`vwaprc.py`): 1 yıllık tepeden ≥ %30 düşen hissede tepeden çapalı VWAP'ın ilk geri alınışı; stop 2 ATR, kanal
+  çıkışı. Pasif nedeni: 4 yıllık kârın çoğu 11 işlemden; 2026'da en iyi 3 işlem hariç −6,6R.
 
 Temettü Rallisi (`scripts/strategies/divrun.py`, "Takvim / olay" grubu): brüt verimi ≥ %5 olan temettüde
 hak kullanımdan önceki son günden 10 iş günü önce kapanışta giriş, son gün kapanışta çıkış, stop yok (pozisyon büyüklüğü için 1R = 3 ATR, en fazla fiyatın %15'i). Olay verisi: geçmiş

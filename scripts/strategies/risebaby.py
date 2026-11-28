@@ -38,7 +38,7 @@ META = {
     "name": "Rise Baby",
     "short": "10 günde +%25 yükselen trenddeki hisseye momentumla binmek",
     "group": "trend",
-    "status": "live",
+    "status": "passive",
     "summary": "SMA200 üstünde 10 günde %25'ten fazla yükselen hisseye, yükselişin kendini gösterdiği ilk gün binilir; tavan serisinde beklenir",
     "candNote": "Sinyal oluştu ama hisse tavanda kapandı: o fiyattan alım pratikte mümkün değil. Tavanda kapanmadığı ilk günün kapanışında giriş yapılır; tavan 3 gün üst üste sürerse sinyal iptal olur.",
     "rules": [

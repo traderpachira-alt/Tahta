@@ -8,7 +8,7 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 import signals as S  # noqa: E402
-from strategies import GROUPS, REGISTRY  # noqa: E402
+from strategies import ALL, GROUPS, PASSIVE, REGISTRY  # noqa: E402
 from strategies import morningstar as MS  # noqa: E402
 
 
@@ -227,21 +227,26 @@ class RunTest(unittest.TestCase):
 class RegistryTest(unittest.TestCase):
     """Her strateji modülü arayüzü eksiksiz uygular."""
     def test_interface(self):
-        for sid, m in REGISTRY.items():
+        for sid, m in ALL.items():
             self.assertEqual(m.ID, sid)
             for k in ("name", "group", "status", "summary", "rules", "notes"):
                 self.assertIn(k, m.META, sid)
             self.assertIn(m.META["group"], GROUPS, sid)
-            self.assertIn(m.META["status"], ("live", "test"), sid)
+            self.assertIn(m.META["status"], ("passive",) if sid in PASSIVE else ("live", "test"), sid)
             self.assertIn(m.DEFAULT_V, m.VARIANTS, sid)
             self.assertTrue(set(m.TIMEFRAMES) <= set(S.TIMEFRAMES), sid)
             self.assertTrue(callable(m.signal) and callable(m.baseline_stop), sid)
             meta = S.meta(m)
             self.assertEqual(meta["id"], sid)
 
+    def test_passive_not_registered(self):
+        # pasif stratejiler motorun ve sitenin listesinde yok, ama modülleri araştırma için duruyor
+        self.assertFalse(set(PASSIVE) & set(REGISTRY))
+        self.assertEqual(set(PASSIVE), {"sma200rt", "risebaby", "vwaprc"})
+
     def test_each_strategy_runs(self):
         prices = {"AAA": with_star(base(300), 200), "BBB": base(300)}
-        for m in REGISTRY.values():
+        for m in ALL.values():
             R = S.run(prices, {"AAA": "30", "BBB": "100"}, m)
             self.assertEqual(set(R["stats"]), set(S.TIER_SETS))
             self.assertEqual(set(R["stats"]["BIST TÜM"]), set(m.VARIANTS))

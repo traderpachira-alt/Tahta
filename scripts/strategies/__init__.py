@@ -46,7 +46,7 @@ Strateji haritası (ne yakalıyor · süre · ortam · çıkış):
 
 Yeni strateji eklemek:
   1. Bu klasöre `yeni.py` yazın (aşağıdaki arayüz; örnek: morningstar.py).
-  2. Aşağıdaki REGISTRY'ye ekleyin. Sıra, sinyal sayfasındaki sıradır.
+  2. Aşağıdaki REGISTRY'ye ekleyin. Sıra, sinyal sayfasındaki sıradır. (PASSIVE: kod kalır, sinyal üretilmez.)
   3. tests/test_signals.py'ye formasyon testleri ekleyin.
 
 Arayüz (modül düzeyinde):
@@ -80,7 +80,15 @@ from . import divrun, donchian, fvgpb, morningstar, msbrk, risebaby, rsrot, sma2
 # Gruplar: sinyal sayfasında stratejiler bu başlıklar altında toplanır (tarama sayfasındaki hazır taramalar gibi)
 GROUPS = {"formasyon": "Mum formasyonları", "trend": "Trend takip", "kirilim": "Kırılım", "donus": "Ortalamaya dönüş", "dip": "Dipten dönüş", "olay": "Takvim / olay", "portfoy": "Portföy"}
 
-REGISTRY = {m.ID: m for m in (morningstar, donchian, sqzbrk, fvgpb, sma200rt, risebaby, vwaprc, msbrk, divrun)}
+REGISTRY = {m.ID: m for m in (morningstar, donchian, sqzbrk, fvgpb, msbrk, divrun)}
+# Pasif stratejiler: kodları ve testleri yerinde, sinyal üretmez ve uygulamada görünmez; araştırmada ve sonraki testlerde
+# kullanılabilir (ör. signals.run(prices, tiers, PASSIVE["vwaprc"])). Yeniden açmak için REGISTRY'ye taşıyın.
+#   sma200rt  SMA200 Retest  2026'da zarar (−0,08R/işlem, nakitle sınırlı hesap 100 bin → 74 bin); büyük kazanç kuyruğu yok,
+#             denenen piyasa filtreleri 2022–25'i bozuyordu
+#   risebaby  Rise Baby      sonuç birkaç büyük işleme bağlı: 2026'da en iyi ve en kötü %5 hariç ortalama −0,34R
+#   vwaprc    VWAP Reclaim   4 yıllık kârın çoğu 11 işlemden; 2026'da en iyi 3 işlem hariç −6,6R
+PASSIVE = {m.ID: m for m in (sma200rt, risebaby, vwaprc)}
+ALL = {**REGISTRY, **PASSIVE}
 # Portföy stratejileri: giriş/stop yerine dönemsel olarak yenilenen bir portföy tutar; motoru kullanmaz, kendi run(prices,
 # tiers, idx) fonksiyonuyla aylık simülasyon yürütür (ör. göreli güç rotasyonu).
 PORTFOLIOS = {m.ID: m for m in (rsrot,)}
