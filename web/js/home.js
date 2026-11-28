@@ -45,6 +45,7 @@ function marketHtml() {
         <div class="hbreadthn"><span class="up">▲ ${upN} yükselen</span><span class="down">▼ ${dnN} düşen</span></div>
         <small class="muted">Tavan ${ceil} · taban ${floor}${flat ? ` · değişmeyen ${flat}` : ''}</small></div>
     </div>
+    <a class="hregime" id="hRegime" href="#/sinyal" hidden></a>
     ${B ? `<div class="brdpanel hbrd" id="brdPanel"${ui.brdOpen ? '' : ' hidden'}>${breadthHtml(B)}</div>` : ''}
     ${B && (B.neg.length || B.pos.length) ? `<p class="hnote">${B.pos[0] ? `<span class="up">▲</span> ${esc(B.pos[0])}` : `<span class="down">▼</span> ${esc(B.neg[0])}`}</p>` : ''}
     ${fx.length ? `<div class="hfx">${fx.map(([k, l, u]) => { const a = DATA.assets[k], v = u === '$' ? a.usd : a.last;
@@ -152,7 +153,13 @@ export function renderHome() {
   });
   drawSpark();
   loadSignals().then(S => {
-    const c = view.querySelector('#hCand'), r = view.querySelector('#hRec');
+    const c = view.querySelector('#hCand'), r = view.querySelector('#hRec'), g = view.querySelector('#hRegime'), now = S.regime?.now;
+    if (g && now?.lvl) {
+      const cl = ['', 'lv1', 'lv2', 'lv3', 'lv4', 'lv5'][now.lvl];
+      g.className = `hregime regime-inline ${cl}`; g.style.setProperty('--c', `var(--${cl})`);
+      g.innerHTML = `<span class="hlbl">Sinyaller için piyasa</span><span class="rgmeter">${[1, 2, 3, 4, 5].map(i => `<i class="${i <= now.lvl ? cl : ''}"></i>`).join('')}</span><b>${now.lvl}/5 · ${esc(now.name)}</b><span class="muted">→</span>`;
+      g.hidden = false;
+    }
     if (c && S.candidates) c.textContent = `${S.candidates.length} hazırlanan kurulum`;
     if (r && S.recent?.length) { const w = S.recent.filter(a => a.r > 0).length; r.textContent = `Son 60 gün: ${S.recent.length} sonuçlandı, %${Math.round(w / S.recent.length * 100)} kârlı`; }
   }).catch(() => {});

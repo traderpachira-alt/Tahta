@@ -63,6 +63,13 @@ Tarayıcıda çalışır, telefonda ana ekrana eklenince uygulama gibi açılır
   listesi özeti; açık sinyaller, son kapanışta oluşan sinyaller, son 60 günün sonucu; 20 mn ₺ üstü hacimli hisselerde günün en
   çok yükselen / düşen / hacmi artan hisseleri ve sektör medyanları; 14 gün içindeki temettüler. Tarama `#/tarama`'ya taşındı;
   hisse sayfasındaki "← Geri" gelinen sayfaya döner.
+- **Sağlamlık ve piyasa kademesi (`scripts/robust.py`):** her strateji için (BIST TÜM, varsayılan çıkış, sonuçlanan işlemler)
+  ortalama, medyan, en iyi ve en kötü %5 hariç ortalama, en iyi 3 hariç toplam, en iyi %5'in kârdaki payı, yıllara göre ≥ 10R işlem,
+  R dağılımı ve etiket (Dengeli / Büyük kazançlara dayalı / Birkaç işleme bağlı). Piyasa kademesi: BIST TÜM'de 200 günlük
+  ortalamasının üstündeki hisse oranı (<%25, %25–40, %40–55, %55–70, ≥ %70 → 1 Çok zayıf … 5 Çok iyi; geleceğe bakmaz); sinyal
+  sayfasında bugünkü kademe ve her kademede geçmişte açılan sinyallerin sonucu, strateji kartında stratejinin kademe tablosu,
+  anasayfada kısa satır. Her güncellemede (hafif modda da) sonuçlanan işlemlerden hesaplanır. Not: 2022–26 verisinde kademe 2–5
+  arasında sonuçlar benzerdi; belirgin kötü olan yalnızca kademe 1 (2026 sonbaharı, az örnek).
 - **Ayarlar ve yedek (⚙):** yedek dosyası, bulut senkronizasyonu ve izleme listesi, kayıtlı taramalar ve portföyü bir kod ya da bağlantıyla başka cihaza taşıma.
 - **Güncelleme uyarısı:** yeni sürüm yayınlanınca uygulamada "Yeni sürüm hazır · Yenile" çıkar.
 

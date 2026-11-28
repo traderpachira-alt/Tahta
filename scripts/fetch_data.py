@@ -29,6 +29,7 @@ from indicators import ema, sma, wilder_rsi, rma, true_range, rolling_mid, stoch
 import isyatirim
 import dcf
 import breadth
+import robust
 import corpact
 import intraday
 import scores
@@ -820,6 +821,14 @@ def write_signals(out: Path, prices: dict[str, pd.DataFrame], stocks: list[dict]
             cache = None
     full = full_test_due(cache, code)
     cached = (cache or {}).get("tests", {}) if not full else {}
+    # Piyasa kademesi (uzun vadeli genişlik) ve sağlamlık ölçüleri: sonuçlanan işlemlerden, her güncellemede (hafif modda da)
+    try:
+        brd_s = breadth.series(prices, tiers)
+        lvl_of = robust.level_lookup(brd_s["a200"])
+    except Exception as e:  # noqa: BLE001
+        print(f"  piyasa kademesi hesaplanamadı ({e}).", flush=True)
+        brd_s, lvl_of = None, (lambda d: None)
+    all_hist = []
     new_tests = {}
     info["fullTest"] = full
     metas, active, recent, cands = [], [], [], []
@@ -843,7 +852,11 @@ def write_signals(out: Path, prices: dict[str, pd.DataFrame], stocks: list[dict]
         if not runs:
             continue
         m = signals.meta(st)
-        m.update(tfs=list(runs), stats={k: R["stats"] for k, R in runs.items()}, accounts={k: R["accounts"] for k, R in runs.items()})
+        m.update(tfs=list(runs), stats={k: R["stats"] for k, R in runs.items()}, accounts={k: R["accounts"] for k, R in runs.items()},
+                 robust={k: robust.robustness([x["r"] for x in R["history"]], [x["y"] for x in R["history"]]) for k, R in runs.items()},
+                 regime={k: robust.by_level(R["history"], lvl_of) for k, R in runs.items()})
+        for R in runs.values():
+            all_hist += R["history"]
         metas.append(m)
         for R in runs.values():
             active += R["active"]; recent += R["recent"]; cands += R["candidates"]
@@ -894,6 +907,7 @@ def write_signals(out: Path, prices: dict[str, pd.DataFrame], stocks: list[dict]
         "params": {"hold": signals.HOLD_MAX, "cost": signals.COST, "minTurnover": signals.MIN_TURNOVER},
         "active": active, "recent": recent, "candidates": cands,
         "testMade": info.get("testMade"),
+        "regime": {"now": robust.regime_now(brd_s), "levels": robust.levels_meta(), "stats": robust.by_level(all_hist, lvl_of)},
     }
     (out / "data" / "signals.json").write_text(json.dumps(clean(payload), ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     arc_rows.sort(key=lambda r: (r[4], r[2]), reverse=True)

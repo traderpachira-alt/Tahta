@@ -3,7 +3,7 @@ import { view } from './dom.js';
 import { persist, state } from './store.js';
 import { setupFacts, setupSvg } from './setupviz.js';
 import { renderArchive } from './archive.js';
-import { F1, F2, cls, esc, fmt, info, ok } from './util.js';
+import { F0, F1, F2, cls, esc, fmt, info, ok } from './util.js';
 
 /* ============================================================
    Sinyaller: strateji modülleri (scripts/strategies/), açık sinyaller, hazırlanan kurulumlar, geriye dönük test
@@ -33,7 +33,7 @@ function pfRow(u, A) {
     <td class="txt c-tf"><span class="chip" title="Aylık yenilenen portföy">Aylık</span></td>
     <td data-l="Hisse" title="Portföydeki hisse sayısı">${p.holdings.length || '<span class="muted">nakit</span>'}</td>
     <td data-l="Test" title="Test edilen ay sayısı">${st.months} ay</td><td data-l="Endeksi geçen" title="Endeksi geçen ayların oranı">%${Math.round(st.beat * 100)}</td>
-    <td data-l="Aylık ort." title="Aylık ortalama getiri">${pct1(st.avgM)}/ay</td><td class="muted" data-l="BIST 100" title="BIST 100'ün aylık ortalaması">${pct1(st.avgXu)}/ay</td>
+    <td data-l="Aylık ort." title="Aylık ortalama getiri">${pct1(st.avgM)}/ay</td><td class="muted" data-l="BIST 100" title="BIST 100'ün aylık ortalaması">${pct1(st.avgXu)}/ay</td><td class="c-tf"></td>
     ${acctCell(ac, A, '10 hisse · aylık', 'Bakiye')}<td class="muted c-tf" title="Portföy her zaman bakiyenin tamamıyla kurulur; kaldıraç yok, sınırsız biçim aynıdır">aynı</td></tr>`;
 }
 function portfolioView(S, u) {
@@ -129,6 +129,62 @@ const STATUS = {
 };
 const chip = st => { const [l, c, t] = STATUS[st] || [st, '', '']; return `<span class="chip ${c}" title="${esc(t)}">${l}</span>`; };
 
+/* Piyasa durumu (sinyaller için): BIST TÜM uzun vadeli genişliğinden 5 kademe; her kademede geçmişte açılan sinyallerin sonucu */
+const LV_CLS = ['', 'lv1', 'lv2', 'lv3', 'lv4', 'lv5'];
+const lvMeter = lv => `<span class="rgmeter" aria-hidden="true">${[1, 2, 3, 4, 5].map(i => `<i class="${i <= lv ? LV_CLS[lv] : ''}"></i>`).join('')}</span>`;
+const pctS = x => ok(x) ? '%' + Math.round(x * 100) : '—';
+function lvRow(x, name, cur) {
+  return `<tr class="${cur ? 'sel' : ''}"><td class="tk"><span class="lvdot ${LV_CLS[x.lvl]}"></span>${x.lvl} · ${esc(name)}</td><td>${x.n}</td><td>${x.n ? pctS(x.win) : '—'}</td>
+    <td class="${cls(x.avgR)}">${x.n ? rFmt(x.avgR) : '—'}</td><td class="${cls(x.med)}">${x.n ? rFmt(x.med) : '—'}</td></tr>`;
+}
+const lvTable = (rows, levels, cur) => `<div class="tablewrap flat"><table class="grid sigtable lvtable"><thead><tr><th class="tk">Kademe (giriş günü)</th><th>İşlem</th><th>Kârlı</th>
+  <th title="İşlem başına ortalama sonuç">Ort.</th><th title="Tipik işlemin sonucu">Medyan</th></tr></thead><tbody>
+  ${rows.map(x => lvRow(x, levels[x.lvl - 1]?.name || '', x.lvl === cur)).join('')}</tbody></table></div>`;
+function regimeHtml(S) {
+  const G = S.regime, now = G?.now;
+  if (!now?.lvl) return '';
+  const st = G.stats?.find(x => x.lvl === now.lvl), nStr = S.strategies.filter(u => u.kind !== 'portfolio').length;
+  const few = st && st.n < 100;
+  const d20 = ok(now.d20) ? ` (20 günde ${now.d20 >= 0 ? '+' : '−'}${Math.round(Math.abs(now.d20) * 100)} puan)` : '';
+  return `<section class="regime ${LV_CLS[now.lvl]}" aria-label="Piyasa durumu">
+    <div class="rghead"><span class="rglbl">Piyasa durumu · sinyaller için</span>${lvMeter(now.lvl)}<b>${now.lvl}/5 · ${esc(now.name)}</b></div>
+    <p>${esc(now.text)} BIST TÜM'de 200 günlük ortalamasının üstündeki hisse oranı <b>%${Math.round(now.a200 * 100)}</b>${d20}.</p>
+    ${st ? `<p class="rgpast">Bu kademede geçmişte açılan sinyaller (${nStr} strateji, son 4 yıl): <b>${st.n} işlem</b> · ${st.n ? `${pctS(st.win)} kârlı · işlem başına <b class="${cls(st.avgR)}">${rFmt(st.avgR)}</b>` : 'örnek yok'}${few ? ' · <span class="chip warn" title="Bu kademede az sayıda işlem var; sonuç tek bir döneme ait olabilir">az örnek</span>' : ''}</p>` : ''}
+    ${info(`${lvTable(G.stats, G.levels, now.lvl)}
+      <p>Kademe, BIST TÜM hisselerinin kaçının 200 günlük ortalamasının üstünde olduğuna göre belirlenir (uzun vadeli genişlik): ${G.levels.map(l => `<b>${l.lvl}</b> ${esc(l.name)} ${l.lvl === 1 ? `%${Math.round(l.hi * 100)} altı` : l.lvl === 5 ? `%${Math.round(l.lo * 100)} ve üstü` : `%${Math.round(l.lo * 100)}–${Math.round(l.hi * 100)}`}`).join(' · ')}. Yalnızca o günün verisini kullanır.
+      Tablo, varsayılan çıkışla son 4 yılda her kademede açılmış bütün sinyallerin sonucudur (giriş günündeki kademeye göre). Kademe bir al-sat kuralı değildir: kademeler arasındaki fark küçükse tek başına işlem kararı için yeterli değildir; her stratejinin kendi tablosu strateji sayfasında. Piyasa Nabzı (anasayfa) kısa vadeli yönü de içerir, bu ölçü yalnızca uzun vadeli genişliktir.`, 'Kademeler ve geçmiş sonuçlar')}
+  </section>`;
+}
+const PROFILE = {
+  balanced: ['Dengeli', 'up', 'Tipik işlem kârlı (medyan artıda); sonuç tek tük büyük işleme bağlı değil'],
+  tail: ['Büyük kazançlara dayalı', '', 'İşlemlerin çoğu küçük zararla kapanır, kâr az sayıda büyük işlemden gelir; uçlar atılınca da artıda kalıyor'],
+  fragile: ['Birkaç işleme bağlı', 'warn', 'En iyi ve en kötü %5 atılınca kalan ortalama sıfıra yakın ya da eksi: sonuç birkaç büyük işleme bağlı'],
+};
+const rSum = x => !ok(x) ? '—' : (x > 0 ? '+' : x < 0 ? '−' : '') + (Math.abs(x) >= 100 ? F0 : F1).format(Math.abs(x)) + 'R';
+const profChip = R => { const p = PROFILE[R?.profile]; return p ? `<span class="chip ${p[1]}" title="${esc(p[2])}">${p[0]}</span>` : ''; };
+function robustHtml(S, u) {
+  const R = u.robust?.[tfSel];
+  if (!R) return '';
+  const max = Math.max(...R.hist, 1), labs = ['< −1,5', '−1,5…−1', '−1…−0,5', '−0,5…0', '0…0,5', '0,5…1', '1…2', '2…3', '3…5', '5…10', '≥ 10'];
+  const ticks = ['', '−1,5', '−1', '−0,5', '0', '0,5', '1', '2', '3', '5', '10'];
+  const ys = Object.keys(R.big).sort();
+  const G = S.regime, rg = u.regime?.[tfSel];
+  return `<h3>Sağlamlık <span class="muted" style="text-transform:none;letter-spacing:0;font-weight:400">· BIST TÜM, varsayılan çıkış, ${R.n} işlem</span></h3>
+    <div class="robrow">${profChip(R)} <span class="muted">${esc(PROFILE[R.profile]?.[2] || '')}</span></div>
+    <div class="sigstats robstats">
+      <div title="İşlem başına ortalama"><span>Ortalama</span><b class="${cls(R.mean)}">${rFmt(R.mean)}</b></div>
+      <div title="İşlemlerin yarısı bunun altında, yarısı üstünde kapandı"><span>Medyan (tipik işlem)</span><b class="${cls(R.med)}">${rFmt(R.med)}</b></div>
+      <div title="En iyi ve en kötü %5 işlem hariç ortalama"><span>Kırpılmış ort. (%5)</span><b class="${cls(R.tm)}">${rFmt(R.tm)}</b></div>
+      <div title="Bütün işlemlerin toplamından en iyi 3 işlem çıkarıldığında"><span>En iyi 3 hariç toplam</span><b class="${cls(R.ex3)}">${rSum(R.ex3)}</b><small class="muted">toplam ${rSum(R.sum)}</small></div>
+      <div title="Toplam kârın en iyi %5 işlemden gelen payı (%100'ün üstü: kalan işlemler toplamda zararda)"><span>En iyi %5'in payı</span><b>${ok(R.topShare) ? '%' + Math.round(R.topShare * 100) : '—'}</b></div>
+      <div title="10R ve üstü kazançla kapanan işlem sayısı, yıllara göre"><span>≥ 10R işlem (yıllar)</span><b>${ys.map(y => R.big[y]).join(' · ')}</b><small class="muted">${ys.map(y => "'" + y.slice(2)).join(' · ')}</small></div>
+    </div>
+    <div class="rhist" role="img" aria-label="İşlem sonuçlarının R dağılımı">${R.hist.map((n, i) => `<div class="${i < 4 ? 'neg' : 'pos'}" title="${labs[i]}R: ${n} işlem"><b>${n || ''}</b><i style="height:${n / max * 100}%"></i></div>`).join('')}</div>
+    <div class="rhaxis" aria-hidden="true">${ticks.map(t => `<span>${t}</span>`).join('')}</div>
+    <p class="muted" style="font-size:12px;margin:4px 0 0">İşlem sonuçlarının dağılımı (R; çubuk üstünde işlem sayısı, eksende aralık sınırları). Kayıplar stopla yaklaşık −1R'de sınırlıdır, kazançlar açık uçludur; bu yüzden dağılım çan eğrisi değildir ve ortalama tek başına yanıltıcı olabilir.</p>
+    ${rg && G ? `<h3>Piyasa durumuna göre</h3>${lvTable(rg, G.levels, G.now?.lvl)}` : ''}`;
+}
+
 function statsTable(S, u) {
   // varsayılan çıkış en üstte (JS nesnelerinde '2', '3' gibi sayısal anahtarlar öne geçer)
   const vs = [u.defaultV, ...Object.keys(u.variants).filter(v => v !== u.defaultV)], tierSel = curTier(S);
@@ -204,7 +260,7 @@ function overviewHtml(S) {
   return `<section class="panel"><h2>Stratejiler <span class="muted" style="font-weight:400">· ${S.strategies.length} · test: ${esc(tier)}, varsayılan çıkış</span></h2>
     <div class="tablewrap flat"><table class="grid sigtable cards c-ov"><thead><tr><th class="tk">Strateji</th><th class="txt">Periyot</th><th title="Bu periyotta şu an açık sinyal">Açık</th>
       <th title="Testteki işlem sayısı">İşlem</th><th title="Kârla kapanan işlemlerin oranı">Kârlı</th><th title="İşlem başına ortalama sonuç">Ort.</th>
-      <th title="Aynı hisselerde rastgele girişin ortalaması (aynı stop ve çıkış)">Rastgele</th><th title="${fmt.big(A.capital)} ₺ ile başlanır; her işlemde güncel bakiyenin stratejiye ait risk oranı kadar riske edilir. Pozisyon boştaki nakdi aşarsa işlem açılamaz, sinyal kaçar.">Bakiye<small class="sub2">nakitle sınırlı</small></th>
+      <th title="Aynı hisselerde rastgele girişin ortalaması (aynı stop ve çıkış)">Rastgele</th><th class="txt" title="Sonuç birkaç büyük işleme mi bağlı? Altında en iyi ve en kötü %5 işlem hariç ortalama (BIST TÜM, varsayılan çıkış, son 4 yıl)">Sağlamlık</th><th title="${fmt.big(A.capital)} ₺ ile başlanır; her işlemde güncel bakiyenin stratejiye ait risk oranı kadar riske edilir. Pozisyon boştaki nakdi aşarsa işlem açılamaz, sinyal kaçar.">Bakiye<small class="sub2">nakitle sınırlı</small></th>
       <th title="Aynı hesap, ama nakitten bağımsız bütün sinyallere girilir (gerekirse kaldıraçla). Strateji sinyallerinin tamamının değerini gösterir.">Bakiye<small class="sub2">sınırsız</small></th></tr></thead><tbody>
       ${rows.map(({ u, tf }) => { if (u.kind === 'portfolio') return pfRow(u, A);
         const st = u.stats?.[tf]?.[tier]?.[u.defaultV] || {}, ac = u.accounts?.[tf]?.[tier]?.[u.defaultV];
@@ -212,6 +268,7 @@ function overviewHtml(S) {
         return `<tr data-sigs="${u.id}" data-sigrowtf="${tf}"><td class="tk"><b>${esc(u.name)}</b>${u.tfs.length > 1 ? ` <span class="muted">· ${tfName(tf)}</span>` : ''}${testChip(u)}<small class="sub2">${esc(u.short || '')} · <span title="Hesap simülasyonunda işlem başına güncel bakiyenin riske edilen oranı">%${F1.format((u.risk ?? A.risk) * 100)} risk</span></small></td>
           <td class="txt c-tf">${tfChip(tf)}</td><td data-l="Açık sinyal">${nOpen}</td><td data-l="Testteki işlem">${st.n ?? 0}</td><td data-l="Kârlı">${ok(st.win) ? '%' + Math.round(st.win * 100) : '—'}</td>
           <td class="${cls(st.avgR)}" data-l="İşlem başına">${rFmt(st.avgR)}</td><td class="muted" data-l="Rastgele giriş">${rFmt(st.randR)}</td>
+          <td class="txt c-rob" data-l="Sağlamlık">${u.robust?.[tf] ? `${profChip(u.robust[tf])}<small class="sub2" title="En iyi ve en kötü %5 hariç ortalama · medyan">kırpılmış ${rFmt(u.robust[tf].tm)} · medyan ${rFmt(u.robust[tf].med)}</small>` : '—'}</td>
           ${acctCell(ac, A, ac ? missNote(ac) : '', 'Bakiye · nakitle sınırlı')}${acctCell(ac?.u, A, expNote(ac?.u), 'Bakiye · sınırsız')}</tr>`; }).join('')}
     </tbody></table></div>
     ${info(`Her strateji aynı motorla test edilir: 20 mn ₺ hacim filtresi, stop mesafesi %0,5–%15, gidiş-dönüş %0,2 maliyet, aynı hissede önceki işlem kapanmadan yeni işlem yok, rastgele giriş kıyası ve hesap simülasyonu.
@@ -237,6 +294,7 @@ function strategyCard(S, u, open = cardOpen) {
     ${statsTable(S, u)}
     ${yearsTable(S, u)}
     ${accountHtml(S, u)}
+    ${robustHtml(S, u)}
     ${u.notes?.length ? `<h3>Bilmeniz gerekenler</h3><ul class="sigrules">${u.notes.map(n => `<li>${esc(n)}</li>`).join('')}</ul>` : ''}
     <p class="note-fx">Kurallar son 4 yılda aynı kodla geriye dönük test edildi. Geçmiş başarı geleceği garanti etmez (test bugünkü endeks bileşenleriyle yapıldı).
       Yatırım tavsiyesi değildir; testteki hesap işlem başına bakiyenin %${F1.format((u.risk ?? S.account.risk) * 100)}'ini riske eder.</p>
@@ -349,6 +407,7 @@ export async function renderSignals() {
     ${S.tierSets.map(n => `<button type="button" data-sigt="${esc(n)}" aria-pressed="${tierSel === n}">${esc(n)} <span class="n">${S.active.filter(a => TIER_OF[n].includes(a.idx) && (!u || a.k === u.id)).length}</span></button>`).join('')}
   </div>
 
+  ${regimeHtml(S)}
   <nav class="dtabs stabs" role="tablist" aria-label="Sinyal bölümleri">${[['acik', 'Açık', act.length], ...(hasCand ? [['hazir', 'Hazırlanan', cand.length]] : []), ['sonuc', 'Sonuçlanan', rec.length], ['perf', u ? 'Kurallar ve test' : 'Performans', null]]
     .map(([k, l, n]) => `<button type="button" role="tab" data-stab="${k}" aria-selected="${tab === k}">${l}${n != null ? ` <span class="n">${n}</span>` : ''}</button>`).join('')}</nav>
 
